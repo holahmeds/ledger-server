@@ -1,0 +1,7 @@
+[package]
+name = "ledger"
+version = "0.1.0"
+authors = ["Ahmed Rafiq Ullah <ahmedrafiq47@gmail.com>"]
+edition = "2018"
+
+[dependencies]
