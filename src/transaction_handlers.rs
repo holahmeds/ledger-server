@@ -1,69 +1,111 @@
-use diesel::prelude::*;
-use rocket::http::Status;
-use rocket_contrib::json::Json;
+use actix_web::error::{BlockingError, ErrorInternalServerError, ErrorNotFound};
+use actix_web::HttpResponse;
+use actix_web::Responder;
+use actix_web::web;
 
-use crate::models::{NewTransaction, Transaction};
-use crate::DBConnection;
+use crate::DbPool;
+use crate::models;
+use crate::models::NewTransaction;
 
-#[get("/<transaction_id>")]
-pub fn get_transaction(db_conn: DBConnection, transaction_id: i32) -> Option<Json<Transaction>> {
-    use crate::schema::transactions::dsl::*;
-    let transaction = transactions.find(transaction_id).first(&*db_conn).ok();
-    transaction.map(|transaction| Json(transaction))
-}
+#[get("/{transaction_id}")]
+pub async fn get_transaction(
+    pool: web::Data<DbPool>,
+    web::Path(transaction_id): web::Path<i32>,
+) -> impl Responder {
+    let conn = pool
+        .get()
+        .expect("Unable to get database connection from pool");
 
-#[get("/")]
-pub fn get_all_transactions(db_conn: DBConnection) -> Json<Vec<Transaction>> {
-    use crate::schema::transactions::dsl::*;
-    let all_transactions: Vec<Transaction> = transactions.load(&*db_conn).expect("No rows found");
-    Json(all_transactions)
-}
-
-#[post("/", data = "<new_transaction>")]
-pub fn create_new_transaction(
-    db_conn: DBConnection,
-    new_transaction: Json<NewTransaction>,
-) -> Json<Transaction> {
-    use crate::schema::transactions;
-    let inserted_transaction: Transaction = diesel::insert_into(transactions::table)
-        .values(new_transaction.into_inner())
-        .get_result(&*db_conn)
-        .expect("Unable to insert row");
-    Json(inserted_transaction)
-}
-
-#[put("/<transaction_id>", data = "<updated_transaction>")]
-pub fn update_transaction(
-    db_conn: DBConnection,
-    transaction_id: i32,
-    updated_transaction: Json<NewTransaction>,
-) -> Result<Json<Transaction>, Status> {
-    use crate::schema::transactions::dsl::*;
-    let result: QueryResult<Transaction> = diesel::update(transactions.find(transaction_id))
-        .set(updated_transaction.into_inner())
-        .get_result(&*db_conn);
+    let result = web::block(move || {
+        models::get_transaction(&conn, transaction_id)
+    })
+        .await;
 
     result
-        .map(|transaction| Json(transaction))
+        .map(|transaction| HttpResponse::Ok().json(transaction))
         .map_err(|e| match e {
-            diesel::NotFound => Status::NotFound,
-            _ => Status::InternalServerError,
+            BlockingError::Error(x) => match x {
+                diesel::NotFound => ErrorNotFound(x),
+                _ => ErrorInternalServerError(x),
+            },
+            _ => ErrorInternalServerError(e),
         })
 }
 
-#[delete("/<transaction_id>")]
-pub fn delete_transaction(
-    db_conn: DBConnection,
-    transaction_id: i32,
-) -> Result<Json<Transaction>, Status> {
-    use crate::schema::transactions::dsl::*;
-    let result: QueryResult<Transaction> =
-        diesel::delete(transactions.find(transaction_id)).get_result(&*db_conn);
+#[get("")]
+pub async fn get_all_transactions(pool: web::Data<DbPool>) -> impl Responder {
+    let conn = pool
+        .get()
+        .expect("Unable to get database connection from pool");
+
+    let result = web::block(move || models::get_all_transactions(&conn)).await;
 
     result
-        .map(|transaction| Json(transaction))
+        .map(|transactions| HttpResponse::Ok().json(transactions))
+        .map_err(|e| ErrorInternalServerError(e))
+}
+
+#[post("")]
+pub async fn create_new_transaction(
+    pool: web::Data<DbPool>,
+    new_transaction: web::Json<NewTransaction>,
+) -> impl Responder {
+    let conn = pool
+        .get()
+        .expect("Unable to get database connection from pool");
+
+    let result =
+        web::block(move || models::create_new_transaction(&conn, (*new_transaction).clone())).await;
+
+    result
+        .map(|transaction| HttpResponse::Ok().json(transaction))
+        .map_err(|e| ErrorInternalServerError(e))
+}
+
+#[put("/{transaction_id}")]
+pub async fn update_transaction(
+    pool: web::Data<DbPool>,
+    web::Path(transaction_id): web::Path<i32>,
+    updated_transaction: web::Json<NewTransaction>,
+) -> impl Responder {
+    let conn = pool
+        .get()
+        .expect("Unable to get database connection from pool");
+
+    let result = web::block(move || {
+        models::update_transaction(&conn, transaction_id, (*updated_transaction).clone())
+    })
+        .await;
+
+    result
+        .map(|updated_transaction| HttpResponse::Ok().json(updated_transaction))
         .map_err(|e| match e {
-            diesel::NotFound => Status::NotFound,
-            _ => Status::InternalServerError,
+            BlockingError::Error(x) => match x {
+                diesel::NotFound => ErrorNotFound(x),
+                _ => ErrorInternalServerError(x),
+            },
+            _ => ErrorInternalServerError(e),
+        })
+}
+
+#[delete("/{transaction_id}")]
+pub async fn delete_transaction(
+    pool: web::Data<DbPool>,
+    web::Path(transaction_id): web::Path<i32>,
+) -> impl Responder {
+    let conn = pool
+        .get()
+        .expect("Unable to get database connection from pool");
+
+    let result = web::block(move || models::delete_transaction(&conn, transaction_id)).await;
+
+    result
+        .map(|deleted_transaction| HttpResponse::Ok().json(deleted_transaction))
+        .map_err(|e| match e {
+            BlockingError::Error(x) => match x {
+                diesel::NotFound => ErrorNotFound(x),
+                _ => ErrorInternalServerError(x),
+            },
+            _ => ErrorInternalServerError(e),
         })
 }
