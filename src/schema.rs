@@ -4,5 +4,6 @@ table! {
         category -> Varchar,
         transactee -> Varchar,
         note -> Nullable<Varchar>,
+        transaction_date -> Date,
     }
 }

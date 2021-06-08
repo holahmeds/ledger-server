@@ -1,3 +1,4 @@
+use chrono::NaiveDate;
 use diesel::Insertable;
 use diesel::prelude::*;
 use diesel::Queryable;
@@ -13,6 +14,7 @@ pub struct Transaction {
     pub category: String,
     pub transactee: String,
     pub note: Option<String>,
+    pub transaction_date: NaiveDate,
 }
 
 #[derive(Deserialize, Insertable, AsChangeset, Clone)]
@@ -21,6 +23,7 @@ pub struct NewTransaction {
     pub category: String,
     pub transactee: String,
     pub note: Option<String>,
+    pub transaction_date: NaiveDate,
 }
 
 impl Transaction {
@@ -29,12 +32,14 @@ impl Transaction {
         category: String,
         transactee: String,
         note: Option<String>,
+        transaction_date: NaiveDate,
     ) -> Transaction {
         Transaction {
             id,
             category,
             transactee,
             note,
+            transaction_date,
         }
     }
 }
