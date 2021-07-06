@@ -31,7 +31,7 @@ async fn test_update_transaction() {
 
     let new_transaction = NewTransaction::new(
         "Misc".to_string(),
-        "Bob".to_string(),
+        Some("Bob".to_string()),
         None,
         NaiveDate::from_str("2021-06-09").unwrap(),
     );
@@ -43,7 +43,7 @@ async fn test_update_transaction() {
 
     let update = NewTransaction::new(
         new_transaction.category,
-        "Alice".to_string(),
+        Some("Alice".to_string()),
         new_transaction.note,
         new_transaction.transaction_date,
     );
@@ -78,7 +78,7 @@ async fn test_update_invalid_transaction() {
 
     let update = NewTransaction::new(
         "Misc".to_string(),
-        "Bob".to_string(),
+        Some("Bob".to_string()),
         None,
         NaiveDate::from_str("2021-06-09").unwrap(),
     );

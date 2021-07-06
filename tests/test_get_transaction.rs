@@ -35,7 +35,7 @@ async fn test_get_transaction() {
     let transaction = {
         let new_transaction = NewTransaction::new(
             "Misc".to_string(),
-            "Bob".to_string(),
+            Some("Bob".to_string()),
             None,
             NaiveDate::from_str("2021-06-09").unwrap(),
         );

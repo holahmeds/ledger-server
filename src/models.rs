@@ -12,7 +12,7 @@ use super::schema::transactions;
 pub struct Transaction {
     pub id: i32,
     pub category: String,
-    pub transactee: String,
+    pub transactee: Option<String>,
     pub note: Option<String>,
     pub transaction_date: NaiveDate,
 }
@@ -21,7 +21,7 @@ pub struct Transaction {
 #[table_name = "transactions"]
 pub struct NewTransaction {
     pub category: String,
-    pub transactee: String,
+    pub transactee: Option<String>,
     pub note: Option<String>,
     pub transaction_date: NaiveDate,
 }
@@ -30,7 +30,7 @@ impl Transaction {
     pub const fn new(
         id: i32,
         category: String,
-        transactee: String,
+        transactee: Option<String>,
         note: Option<String>,
         transaction_date: NaiveDate,
     ) -> Transaction {
@@ -47,7 +47,7 @@ impl Transaction {
 impl NewTransaction {
     pub const fn new(
         category: String,
-        transactee: String,
+        transactee: Option<String>,
         note: Option<String>,
         transaction_date: NaiveDate,
     ) -> NewTransaction {

@@ -34,13 +34,13 @@ async fn test_get_all_transactions() {
     let new_transactions = vec![
         NewTransaction::new(
             "Misc".to_string(),
-            "Alice".to_string(),
+            Some("Alice".to_string()),
             None,
             NaiveDate::from_str("2021-10-11").unwrap(),
         ),
         NewTransaction::new(
             "Misc".to_string(),
-            "Bob".to_string(),
+            Some("Bob".to_string()),
             None,
             NaiveDate::from_str("1900-10-11").unwrap(),
         ),

@@ -32,7 +32,7 @@ async fn test_create_api_response() {
 
     let new_transaction = NewTransaction::new(
         "Misc".to_string(),
-        "Alice".to_string(),
+        Some("Alice".to_string()),
         None,
         NaiveDate::from_str("2021-07-01").unwrap(),
     );

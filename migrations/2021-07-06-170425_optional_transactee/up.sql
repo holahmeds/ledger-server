@@ -1,0 +1,1 @@
+ALTER TABLE transactions ALTER COLUMN transactee DROP NOT NULL;
