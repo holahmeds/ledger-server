@@ -8,7 +8,7 @@ use serde::Serialize;
 
 use super::schema::transactions;
 
-#[derive(Serialize, Clone, Queryable)]
+#[derive(Serialize, Deserialize, Clone, Queryable, PartialEq, Debug)]
 pub struct Transaction {
     pub id: i32,
     pub category: String,
@@ -17,7 +17,7 @@ pub struct Transaction {
     pub transaction_date: NaiveDate,
 }
 
-#[derive(Deserialize, Insertable, AsChangeset, Clone)]
+#[derive(Serialize, Deserialize, Insertable, AsChangeset, Clone)]
 #[table_name = "transactions"]
 pub struct NewTransaction {
     pub category: String,
@@ -36,6 +36,22 @@ impl Transaction {
     ) -> Transaction {
         Transaction {
             id,
+            category,
+            transactee,
+            note,
+            transaction_date,
+        }
+    }
+}
+
+impl NewTransaction {
+    pub const fn new(
+        category: String,
+        transactee: String,
+        note: Option<String>,
+        transaction_date: NaiveDate,
+    ) -> NewTransaction {
+        NewTransaction {
             category,
             transactee,
             note,

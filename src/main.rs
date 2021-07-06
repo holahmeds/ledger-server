@@ -1,23 +1,12 @@
-#[macro_use]
-extern crate actix_web;
-#[macro_use]
-extern crate diesel;
-extern crate serde;
-
 use std::env;
 
 use actix_web::{App, web};
 use actix_web::HttpServer;
-use diesel::PgConnection;
 use diesel::r2d2;
 use diesel::r2d2::ConnectionManager;
 use dotenv::dotenv;
 
-pub mod models;
-pub mod schema;
-pub mod transaction_handlers;
-
-type DbPool = r2d2::Pool<ConnectionManager<PgConnection>>;
+use ledger::transaction_handlers;
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
