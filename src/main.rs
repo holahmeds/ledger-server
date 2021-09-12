@@ -3,7 +3,8 @@ extern crate tracing;
 
 use std::env;
 
-use actix_web::{App, web};
+use actix_web::{App, HttpResponse, web};
+use actix_web::error::JsonPayloadError;
 use actix_web::HttpServer;
 use actix_web::middleware::Logger;
 use diesel::r2d2;
@@ -28,14 +29,31 @@ async fn main() -> std::io::Result<()> {
         .expect("Unable to build database pool");
 
     HttpServer::new(move || {
-        App::new().wrap(Logger::default()).data(pool.clone()).service(
-            web::scope("/transactions")
-                .service(transaction_handlers::get_transaction)
-                .service(transaction_handlers::get_all_transactions)
-                .service(transaction_handlers::create_new_transaction)
-                .service(transaction_handlers::update_transaction)
-                .service(transaction_handlers::delete_transaction),
-        )
+        App::new()
+            .wrap(Logger::default())
+            .data(pool.clone())
+            .service(
+                web::scope("/transactions")
+                    .service(transaction_handlers::get_transaction)
+                    .service(transaction_handlers::get_all_transactions)
+                    .service(transaction_handlers::create_new_transaction)
+                    .service(transaction_handlers::update_transaction)
+                    .service(transaction_handlers::delete_transaction),
+            )
+            .app_data(web::JsonConfig::default().error_handler(|err, _req| {
+                match err {
+                    JsonPayloadError::Deserialize(deserialize_err) => {
+                        actix_web::error::InternalError::from_response(
+                            "Unable to parse JSON",
+                            HttpResponse::BadRequest()
+                                .content_type("application/json")
+                                .body(format!(r#"{{"error":"{}"}}"#, deserialize_err)),
+                        )
+                            .into()
+                    }
+                    _ => err.into(),
+                }
+            }))
     })
         .bind("127.0.0.1:8000")?
         .run()
