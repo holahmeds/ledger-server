@@ -11,6 +11,8 @@ diesel = { version = "1.4.6", features = ["chrono", "postgres", "r2d2"] }
 dotenv = "0.15.0"
 serde = { version = "1.0.125", features = ["derive"] }
 rust_decimal = { version = "1.15.0", features = ["db-diesel-postgres"] }
+tracing = "0.1.26"
+tracing-subscriber = "0.2.20"
 
 [dev-dependencies]
 actix-rt = "2.2.0"
