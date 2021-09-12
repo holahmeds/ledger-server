@@ -3,6 +3,7 @@ use diesel::Insertable;
 use diesel::prelude::*;
 use diesel::Queryable;
 use diesel::result::Error;
+use rust_decimal::Decimal;
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -15,6 +16,7 @@ pub struct Transaction {
     pub transactee: Option<String>,
     pub note: Option<String>,
     pub transaction_date: NaiveDate,
+    pub amount: Decimal,
 }
 
 #[derive(Serialize, Deserialize, Insertable, AsChangeset, Clone)]
@@ -24,6 +26,7 @@ pub struct NewTransaction {
     pub transactee: Option<String>,
     pub note: Option<String>,
     pub transaction_date: NaiveDate,
+    pub amount: Decimal,
 }
 
 impl Transaction {
@@ -33,6 +36,7 @@ impl Transaction {
         transactee: Option<String>,
         note: Option<String>,
         transaction_date: NaiveDate,
+        amount: Decimal,
     ) -> Transaction {
         Transaction {
             id,
@@ -40,6 +44,7 @@ impl Transaction {
             transactee,
             note,
             transaction_date,
+            amount,
         }
     }
 }
@@ -50,12 +55,14 @@ impl NewTransaction {
         transactee: Option<String>,
         note: Option<String>,
         transaction_date: NaiveDate,
+        amount: Decimal,
     ) -> NewTransaction {
         NewTransaction {
             category,
             transactee,
             note,
             transaction_date,
+            amount,
         }
     }
 }

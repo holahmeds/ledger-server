@@ -9,6 +9,7 @@ use actix_web::test::TestRequest;
 use actix_web::web;
 use chrono::NaiveDate;
 use dotenv::dotenv;
+use rust_decimal::Decimal;
 
 use ledger::models::{NewTransaction, Transaction};
 use ledger::transaction_handlers;
@@ -35,6 +36,7 @@ async fn test_create_api_response() {
         Some("Alice".to_string()),
         None,
         NaiveDate::from_str("2021-07-01").unwrap(),
+        Decimal::from_str("20").unwrap(),
     );
     let request = TestRequest::post().set_json(&new_transaction).to_request();
     let mut response = test::call_service(&mut service, request).await;

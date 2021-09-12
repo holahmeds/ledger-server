@@ -10,6 +10,7 @@ chrono = { version = "0.4.19", features = ["serde"] }
 diesel = { version = "1.4.6", features = ["chrono", "postgres", "r2d2"] }
 dotenv = "0.15.0"
 serde = { version = "1.0.125", features = ["derive"] }
+rust_decimal = { version = "1.15.0", features = ["db-diesel-postgres"] }
 
 [dev-dependencies]
 actix-rt = "2.2.0"

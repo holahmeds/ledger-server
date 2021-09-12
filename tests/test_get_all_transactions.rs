@@ -9,6 +9,7 @@ use actix_web::test::TestRequest;
 use actix_web::web;
 use chrono::NaiveDate;
 use dotenv::dotenv;
+use rust_decimal::Decimal;
 
 use ledger::models::{NewTransaction, Transaction};
 use ledger::transaction_handlers;
@@ -37,12 +38,14 @@ async fn test_get_all_transactions() {
             Some("Alice".to_string()),
             None,
             NaiveDate::from_str("2021-10-11").unwrap(),
+            Decimal::from_str("10").unwrap(),
         ),
         NewTransaction::new(
             "Misc".to_string(),
             Some("Bob".to_string()),
             None,
             NaiveDate::from_str("1900-10-11").unwrap(),
+            Decimal::from_str("15").unwrap(),
         ),
     ];
 

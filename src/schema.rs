@@ -5,5 +5,6 @@ table! {
         transactee -> Nullable<Varchar>,
         note -> Nullable<Varchar>,
         transaction_date -> Date,
+        amount -> Numeric,
     }
 }

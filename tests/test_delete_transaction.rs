@@ -7,6 +7,7 @@ use actix_web::test::TestRequest;
 use actix_web::web;
 use chrono::NaiveDate;
 use dotenv::dotenv;
+use rust_decimal::Decimal;
 
 use ledger::models::{NewTransaction, Transaction};
 use ledger::transaction_handlers;
@@ -34,6 +35,7 @@ async fn test_delete_transaction() {
         Some("Bob".to_string()),
         None,
         NaiveDate::from_str("2021-06-09").unwrap(),
+        Decimal::from_str("5.10").unwrap(),
     );
     let transaction = {
         let request = TestRequest::post().set_json(&new_transaction).to_request();

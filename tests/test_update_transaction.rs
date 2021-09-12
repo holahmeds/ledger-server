@@ -7,6 +7,7 @@ use actix_web::test::TestRequest;
 use actix_web::web;
 use chrono::NaiveDate;
 use dotenv::dotenv;
+use rust_decimal::Decimal;
 
 use ledger::models::{NewTransaction, Transaction};
 use ledger::transaction_handlers;
@@ -34,6 +35,7 @@ async fn test_update_transaction() {
         Some("Bob".to_string()),
         None,
         NaiveDate::from_str("2021-06-09").unwrap(),
+        Decimal::from_str("11.12").unwrap(),
     );
     let transaction = {
         let request = TestRequest::post().set_json(&new_transaction).to_request();
@@ -46,6 +48,7 @@ async fn test_update_transaction() {
         Some("Alice".to_string()),
         new_transaction.note,
         new_transaction.transaction_date,
+        Decimal::from_str("105").unwrap(),
     );
     let request = TestRequest::put()
         .uri(format!("/{}", transaction.id).as_str())
@@ -70,10 +73,9 @@ async fn test_update_invalid_transaction() {
 
     let pool = database_pool();
 
-    let app = App::new().data(pool.clone()).service(
-        web::scope("/")
-            .service(transaction_handlers::update_transaction)
-    );
+    let app = App::new()
+        .data(pool.clone())
+        .service(web::scope("/").service(transaction_handlers::update_transaction));
     let mut service = test::init_service(app).await;
 
     let update = NewTransaction::new(
@@ -81,6 +83,7 @@ async fn test_update_invalid_transaction() {
         Some("Bob".to_string()),
         None,
         NaiveDate::from_str("2021-06-09").unwrap(),
+        Decimal::from_str("321").unwrap(),
     );
     let request = TestRequest::put()
         .uri(format!("/{}", 0).as_str()) // non-existent transaction ID
