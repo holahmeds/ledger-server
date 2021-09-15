@@ -37,6 +37,7 @@ async fn test_create_api_response() {
         None,
         NaiveDate::from_str("2021-07-01").unwrap(),
         Decimal::from_str("20").unwrap(),
+        vec![],
     );
     let request = TestRequest::post().set_json(&new_transaction).to_request();
     let mut response = test::call_service(&mut service, request).await;

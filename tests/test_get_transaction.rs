@@ -40,6 +40,7 @@ async fn test_get_transaction() {
             None,
             NaiveDate::from_str("2021-06-09").unwrap(),
             Decimal::from_str("100").unwrap(),
+            vec![],
         );
         let request = TestRequest::post().set_json(&new_transaction).to_request();
         let mut response = test::call_service(&mut service, request).await;

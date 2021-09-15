@@ -39,6 +39,7 @@ async fn test_get_all_transactions() {
             None,
             NaiveDate::from_str("2021-10-11").unwrap(),
             Decimal::from_str("10").unwrap(),
+            vec![],
         ),
         NewTransaction::new(
             "Misc".to_string(),
@@ -46,6 +47,7 @@ async fn test_get_all_transactions() {
             None,
             NaiveDate::from_str("1900-10-11").unwrap(),
             Decimal::from_str("15").unwrap(),
+            vec!["loan".to_string()],
         ),
     ];
 

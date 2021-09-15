@@ -1,4 +1,11 @@
 table! {
+    transaction_tags (transaction_id, tag) {
+        transaction_id -> Int4,
+        tag -> Varchar,
+    }
+}
+
+table! {
     transactions (id) {
         id -> Int4,
         category -> Varchar,
@@ -8,3 +15,10 @@ table! {
         amount -> Numeric,
     }
 }
+
+joinable!(transaction_tags -> transactions (transaction_id));
+
+allow_tables_to_appear_in_same_query!(
+    transaction_tags,
+    transactions,
+);

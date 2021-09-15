@@ -36,6 +36,7 @@ async fn test_delete_transaction() {
         None,
         NaiveDate::from_str("2021-06-09").unwrap(),
         Decimal::from_str("5.10").unwrap(),
+        vec!["Monthly".to_string()],
     );
     let transaction = {
         let request = TestRequest::post().set_json(&new_transaction).to_request();
