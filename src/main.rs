@@ -1,3 +1,4 @@
+extern crate jsonwebtoken;
 #[macro_use]
 extern crate tracing;
 
@@ -7,11 +8,13 @@ use actix_web::{App, HttpResponse, web};
 use actix_web::error::JsonPayloadError;
 use actix_web::HttpServer;
 use actix_web::middleware::Logger;
+use actix_web_httpauth::middleware::HttpAuthentication;
 use diesel::r2d2;
 use diesel::r2d2::ConnectionManager;
 use dotenv::dotenv;
 use tracing::Level;
 
+use ledger::auth;
 use ledger::transaction_handlers;
 
 #[actix_web::main]
@@ -28,8 +31,11 @@ async fn main() -> std::io::Result<()> {
         .build(manager)
         .expect("Unable to build database pool");
 
+    info!("Token: {}", auth::create_token());
+
     HttpServer::new(move || {
         App::new()
+            .wrap(HttpAuthentication::bearer(auth::request_validator))
             .wrap(Logger::default())
             .data(pool.clone())
             .service(
