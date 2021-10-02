@@ -28,5 +28,5 @@ pub async fn map_body<T>(input: &mut ServiceResponse<Body>) -> T
     println!("{:?}", bytes);
 
     let result: T = serde_json::from_slice(&bytes).unwrap();
-    return result;
+    result
 }

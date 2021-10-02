@@ -42,7 +42,7 @@ pub async fn get_all_transactions(pool: web::Data<DbPool>) -> impl Responder {
 
     result
         .map(|transactions| HttpResponse::Ok().json(transactions))
-        .map_err(|e| ErrorInternalServerError(e))
+        .map_err(ErrorInternalServerError)
 }
 
 #[post("")]
@@ -59,7 +59,7 @@ pub async fn create_new_transaction(
 
     result
         .map(|transaction| HttpResponse::Ok().json(transaction))
-        .map_err(|e| ErrorInternalServerError(e))
+        .map_err(ErrorInternalServerError)
 }
 
 #[put("/{transaction_id}")]
