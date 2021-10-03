@@ -144,9 +144,7 @@ pub fn get_transaction(db_conn: &PgConnection, transaction_id: i32) -> Result<Tr
 }
 
 pub fn get_all_transactions(db_conn: &PgConnection) -> Result<Vec<Transaction>, Error> {
-    use crate::schema::transactions::dsl::*;
-
-    let transactions_entries = transactions.load(db_conn)?;
+    let transactions_entries = transactions::table.load(db_conn)?;
     let transaction_tags = TransactionTag::belonging_to(&transactions_entries)
         .load::<TransactionTag>(db_conn)?
         .grouped_by(&transactions_entries);
@@ -189,21 +187,18 @@ pub fn create_new_transaction(
 
 pub fn update_transaction(
     db_conn: &PgConnection,
-    transaction_id_to_update: i32,
+    transaction_id: i32,
     updated_transaction: NewTransaction,
 ) -> Result<Transaction, Error> {
-    use crate::schema::transaction_tags::dsl::*;
-    use crate::schema::transactions::dsl::*;
-
     let (new_transaction_entry, updated_tags) = updated_transaction.split_tags();
 
-    let transaction_entry = diesel::update(transactions.find(transaction_id_to_update))
+    let transaction_entry = diesel::update(transactions::table.find(transaction_id))
         .set(new_transaction_entry)
         .get_result(db_conn)?;
 
-    let existing_tags: Vec<String> = transaction_tags
-        .filter(transaction_id.eq(transaction_id_to_update))
-        .select(tag)
+    let existing_tags: Vec<String> = transaction_tags::table
+        .filter(transaction_tags::transaction_id.eq(transaction_id))
+        .select(transaction_tags::tag)
         .load(db_conn)?;
 
     let new_tags: Vec<TransactionTag> = updated_tags
@@ -211,11 +206,11 @@ pub fn update_transaction(
         .into_iter()
         .filter(|t| !existing_tags.contains(t))
         .map(|t| TransactionTag {
-            transaction_id: transaction_id_to_update,
+            transaction_id,
             tag: t,
         })
         .collect();
-    diesel::insert_into(transaction_tags)
+    diesel::insert_into(transaction_tags::table)
         .values(new_tags)
         .execute(db_conn)?;
 
@@ -224,9 +219,9 @@ pub fn update_transaction(
         .filter(|t| !updated_tags.contains(t))
         .collect();
     diesel::delete(
-        transaction_tags
-            .filter(transaction_id.eq(transaction_id_to_update))
-            .filter(tag.eq_any(removed_tags)),
+        transaction_tags::table
+            .filter(transaction_tags::transaction_id.eq(transaction_id))
+            .filter(transaction_tags::tag.eq_any(removed_tags)),
     )
         .execute(db_conn)?;
 
@@ -238,18 +233,15 @@ pub fn update_transaction(
 
 pub fn delete_transaction(
     db_conn: &PgConnection,
-    transaction_id_to_delete: i32,
+    transaction_id: i32,
 ) -> Result<Transaction, Error> {
-    use crate::schema::transaction_tags::dsl::*;
-    use crate::schema::transactions::dsl::*;
-
-    let tag_list = transaction_tags
-        .filter(transaction_id.eq(transaction_id_to_delete))
-        .select(tag)
+    let tag_list = transaction_tags::table
+        .filter(transaction_tags::transaction_id.eq(transaction_id))
+        .select(transaction_tags::tag)
         .load::<String>(db_conn)?;
 
     let transaction_entry =
-        diesel::delete(transactions.find(transaction_id_to_delete)).get_result(db_conn)?;
+        diesel::delete(transactions::table.find(transaction_id)).get_result(db_conn)?;
 
     Ok(Transaction::from_entry_and_tags(
         transaction_entry,
