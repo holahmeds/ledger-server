@@ -13,36 +13,34 @@ use tracing::Level;
 
 use ledger::DbPool;
 
-static INIT_LOGGING: Once = Once::new();
-static INIT_DOTENV: Once = Once::new();
+static INIT_TESTS: Once = Once::new();
+static mut DATABASE_POOL: Option<DbPool> = None;
 
-fn setup_logging() {
-    INIT_LOGGING.call_once(|| {
+fn setup() {
+    INIT_TESTS.call_once(|| {
         tracing_subscriber::fmt().with_max_level(Level::INFO).init();
         info!("tracing initialized");
-    });
-}
 
-fn setup_dotenv() {
-    INIT_DOTENV.call_once(|| {
         dotenv().ok();
         info!("dotenv initialized");
+
+        let database_url = env::var("DATABASE_TEST_URL")
+            .expect("DATABASE_TEST_URL not found in environment variables");
+        let manager: ConnectionManager<diesel::PgConnection> = ConnectionManager::new(database_url);
+
+        let pool = Pool::builder().build(manager).unwrap();
+        unsafe {
+            DATABASE_POOL = Some(pool);
+        }
+        info!("Database pool created");
     })
 }
 
 #[fixture]
 pub fn database_pool() -> DbPool {
-    setup_logging();
-    setup_dotenv();
-
-    let database_url = env::var("DATABASE_TEST_URL")
-        .expect("DATABASE_TEST_URL not found in environment variables");
-    let manager: ConnectionManager<diesel::PgConnection> = ConnectionManager::new(database_url);
-
-    let pool = Pool::builder().build(manager).unwrap();
-    info!("Database pool created");
-
-    pool
+    setup();
+    let pool = unsafe { DATABASE_POOL.as_ref().unwrap() };
+    pool.clone()
 }
 
 pub async fn map_body<T>(input: &mut ServiceResponse<Body>) -> T
