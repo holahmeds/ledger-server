@@ -1,4 +1,5 @@
 extern crate futures_util;
+extern crate rstest;
 extern crate serde_json;
 
 use std::str::FromStr;
@@ -8,9 +9,11 @@ use actix_web::test;
 use actix_web::test::TestRequest;
 use actix_web::web;
 use chrono::NaiveDate;
-use dotenv::dotenv;
+use rstest::rstest;
 use rust_decimal::Decimal;
+use tracing::instrument;
 
+use ledger::DbPool;
 use ledger::models::{NewTransaction, Transaction};
 use ledger::transaction_handlers;
 use utils::database_pool;
@@ -18,13 +21,11 @@ use utils::map_body;
 
 mod utils;
 
+#[instrument(skip(database_pool))]
+#[rstest]
 #[actix_rt::test]
-async fn test_create_api_response() {
-    dotenv().ok();
-
-    let pool = database_pool();
-
-    let app = App::new().data(pool.clone()).service(
+async fn test_create_api_response(database_pool: DbPool) {
+    let app = App::new().data(database_pool.clone()).service(
         web::scope("/")
             .service(transaction_handlers::create_new_transaction)
             .service(transaction_handlers::delete_transaction),

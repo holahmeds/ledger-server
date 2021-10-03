@@ -6,23 +6,22 @@ use actix_web::test;
 use actix_web::test::TestRequest;
 use actix_web::web;
 use chrono::NaiveDate;
-use dotenv::dotenv;
+use rstest::rstest;
 use rust_decimal::Decimal;
+use tracing::instrument;
 
+use ledger::{DbPool, transaction_handlers};
 use ledger::models::{NewTransaction, Transaction};
-use ledger::transaction_handlers;
 use utils::database_pool;
 use utils::map_body;
 
 mod utils;
 
+#[instrument(skip(database_pool))]
+#[rstest]
 #[actix_rt::test]
-async fn test_delete_transaction() {
-    dotenv().ok();
-
-    let pool = database_pool();
-
-    let app = App::new().data(pool.clone()).service(
+async fn test_delete_transaction(database_pool: DbPool) {
+    let app = App::new().data(database_pool.clone()).service(
         web::scope("/")
             .service(transaction_handlers::update_transaction)
             .service(transaction_handlers::create_new_transaction)
@@ -54,14 +53,12 @@ async fn test_delete_transaction() {
     assert_eq!(transaction, deleted_transaction);
 }
 
+#[instrument(skip(database_pool))]
+#[rstest]
 #[actix_rt::test]
-async fn test_delete_invalid_transaction() {
-    dotenv().ok();
-
-    let pool = database_pool();
-
+async fn test_delete_invalid_transaction(database_pool: DbPool) {
     let app = App::new()
-        .data(pool.clone())
+        .data(database_pool.clone())
         .service(web::scope("/").service(transaction_handlers::delete_transaction));
     let mut service = test::init_service(app).await;
 

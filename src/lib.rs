@@ -11,4 +11,4 @@ pub mod models;
 mod schema;
 pub mod transaction_handlers;
 
-type DbPool = r2d2::Pool<ConnectionManager<PgConnection>>;
+pub type DbPool = r2d2::Pool<ConnectionManager<PgConnection>>;
