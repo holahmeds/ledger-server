@@ -15,6 +15,7 @@ use dotenv::dotenv;
 use tracing::Level;
 
 use ledger::auth;
+use ledger::auth::{JWTAuth, SECRET};
 use ledger::transaction_handlers;
 
 #[actix_web::main]
@@ -31,10 +32,12 @@ async fn main() -> std::io::Result<()> {
         .build(manager)
         .expect("Unable to build database pool");
 
-    info!("Token: {}", auth::create_token());
+    let jwt_auth = JWTAuth::new(SECRET.as_ref());
+    info!("Token: {}", jwt_auth.create_token());
 
     HttpServer::new(move || {
         App::new()
+            .app_data(jwt_auth.clone())
             .wrap(HttpAuthentication::bearer(auth::request_validator))
             .wrap(Logger::default())
             .data(pool.clone())

@@ -10,44 +10,62 @@ use serde::Deserialize;
 use serde::Serialize;
 
 // TODO: Read from configuration file
-const SECRET: &str = "supersecretsecret";
+pub const SECRET: &str = "supersecretsecret";
+
+#[derive(Clone)]
+pub struct JWTAuth<'a> {
+    encoding_key: EncodingKey,
+    decoding_key: DecodingKey<'a>
+}
 
 #[derive(Serialize, Deserialize)]
 struct Claims {
     exp: usize,
 }
 
-pub fn create_token() -> String {
-    let claims = Claims {
-        exp: (std::time::SystemTime::now()
-            .duration_since(UNIX_EPOCH)
+impl JWTAuth<'_> {
+    const EXPIRE_TIME: u64 = 30 * 24 * 60 * 60;
+
+    pub fn new(secret: &[u8]) -> JWTAuth {
+        JWTAuth {
+            encoding_key: EncodingKey::from_secret(secret),
+            decoding_key: DecodingKey::from_secret(secret)
+        }
+    }
+
+    pub fn create_token(&self) -> String {
+        let claims = Claims {
+            exp: (std::time::SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs()
+                + Self::EXPIRE_TIME) as usize,
+        };
+
+        jsonwebtoken::encode(
+            &Header::default(),
+            &claims,
+            &self.encoding_key,
+        )
             .unwrap()
-            .as_secs()
-            + 30 * 24 * 60 * 60) as usize,
-    };
+    }
 
-    jsonwebtoken::encode(
-        &Header::default(),
-        &claims,
-        &EncodingKey::from_secret(SECRET.as_ref()),
-    )
-        .unwrap()
-}
-
-fn validate_token(token: &str) -> bool {
-    jsonwebtoken::decode::<Claims>(
-        token,
-        &DecodingKey::from_secret(SECRET.as_ref()),
-        &Validation::default(),
-    )
-        .is_ok()
+    fn validate_token(&self, token: &str) -> bool {
+        jsonwebtoken::decode::<Claims>(
+            token,
+            &self.decoding_key,
+            &Validation::default(),
+        )
+            .is_ok()
+    }
 }
 
 pub async fn request_validator(
     req: ServiceRequest,
     credentials: BearerAuth,
 ) -> Result<ServiceRequest, Error> {
-    if validate_token(credentials.token()) {
+    let jwt_auth = req.app_data::<JWTAuth>().unwrap();
+    if jwt_auth.validate_token(credentials.token()) {
         Ok(req)
     } else {
         let challenge = Bearer::build().error(bearer::Error::InvalidToken).finish();
