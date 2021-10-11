@@ -7,8 +7,7 @@ use diesel::{PgConnection, r2d2};
 use diesel::r2d2::ConnectionManager;
 
 pub mod auth;
-pub mod models;
 mod schema;
-pub mod transaction_handlers;
+pub mod transaction;
 
 pub type DbPool = r2d2::Pool<ConnectionManager<PgConnection>>;

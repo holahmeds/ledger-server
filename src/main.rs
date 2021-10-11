@@ -16,7 +16,7 @@ use tracing::Level;
 
 use ledger::auth;
 use ledger::auth::JWTAuth;
-use ledger::transaction_handlers;
+use ledger::transaction;
 
 #[derive(Deserialize)]
 struct Config {
@@ -49,11 +49,11 @@ async fn main() -> std::io::Result<()> {
             .data(pool.clone())
             .service(
                 web::scope("/transactions")
-                    .service(transaction_handlers::get_transaction)
-                    .service(transaction_handlers::get_all_transactions)
-                    .service(transaction_handlers::create_new_transaction)
-                    .service(transaction_handlers::update_transaction)
-                    .service(transaction_handlers::delete_transaction),
+                    .service(transaction::handlers::get_transaction)
+                    .service(transaction::handlers::get_all_transactions)
+                    .service(transaction::handlers::create_new_transaction)
+                    .service(transaction::handlers::update_transaction)
+                    .service(transaction::handlers::delete_transaction),
             )
             .app_data(web::JsonConfig::default().error_handler(|err, _req| {
                 match err {

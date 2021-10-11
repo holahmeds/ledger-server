@@ -10,8 +10,8 @@ use rstest::rstest;
 use rust_decimal::Decimal;
 use tracing::instrument;
 
-use ledger::{DbPool, transaction_handlers};
-use ledger::models::{NewTransaction, Transaction};
+use ledger::DbPool;
+use ledger::transaction::{handlers, NewTransaction, Transaction};
 use utils::database_pool;
 use utils::map_body;
 
@@ -23,9 +23,9 @@ mod utils;
 async fn test_delete_transaction(database_pool: DbPool) {
     let app = App::new().data(database_pool.clone()).service(
         web::scope("/")
-            .service(transaction_handlers::update_transaction)
-            .service(transaction_handlers::create_new_transaction)
-            .service(transaction_handlers::delete_transaction),
+            .service(handlers::update_transaction)
+            .service(handlers::create_new_transaction)
+            .service(handlers::delete_transaction),
     );
     let mut service = test::init_service(app).await;
 
@@ -59,7 +59,7 @@ async fn test_delete_transaction(database_pool: DbPool) {
 async fn test_delete_invalid_transaction(database_pool: DbPool) {
     let app = App::new()
         .data(database_pool.clone())
-        .service(web::scope("/").service(transaction_handlers::delete_transaction));
+        .service(web::scope("/").service(handlers::delete_transaction));
     let mut service = test::init_service(app).await;
 
     let request = TestRequest::delete()

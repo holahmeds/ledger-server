@@ -4,8 +4,9 @@ use actix_web::Responder;
 use actix_web::web;
 
 use crate::DbPool;
-use crate::models;
-use crate::models::NewTransaction;
+
+use super::models;
+use super::NewTransaction;
 
 #[get("/{transaction_id}")]
 pub async fn get_transaction(
@@ -16,10 +17,7 @@ pub async fn get_transaction(
         .get()
         .expect("Unable to get database connection from pool");
 
-    let result = web::block(move || {
-        models::get_transaction(&conn, transaction_id)
-    })
-        .await;
+    let result = web::block(move || models::get_transaction(&conn, transaction_id)).await;
 
     result
         .map(|transaction| HttpResponse::Ok().json(transaction))
