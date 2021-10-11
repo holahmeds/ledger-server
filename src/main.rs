@@ -2,7 +2,7 @@ extern crate jsonwebtoken;
 #[macro_use]
 extern crate tracing;
 
-use std::env;
+use std::fs;
 
 use actix_web::{App, HttpResponse, web};
 use actix_web::error::JsonPayloadError;
@@ -11,28 +11,34 @@ use actix_web::middleware::Logger;
 use actix_web_httpauth::middleware::HttpAuthentication;
 use diesel::r2d2;
 use diesel::r2d2::ConnectionManager;
-use dotenv::dotenv;
+use serde::Deserialize;
 use tracing::Level;
 
 use ledger::auth;
-use ledger::auth::{JWTAuth, SECRET};
+use ledger::auth::JWTAuth;
 use ledger::transaction_handlers;
+
+#[derive(Deserialize)]
+struct Config {
+    database_url: String,
+    secret: String,
+}
 
 #[actix_web::main]
 async fn main() -> std::io::Result<()> {
-    dotenv().ok();
-
     tracing_subscriber::fmt().with_max_level(Level::INFO).init();
     info!("tracing initialized");
 
-    let database_url =
-        env::var("DATABASE_URL").expect("DATABASE_URL not found in environment variables");
-    let manager: ConnectionManager<diesel::PgConnection> = ConnectionManager::new(database_url);
+    let config = fs::read_to_string("config.toml")?;
+    let config: Config = toml::from_str(config.as_str())?;
+
+    let manager: ConnectionManager<diesel::PgConnection> =
+        ConnectionManager::new(config.database_url);
     let pool = r2d2::Pool::builder()
         .build(manager)
         .expect("Unable to build database pool");
 
-    let jwt_auth = JWTAuth::new(SECRET.as_ref());
+    let jwt_auth = JWTAuth::from_base64_secret(config.secret).unwrap();
     info!("Token: {}", jwt_auth.create_token());
 
     HttpServer::new(move || {

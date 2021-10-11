@@ -9,13 +9,10 @@ use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation};
 use serde::Deserialize;
 use serde::Serialize;
 
-// TODO: Read from configuration file
-pub const SECRET: &str = "supersecretsecret";
-
 #[derive(Clone)]
 pub struct JWTAuth<'a> {
     encoding_key: EncodingKey,
-    decoding_key: DecodingKey<'a>
+    decoding_key: DecodingKey<'a>,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -26,11 +23,13 @@ struct Claims {
 impl JWTAuth<'_> {
     const EXPIRE_TIME: u64 = 30 * 24 * 60 * 60;
 
-    pub fn new(secret: &[u8]) -> JWTAuth {
-        JWTAuth {
-            encoding_key: EncodingKey::from_secret(secret),
-            decoding_key: DecodingKey::from_secret(secret)
-        }
+    pub fn from_base64_secret(
+        secret: String,
+    ) -> Result<JWTAuth<'static>, jsonwebtoken::errors::Error> {
+        Ok(JWTAuth {
+            encoding_key: EncodingKey::from_base64_secret(&secret)?,
+            decoding_key: DecodingKey::from_base64_secret(&secret)?,
+        })
     }
 
     pub fn create_token(&self) -> String {
@@ -42,21 +41,11 @@ impl JWTAuth<'_> {
                 + Self::EXPIRE_TIME) as usize,
         };
 
-        jsonwebtoken::encode(
-            &Header::default(),
-            &claims,
-            &self.encoding_key,
-        )
-            .unwrap()
+        jsonwebtoken::encode(&Header::default(), &claims, &self.encoding_key).unwrap()
     }
 
     fn validate_token(&self, token: &str) -> bool {
-        jsonwebtoken::decode::<Claims>(
-            token,
-            &self.decoding_key,
-            &Validation::default(),
-        )
-            .is_ok()
+        jsonwebtoken::decode::<Claims>(token, &self.decoding_key, &Validation::default()).is_ok()
     }
 }
 
