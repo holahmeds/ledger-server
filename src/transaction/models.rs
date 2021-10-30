@@ -17,7 +17,7 @@ pub struct TransactionEntry {
     pub category: String,
     pub transactee: Option<String>,
     pub note: Option<String>,
-    pub transaction_date: NaiveDate,
+    pub date: NaiveDate,
     pub amount: Decimal,
 }
 
@@ -27,7 +27,7 @@ pub struct NewTransactionEntry {
     pub category: String,
     pub transactee: Option<String>,
     pub note: Option<String>,
-    pub transaction_date: NaiveDate,
+    pub date: NaiveDate,
     pub amount: Decimal,
 }
 

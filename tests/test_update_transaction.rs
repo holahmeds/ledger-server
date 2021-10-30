@@ -47,7 +47,7 @@ async fn test_update_transaction(database_pool: DbPool) {
         new_transaction.category,
         Some("Alice".to_string()),
         new_transaction.note,
-        new_transaction.transaction_date,
+        new_transaction.date,
         Decimal::from_str("105").unwrap(),
         vec![],
     );
@@ -98,7 +98,7 @@ async fn test_update_tags(database_pool: DbPool) {
         new_transaction.category,
         Some("Alice".to_string()),
         new_transaction.note,
-        new_transaction.transaction_date,
+        new_transaction.date,
         Decimal::from_str("105").unwrap(),
         vec!["tag2".to_string(), "tag3".to_string()],
     );

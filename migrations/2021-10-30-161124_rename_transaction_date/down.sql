@@ -1,0 +1,1 @@
+ALTER TABLE transactions RENAME COLUMN date TO transaction_date;

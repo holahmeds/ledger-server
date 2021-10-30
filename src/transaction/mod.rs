@@ -14,7 +14,7 @@ pub struct Transaction {
     pub category: String,
     pub transactee: Option<String>,
     pub note: Option<String>,
-    pub transaction_date: NaiveDate,
+    pub date: NaiveDate,
     pub amount: Decimal,
     pub tags: Vec<String>,
 }
@@ -25,7 +25,7 @@ impl Transaction {
         category: String,
         transactee: Option<String>,
         note: Option<String>,
-        transaction_date: NaiveDate,
+        date: NaiveDate,
         amount: Decimal,
         tags: Vec<String>,
     ) -> Transaction {
@@ -34,7 +34,7 @@ impl Transaction {
             category,
             transactee,
             note,
-            transaction_date,
+            date,
             amount,
             tags,
         }
@@ -46,7 +46,7 @@ impl Transaction {
             category: transaction_entry.category,
             transactee: transaction_entry.transactee,
             note: transaction_entry.note,
-            transaction_date: transaction_entry.transaction_date,
+            date: transaction_entry.date,
             amount: transaction_entry.amount,
             tags,
         }
@@ -58,7 +58,7 @@ pub struct NewTransaction {
     pub category: String,
     pub transactee: Option<String>,
     pub note: Option<String>,
-    pub transaction_date: NaiveDate,
+    pub date: NaiveDate,
     pub amount: Decimal,
     pub tags: Vec<String>,
 }
@@ -68,7 +68,7 @@ impl NewTransaction {
         category: String,
         transactee: Option<String>,
         note: Option<String>,
-        transaction_date: NaiveDate,
+        date: NaiveDate,
         amount: Decimal,
         tags: Vec<String>,
     ) -> NewTransaction {
@@ -76,7 +76,7 @@ impl NewTransaction {
             category,
             transactee,
             note,
-            transaction_date,
+            date,
             amount,
             tags,
         }
@@ -87,7 +87,7 @@ impl NewTransaction {
             category: self.category,
             transactee: self.transactee,
             note: self.note,
-            transaction_date: self.transaction_date,
+            date: self.date,
             amount: self.amount,
         };
         (new_transaction_entry, self.tags)

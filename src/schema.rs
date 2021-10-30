@@ -11,7 +11,7 @@ table! {
         category -> Varchar,
         transactee -> Nullable<Varchar>,
         note -> Nullable<Varchar>,
-        transaction_date -> Date,
+        date -> Date,
         amount -> Numeric,
     }
 }
