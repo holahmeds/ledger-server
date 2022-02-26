@@ -4,10 +4,11 @@ extern crate tracing;
 
 use std::fs;
 
-use actix_web::{App, HttpResponse, web};
 use actix_web::error::JsonPayloadError;
-use actix_web::HttpServer;
 use actix_web::middleware::Logger;
+use actix_web::web::Data;
+use actix_web::HttpServer;
+use actix_web::{web, App, HttpResponse};
 use actix_web_httpauth::middleware::HttpAuthentication;
 use diesel::r2d2;
 use diesel::r2d2::ConnectionManager;
@@ -42,11 +43,12 @@ async fn main() -> std::io::Result<()> {
     info!("Token: {}", jwt_auth.create_token());
 
     HttpServer::new(move || {
+        let state = Data::new(pool.clone());
         App::new()
             .app_data(jwt_auth.clone())
+            .app_data(state)
             .wrap(HttpAuthentication::bearer(auth::request_validator))
             .wrap(Logger::default())
-            .data(pool.clone())
             .service(
                 web::scope("/transactions")
                     .service(transaction::handlers::get_transaction)
@@ -64,13 +66,13 @@ async fn main() -> std::io::Result<()> {
                                 .content_type("application/json")
                                 .body(format!(r#"{{"error":"{}"}}"#, deserialize_err)),
                         )
-                            .into()
+                        .into()
                     }
                     _ => err.into(),
                 }
             }))
     })
-        .bind("127.0.0.1:8000")?
-        .run()
-        .await
+    .bind("127.0.0.1:8000")?
+    .run()
+    .await
 }

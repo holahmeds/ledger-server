@@ -1,19 +1,19 @@
 use std::str::FromStr;
 
-use actix_web::App;
 use actix_web::http::StatusCode;
 use actix_web::test;
 use actix_web::test::TestRequest;
 use actix_web::web;
+use actix_web::web::Data;
+use actix_web::App;
 use chrono::NaiveDate;
 use rstest::rstest;
 use rust_decimal::Decimal;
 use tracing::instrument;
 
-use ledger::DbPool;
 use ledger::transaction::{handlers, NewTransaction, Transaction};
+use ledger::DbPool;
 use utils::database_pool;
-use utils::map_body;
 
 mod utils;
 
@@ -21,13 +21,13 @@ mod utils;
 #[rstest]
 #[actix_rt::test]
 async fn test_delete_transaction(database_pool: DbPool) {
-    let app = App::new().data(database_pool.clone()).service(
-        web::scope("/")
-            .service(handlers::update_transaction)
+    let state = Data::new(database_pool.clone());
+    let app = App::new().app_data(state).service(
+        web::scope("/transactions")
             .service(handlers::create_new_transaction)
             .service(handlers::delete_transaction),
     );
-    let mut service = test::init_service(app).await;
+    let service = test::init_service(app).await;
 
     let new_transaction = NewTransaction::new(
         "Misc".to_string(),
@@ -37,19 +37,22 @@ async fn test_delete_transaction(database_pool: DbPool) {
         Decimal::from_str("5.10").unwrap(),
         vec!["Monthly".to_string()],
     );
-    let transaction = {
-        let request = TestRequest::post().set_json(&new_transaction).to_request();
-        let mut response = test::call_service(&mut service, request).await;
-        map_body::<Transaction>(&mut response).await
+    let transaction: Transaction = {
+        let request = TestRequest::post()
+            .uri("/transactions")
+            .set_json(&new_transaction)
+            .to_request();
+        let response = test::call_service(&service, request).await;
+        test::read_body_json(response).await
     };
 
     let request = TestRequest::delete()
-        .uri(format!("/{}", transaction.id).as_str())
+        .uri(format!("/transactions/{}", transaction.id).as_str())
         .to_request();
-    let mut response = test::call_service(&mut service, request).await;
-    let deleted_transaction = map_body(&mut response).await;
-
+    let response = test::call_service(&service, request).await;
     assert!(response.status().is_success());
+
+    let deleted_transaction = test::read_body_json(response).await;
     assert_eq!(transaction, deleted_transaction);
 }
 
@@ -57,15 +60,16 @@ async fn test_delete_transaction(database_pool: DbPool) {
 #[rstest]
 #[actix_rt::test]
 async fn test_delete_invalid_transaction(database_pool: DbPool) {
+    let state = Data::new(database_pool.clone());
     let app = App::new()
-        .data(database_pool.clone())
+        .app_data(state)
         .service(web::scope("/").service(handlers::delete_transaction));
-    let mut service = test::init_service(app).await;
+    let service = test::init_service(app).await;
 
     let request = TestRequest::delete()
         .uri(format!("/{}", 0).as_str()) // non-existent transaction ID
         .to_request();
-    let response = test::call_service(&mut service, request).await;
+    let response = test::call_service(&service, request).await;
 
     assert_eq!(response.status(), StatusCode::NOT_FOUND)
 }

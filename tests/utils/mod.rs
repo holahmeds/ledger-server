@@ -1,12 +1,8 @@
 use std::fs;
 use std::sync::Once;
 
-use actix_web::dev::{Body, ServiceResponse};
-use actix_web::web::BytesMut;
 use diesel::r2d2::{ConnectionManager, Pool};
-use futures_util::StreamExt;
 use rstest::*;
-use serde::de::DeserializeOwned;
 use serde::Deserialize;
 use tracing::info;
 use tracing::Level;
@@ -45,20 +41,4 @@ pub fn database_pool() -> DbPool {
     setup();
     let pool = unsafe { DATABASE_POOL.as_ref().unwrap() };
     pool.clone()
-}
-
-pub async fn map_body<T>(input: &mut ServiceResponse<Body>) -> T
-    where
-        T: DeserializeOwned,
-{
-    let mut body = input.take_body();
-    let mut bytes = BytesMut::new();
-    while let Some(item) = body.next().await {
-        bytes.extend_from_slice(&item.unwrap());
-    }
-
-    info!("{:?}", bytes);
-
-    let result: T = serde_json::from_slice(&bytes).unwrap();
-    result
 }
