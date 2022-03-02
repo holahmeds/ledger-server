@@ -1,6 +1,8 @@
 extern crate jsonwebtoken;
 #[macro_use]
 extern crate tracing;
+#[macro_use]
+extern crate diesel_migrations;
 
 use std::error::Error;
 use std::fs;
@@ -27,6 +29,8 @@ struct Config {
     secret: String,
 }
 
+embed_migrations!();
+
 #[actix_web::main]
 async fn main() -> Result<(), Box<dyn Error>> {
     tracing_subscriber::fmt().with_max_level(Level::INFO).init();
@@ -47,6 +51,10 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let pool = r2d2::Pool::builder()
         .build(manager)
         .expect("Unable to build database pool");
+
+    info!("Running migrations");
+    let connection = pool.get()?;
+    embedded_migrations::run_with_output(&connection, &mut std::io::stdout())?;
 
     let jwt_auth = JWTAuth::from_base64_secret(config.secret).unwrap();
     info!("Token: {}", jwt_auth.create_token());
