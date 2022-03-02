@@ -2,7 +2,9 @@ extern crate jsonwebtoken;
 #[macro_use]
 extern crate tracing;
 
+use std::error::Error;
 use std::fs;
+use std::path::Path;
 
 use actix_web::error::JsonPayloadError;
 use actix_web::middleware::Logger;
@@ -26,15 +28,16 @@ struct Config {
 }
 
 #[actix_web::main]
-async fn main() -> std::io::Result<()> {
+async fn main() -> Result<(), Box<dyn Error>> {
     tracing_subscriber::fmt().with_max_level(Level::INFO).init();
     info!("tracing initialized");
 
-    let config = match fs::read_to_string("config.toml") {
+    let config_path = get_config_file()?;
+    let config = match fs::read_to_string(config_path) {
         Ok(s) => s,
         Err(e) => {
             error!("Unable to read config file: {}", e);
-            return Err(e);
+            return Err(e.into());
         }
     };
     let config: Config = toml::from_str(config.as_str())?;
@@ -80,5 +83,20 @@ async fn main() -> std::io::Result<()> {
     })
     .bind("127.0.0.1:8000")?
     .run()
-    .await
+    .await?;
+
+    Ok(())
+}
+
+fn get_config_file() -> Result<&'static str, &'static str> {
+    if Path::new("config.toml").exists() {
+        return Ok("config.toml");
+    }
+    if cfg!(unix) {
+        if Path::new("/etc/ledger/config.toml").exists() {
+            return Ok("/etc/ledger/config.toml");
+        }
+    }
+
+    Err("Config file not found")
 }
