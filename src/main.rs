@@ -30,7 +30,13 @@ async fn main() -> std::io::Result<()> {
     tracing_subscriber::fmt().with_max_level(Level::INFO).init();
     info!("tracing initialized");
 
-    let config = fs::read_to_string("config.toml")?;
+    let config = match fs::read_to_string("config.toml") {
+        Ok(s) => s,
+        Err(e) => {
+            error!("Unable to read config file: {}", e);
+            return Err(e);
+        }
+    };
     let config: Config = toml::from_str(config.as_str())?;
 
     let manager: ConnectionManager<diesel::PgConnection> =
