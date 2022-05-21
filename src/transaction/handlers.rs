@@ -99,3 +99,42 @@ pub async fn delete_transaction(pool: web::Data<DbPool>, params: web::Path<i32>)
             _ => ErrorInternalServerError(e),
         })
 }
+
+#[get("/categories")]
+pub async fn get_all_categories(pool: web::Data<DbPool>) -> impl Responder {
+    let conn = pool
+        .get()
+        .expect("Unable to get database connection from pool");
+
+    let result = web::block(move || models::get_all_categories(&conn)).await?;
+
+    result
+        .map(|categories| HttpResponse::Ok().json(categories))
+        .map_err(ErrorInternalServerError)
+}
+
+#[get("/tags")]
+pub async fn get_all_tags(pool: web::Data<DbPool>) -> impl Responder {
+    let conn = pool
+        .get()
+        .expect("Unable to get database connection from pool");
+
+    let result = web::block(move || models::get_all_tags(&conn)).await?;
+
+    result
+        .map(|tags| HttpResponse::Ok().json(tags))
+        .map_err(ErrorInternalServerError)
+}
+
+#[get("/transactees")]
+pub async fn get_all_transactees(pool: web::Data<DbPool>) -> impl Responder {
+    let conn = pool
+        .get()
+        .expect("Unable to get database connection from pool");
+
+    let result = web::block(move || models::get_all_transactees(&conn)).await?;
+
+    result
+        .map(|transactees| HttpResponse::Ok().json(transactees))
+        .map_err(ErrorInternalServerError)
+}

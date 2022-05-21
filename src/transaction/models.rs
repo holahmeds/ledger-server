@@ -1,8 +1,8 @@
 use chrono::NaiveDate;
-use diesel::Insertable;
 use diesel::prelude::*;
-use diesel::Queryable;
 use diesel::result::Error;
+use diesel::Insertable;
+use diesel::Queryable;
 use rust_decimal::Decimal;
 
 use crate::schema::transaction_tags;
@@ -134,7 +134,7 @@ pub fn update_transaction(
             .filter(transaction_tags::transaction_id.eq(transaction_id))
             .filter(transaction_tags::tag.eq_any(removed_tags)),
     )
-        .execute(db_conn)?;
+    .execute(db_conn)?;
 
     Ok(Transaction::from_entry_and_tags(
         transaction_entry,
@@ -158,4 +158,35 @@ pub fn delete_transaction(
         transaction_entry,
         tag_list,
     ))
+}
+
+pub fn get_all_categories(db_conn: &PgConnection) -> Result<Vec<String>, Error> {
+    use crate::schema::transactions::dsl::*;
+
+    transactions
+        .select(category)
+        .distinct()
+        .load::<String>(db_conn)
+}
+
+pub fn get_all_tags(db_conn: &PgConnection) -> Result<Vec<String>, Error> {
+    use crate::schema::transaction_tags::dsl::*;
+
+    transaction_tags
+        .select(tag)
+        .distinct()
+        .load::<String>(db_conn)
+}
+
+pub fn get_all_transactees(db_conn: &PgConnection) -> Result<Vec<String>, Error> {
+    use crate::schema::transactions::dsl::*;
+
+    let results = transactions
+        .select(transactee)
+        .distinct()
+        .load::<Option<String>>(db_conn)?;
+
+    // remove null entry if there is one
+    let transactees = results.into_iter().filter_map(|i| i).collect();
+    Ok(transactees)
 }

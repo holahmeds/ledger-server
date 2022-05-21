@@ -68,6 +68,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
             .wrap(Logger::default())
             .service(
                 web::scope("/transactions")
+                    .service(transaction::handlers::get_all_categories)
+                    .service(transaction::handlers::get_all_tags)
+                    .service(transaction::handlers::get_all_transactees)
                     .service(transaction::handlers::get_transaction)
                     .service(transaction::handlers::get_all_transactions)
                     .service(transaction::handlers::create_new_transaction)
