@@ -2,6 +2,7 @@
 name = "ledger"
 version = "0.1.0"
 authors = ["Ahmed Rafiq Ullah <ahmedrafiq47@gmail.com>"]
+license = "MIT"
 edition = "2021"
 
 [dependencies]
