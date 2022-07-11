@@ -1,8 +1,9 @@
+#[macro_use]
+extern crate diesel_migrations;
 extern crate jsonwebtoken;
 #[macro_use]
 extern crate tracing;
-#[macro_use]
-extern crate diesel_migrations;
+extern crate serde_json;
 
 use std::error::Error;
 use std::fs;
@@ -11,8 +12,8 @@ use std::path::Path;
 use actix_web::error::JsonPayloadError;
 use actix_web::middleware::Logger;
 use actix_web::web::Data;
-use actix_web::HttpServer;
-use actix_web::{web, App, HttpResponse};
+use actix_web::{web, App};
+use actix_web::{HttpResponse, HttpServer};
 use actix_web_httpauth::middleware::HttpAuthentication;
 use diesel::r2d2;
 use diesel::r2d2::ConnectionManager;
@@ -77,14 +78,19 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     .service(transaction::handlers::update_transaction)
                     .service(transaction::handlers::delete_transaction),
             )
-            .app_data(web::JsonConfig::default().error_handler(|err, _req| {
+            .app_data(web::JsonConfig::default().error_handler(|err, req| {
+                error!(req_path = req.path(), %err);
                 match err {
                     JsonPayloadError::Deserialize(deserialize_err) => {
+                        let error_body = serde_json::json!({
+                            "error": "Unable to parse JSON payload",
+                            "detail": format!("{}", deserialize_err),
+                        });
                         actix_web::error::InternalError::from_response(
-                            "Unable to parse JSON",
+                            deserialize_err,
                             HttpResponse::BadRequest()
                                 .content_type("application/json")
-                                .body(format!(r#"{{"error":"{}"}}"#, deserialize_err)),
+                                .body(error_body.to_string()),
                         )
                         .into()
                     }

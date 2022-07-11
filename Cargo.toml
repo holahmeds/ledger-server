@@ -12,6 +12,7 @@ chrono = { version = "0.4.19", features = ["serde"] }
 diesel = { version = "1.4.8", features = ["chrono", "postgres", "r2d2"] }
 diesel_migrations = "1.4.0"
 serde = { version = "1.0.125", features = ["derive"] }
+serde_json = "1.0.64"
 rust_decimal = { version = "1.15.0", features = ["db-diesel-postgres"] }
 tracing = "0.1.26"
 tracing-subscriber = "0.3.11"
@@ -20,7 +21,6 @@ toml = "0.5.8"
 
 [dev-dependencies]
 actix-rt = "2.2.0"
-serde_json = "1.0.64"
 futures-util = "0.3.15"
 futures = "0.3.15"
 rstest = "0.11.0"
