@@ -10,7 +10,6 @@ use std::fs;
 use std::path::Path;
 
 use actix_web::error::JsonPayloadError;
-use actix_web::middleware::Logger;
 use actix_web::web::Data;
 use actix_web::{web, App};
 use actix_web::{HttpResponse, HttpServer};
@@ -19,6 +18,7 @@ use diesel::r2d2;
 use diesel::r2d2::ConnectionManager;
 use serde::Deserialize;
 use tracing::Level;
+use tracing_actix_web::TracingLogger;
 
 use ledger::auth;
 use ledger::auth::JWTAuth;
@@ -66,7 +66,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             .app_data(jwt_auth.clone())
             .app_data(state)
             .wrap(HttpAuthentication::bearer(auth::request_validator))
-            .wrap(Logger::default())
+            .wrap(TracingLogger::default())
             .service(
                 web::scope("/transactions")
                     .service(transaction::handlers::get_all_categories)
