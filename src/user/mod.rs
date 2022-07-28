@@ -1,7 +1,7 @@
 use serde::Deserialize;
 
 pub mod handlers;
-mod models;
+pub mod models;
 
 #[derive(Deserialize)]
 pub struct NewUser {

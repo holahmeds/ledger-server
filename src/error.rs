@@ -7,6 +7,7 @@ pub enum HandlerError {
     DbError(diesel::result::Error),
     PoolError(r2d2::Error),
     BlockingError(actix_web::error::BlockingError),
+    AuthError(argon2::Error),
 }
 
 impl From<diesel::result::Error> for HandlerError {
@@ -27,12 +28,19 @@ impl From<actix_web::error::BlockingError> for HandlerError {
     }
 }
 
+impl From<argon2::Error> for HandlerError {
+    fn from(e: argon2::Error) -> Self {
+        HandlerError::AuthError(e)
+    }
+}
+
 impl Debug for HandlerError {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
             HandlerError::DbError(e) => f.write_fmt(format_args!("DbError({})", e)),
             HandlerError::PoolError(e) => f.write_fmt(format_args!("PoolError({})", e)),
             HandlerError::BlockingError(_) => f.write_str("BlockingError"),
+            HandlerError::AuthError(e) => f.write_fmt(format_args!("AuthError({})", e)),
         }
     }
 }
@@ -43,6 +51,7 @@ impl Display for HandlerError {
             HandlerError::DbError(e) => f.write_fmt(format_args!("DbError({})", e)),
             HandlerError::PoolError(e) => f.write_fmt(format_args!("PoolError({})", e)),
             HandlerError::BlockingError(_) => f.write_str("BlockingError"),
+            HandlerError::AuthError(e) => f.write_fmt(format_args!("AuthError({})", e)),
         }
     }
 }

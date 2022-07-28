@@ -59,13 +59,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let jwt_auth = JWTAuth::from_base64_secret(config.secret).unwrap();
     info!("Token: {}", jwt_auth.create_token());
+    let bearer_auth_middleware = HttpAuthentication::bearer(auth::request_validator);
 
     HttpServer::new(move || {
         let state = Data::new(pool.clone());
         App::new()
             .app_data(jwt_auth.clone())
             .app_data(state)
-            .wrap(HttpAuthentication::bearer(auth::request_validator))
             .wrap(TracingLogger::default())
             .service(
                 web::scope("/transactions")
@@ -76,13 +76,19 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     .service(transaction::handlers::get_all_transactions)
                     .service(transaction::handlers::create_new_transaction)
                     .service(transaction::handlers::update_transaction)
-                    .service(transaction::handlers::delete_transaction),
+                    .service(transaction::handlers::delete_transaction)
+                    .wrap(bearer_auth_middleware.clone()),
             )
             .service(
                 web::scope("/users")
-                    .service(user::handlers::create_user)
                     .service(user::handlers::update_password)
-                    .service(user::handlers::delete_user),
+                    .service(user::handlers::delete_user)
+                    .wrap(bearer_auth_middleware.clone()),
+            )
+            .service(
+                web::scope("/auth")
+                    .service(auth::handlers::signup)
+                    .service(auth::handlers::get_token),
             )
             .app_data(web::JsonConfig::default().error_handler(|err, req| {
                 error!(req_path = req.path(), %err);

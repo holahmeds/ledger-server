@@ -1,26 +1,7 @@
 use crate::error::HandlerError;
-use crate::user::models::User;
 use crate::user::{models, NewUser};
-use crate::DbPool;
+use crate::{auth, DbPool};
 use actix_web::{web, HttpResponse, Responder};
-
-#[post("")]
-pub async fn create_user(
-    pool: web::Data<DbPool>,
-    new_user: web::Json<NewUser>,
-) -> Result<impl Responder, HandlerError> {
-    let conn = pool.get()?;
-
-    let new_user = new_user.into_inner();
-    let user = User {
-        id: new_user.id,
-        password_hash: new_user.password,
-    };
-
-    web::block(move || models::create_user(&conn, user)).await??;
-
-    Ok(HttpResponse::Ok().finish())
-}
 
 #[put("")]
 pub async fn update_password(
@@ -30,7 +11,8 @@ pub async fn update_password(
     let conn = pool.get()?;
 
     let credentials = credentials.into_inner();
-    web::block(move || models::update_password_hash(&conn, &credentials.id, &credentials.password))
+    let password_hash = auth::password::encode_password(credentials.password)?;
+    web::block(move || models::update_password_hash(&conn, &credentials.id, &password_hash))
         .await??;
 
     Ok(HttpResponse::Ok().finish())

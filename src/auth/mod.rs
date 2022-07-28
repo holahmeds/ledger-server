@@ -9,6 +9,9 @@ use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation};
 use serde::Deserialize;
 use serde::Serialize;
 
+pub mod handlers;
+pub mod password;
+
 #[derive(Clone)]
 pub struct JWTAuth<'a> {
     encoding_key: EncodingKey,
