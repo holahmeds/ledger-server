@@ -20,9 +20,9 @@ use serde::Deserialize;
 use tracing::Level;
 use tracing_actix_web::TracingLogger;
 
-use ledger::auth;
 use ledger::auth::JWTAuth;
 use ledger::transaction;
+use ledger::{auth, user};
 
 #[derive(Deserialize)]
 struct Config {
@@ -77,6 +77,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     .service(transaction::handlers::create_new_transaction)
                     .service(transaction::handlers::update_transaction)
                     .service(transaction::handlers::delete_transaction),
+            )
+            .service(
+                web::scope("/users")
+                    .service(user::handlers::create_user)
+                    .service(user::handlers::update_password)
+                    .service(user::handlers::delete_user),
             )
             .app_data(web::JsonConfig::default().error_handler(|err, req| {
                 error!(req_path = req.path(), %err);

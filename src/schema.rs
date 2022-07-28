@@ -16,9 +16,17 @@ table! {
     }
 }
 
+table! {
+    users (id) {
+        id -> Varchar,
+        password_hash -> Varchar,
+    }
+}
+
 joinable!(transaction_tags -> transactions (transaction_id));
 
 allow_tables_to_appear_in_same_query!(
     transaction_tags,
     transactions,
+    users,
 );

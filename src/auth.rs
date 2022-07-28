@@ -2,8 +2,8 @@ use std::time::UNIX_EPOCH;
 
 use actix_web::dev::ServiceRequest;
 use actix_web::Error;
-use actix_web_httpauth::extractors::{AuthenticationError, bearer};
 use actix_web_httpauth::extractors::bearer::BearerAuth;
+use actix_web_httpauth::extractors::{bearer, AuthenticationError};
 use actix_web_httpauth::headers::www_authenticate::bearer::Bearer;
 use jsonwebtoken::{DecodingKey, EncodingKey, Header, Validation};
 use serde::Deserialize;
