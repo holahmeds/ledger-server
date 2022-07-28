@@ -43,7 +43,7 @@ pub async fn delete_user(
 ) -> Result<impl Responder, HandlerError> {
     let conn = pool.get()?;
 
-    web::block(move || models::delete_user(&conn, &*user_id.into_inner())).await??;
+    web::block(move || models::delete_user(&conn, &user_id.into_inner())).await??;
 
     Ok(HttpResponse::Ok().finish())
 }
