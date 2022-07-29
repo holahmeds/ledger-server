@@ -19,7 +19,7 @@ use diesel::r2d2::ConnectionManager;
 use serde::Deserialize;
 use tracing::Level;
 
-use ledger::auth::JWTAuth;
+use ledger::auth::jwt::JWTAuth;
 use ledger::transaction;
 use ledger::{auth, user};
 

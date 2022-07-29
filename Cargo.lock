@@ -812,6 +812,7 @@ dependencies = [
  "actix-rt",
  "actix-web",
  "actix-web-httpauth",
+ "base64 0.13.0",
  "chrono",
  "diesel",
  "diesel_migrations",

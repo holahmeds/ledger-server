@@ -1,4 +1,5 @@
-use crate::auth::{password, JWTAuth};
+use crate::auth::jwt::JWTAuth;
+use crate::auth::password;
 use crate::error::HandlerError;
 use crate::user::models::User;
 use crate::user::UserId;
