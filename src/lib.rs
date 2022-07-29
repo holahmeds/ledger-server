@@ -9,6 +9,7 @@ use diesel::{r2d2, PgConnection};
 pub mod auth;
 mod error;
 mod schema;
+pub mod tracing;
 pub mod transaction;
 pub mod user;
 

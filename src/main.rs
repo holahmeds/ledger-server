@@ -18,7 +18,6 @@ use diesel::r2d2;
 use diesel::r2d2::ConnectionManager;
 use serde::Deserialize;
 use tracing::Level;
-use tracing_actix_web::TracingLogger;
 
 use ledger::auth::JWTAuth;
 use ledger::transaction;
@@ -66,7 +65,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
         App::new()
             .app_data(jwt_auth.clone())
             .app_data(state)
-            .wrap(TracingLogger::default())
+            .wrap(ledger::tracing::create_middleware())
             .service(
                 web::scope("/transactions")
                     .service(transaction::handlers::get_all_categories)
@@ -80,7 +79,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     .wrap(bearer_auth_middleware.clone()),
             )
             .service(
-                web::scope("/users")
+                web::scope("/user")
                     .service(user::handlers::update_password)
                     .service(user::handlers::delete_user)
                     .wrap(bearer_auth_middleware.clone()),

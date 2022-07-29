@@ -2,11 +2,12 @@ use diesel::prelude::*;
 use diesel::result::Error;
 
 use crate::schema::users;
+use crate::user::UserId;
 
 #[derive(Insertable, Queryable, Identifiable)]
 #[table_name = "users"]
 pub struct User {
-    pub id: String,
+    pub id: UserId,
     pub password_hash: String,
 }
 
