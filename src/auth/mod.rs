@@ -14,7 +14,7 @@ pub mod password;
 pub async fn request_validator(
     req: ServiceRequest,
     credentials: BearerAuth,
-) -> Result<ServiceRequest, Error> {
+) -> Result<ServiceRequest, (Error, ServiceRequest)> {
     let jwt_auth = req.app_data::<JWTAuth>().unwrap();
     if let Ok(user) = jwt_auth.validate_token(credentials.token()) {
         if let Some(user) = user {
@@ -26,6 +26,6 @@ pub async fn request_validator(
         Ok(req)
     } else {
         let challenge = Bearer::build().error(bearer::Error::InvalidToken).finish();
-        Err(AuthenticationError::new(challenge).into())
+        Err((AuthenticationError::new(challenge).into(), req))
     }
 }

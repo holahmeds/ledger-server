@@ -5,9 +5,9 @@ use serde::Serialize;
 use std::time::UNIX_EPOCH;
 
 #[derive(Clone)]
-pub struct JWTAuth<'a> {
+pub struct JWTAuth {
     encoding_key: EncodingKey,
-    decoding_key: DecodingKey<'a>,
+    decoding_key: DecodingKey,
 }
 
 #[derive(Serialize, Deserialize)]
@@ -16,12 +16,10 @@ struct Claims {
     sub: Option<UserId>,
 }
 
-impl JWTAuth<'_> {
+impl JWTAuth {
     const EXPIRE_TIME: u64 = 30 * 24 * 60 * 60;
 
-    pub fn from_base64_secret(
-        secret: String,
-    ) -> Result<JWTAuth<'static>, jsonwebtoken::errors::Error> {
+    pub fn from_base64_secret(secret: String) -> Result<JWTAuth, jsonwebtoken::errors::Error> {
         Ok(JWTAuth {
             encoding_key: EncodingKey::from_base64_secret(&secret)?,
             decoding_key: DecodingKey::from_base64_secret(&secret)?,
