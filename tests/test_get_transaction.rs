@@ -33,22 +33,15 @@ async fn test_get_transaction(database_pool: &DbPool) {
     let app = build_app!(database_pool, user_id);
     let service = test::init_service(app).await;
 
-    let transaction: Transaction = {
-        let new_transaction = NewTransaction::new(
-            "Misc".to_string(),
-            Some("Bob".to_string()),
-            None,
-            NaiveDate::from_str("2021-06-09").unwrap(),
-            Decimal::from_str("100").unwrap(),
-            vec![],
-        );
-        let request = TestRequest::post()
-            .uri("/transactions")
-            .set_json(&new_transaction)
-            .to_request();
-        let response = test::call_service(&service, request).await;
-        test::read_body_json(response).await
-    };
+    let new_transaction = NewTransaction::new(
+        "Misc".to_string(),
+        Some("Bob".to_string()),
+        None,
+        NaiveDate::from_str("2021-06-09").unwrap(),
+        Decimal::from_str("100").unwrap(),
+        vec![],
+    );
+    let transaction: Transaction = create_transaction!(&service, new_transaction);
 
     let request = TestRequest::get()
         .uri(format!("/transactions/{}", transaction.id).as_str())
@@ -59,11 +52,7 @@ async fn test_get_transaction(database_pool: &DbPool) {
     let returned_transaction = test::read_body_json(response).await;
     assert_eq!(transaction, returned_transaction);
 
-    let delete_request = TestRequest::delete()
-        .uri(format!("/transactions/{}", transaction.id).as_str())
-        .to_request();
-    let delete_response = test::call_service(&service, delete_request).await;
-    assert!(delete_response.status().is_success());
+    delete_transaction!(&service, transaction.id);
 
     utils::delete_user(database_pool, &user_id);
 }

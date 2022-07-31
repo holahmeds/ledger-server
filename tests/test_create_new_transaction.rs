@@ -41,28 +41,13 @@ async fn test_create_api_response(database_pool: &DbPool) {
         Decimal::from_str("20").unwrap(),
         vec![],
     );
-    let request = TestRequest::post()
-        .uri("/transactions")
-        .set_json(&new_transaction)
-        .to_request();
-    let response = test::call_service(&service, request).await;
-
-    assert!(
-        response.status().is_success(),
-        "response status was {}",
-        response.status()
-    );
-
-    let response_transaction: Transaction = test::read_body_json(response).await;
+    let response_transaction: Transaction = create_transaction!(&service, new_transaction);
     assert_eq!(new_transaction.category, response_transaction.category);
     assert_eq!(new_transaction.transactee, response_transaction.transactee);
     assert_eq!(new_transaction.category, response_transaction.category);
     assert_eq!(new_transaction.category, response_transaction.category);
 
-    let delete_request = TestRequest::delete()
-        .uri(format!("/transactions/{}", response_transaction.id).as_str())
-        .to_request();
-    test::call_service(&service, delete_request).await;
+    delete_transaction!(&service, response_transaction.id);
 
     utils::delete_user(database_pool, &user_id);
 }

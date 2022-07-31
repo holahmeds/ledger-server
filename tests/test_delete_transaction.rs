@@ -38,19 +38,7 @@ async fn test_delete_transaction(database_pool: &DbPool) {
         Decimal::from_str("5.10").unwrap(),
         vec!["Monthly".to_string()],
     );
-    let transaction: Transaction = {
-        let request = TestRequest::post()
-            .uri("/transactions")
-            .set_json(&new_transaction)
-            .to_request();
-        let response = test::call_service(&service, request).await;
-        assert!(
-            response.status().is_success(),
-            "Failed to create transaction. Response status {}",
-            response.status()
-        );
-        test::read_body_json(response).await
-    };
+    let transaction: Transaction = create_transaction!(&service, new_transaction);
 
     let request = TestRequest::delete()
         .uri(format!("/transactions/{}", transaction.id).as_str())

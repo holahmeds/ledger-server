@@ -67,10 +67,7 @@ async fn test_update_transaction(database_pool: &DbPool) {
     assert_ne!(transaction, updated_transaction);
     assert_eq!(updated_transaction.transactee, update.transactee);
 
-    let delete_request = TestRequest::delete()
-        .uri(format!("/transactions/{}", transaction.id).as_str())
-        .to_request();
-    test::call_service(&service, delete_request).await;
+    delete_transaction!(&service, transaction.id);
 
     utils::delete_user(database_pool, &user_id);
 }
@@ -93,14 +90,7 @@ async fn test_update_tags(database_pool: &DbPool) {
         Decimal::from_str("11.12").unwrap(),
         vec!["tag1".to_string(), "tag2".to_string()],
     );
-    let transaction: Transaction = {
-        let request = TestRequest::post()
-            .uri("/transactions")
-            .set_json(&new_transaction)
-            .to_request();
-        let response = test::call_service(&service, request).await;
-        read_body_json(response).await
-    };
+    let transaction: Transaction = create_transaction!(&service, new_transaction);
 
     let update = NewTransaction::new(
         new_transaction.category,
@@ -122,10 +112,7 @@ async fn test_update_tags(database_pool: &DbPool) {
     assert_eq!(updated_transaction.transactee, update.transactee);
     assert_eq!(updated_transaction.tags, update.tags);
 
-    let delete_request = TestRequest::delete()
-        .uri(format!("/transactions/{}", transaction.id).as_str())
-        .to_request();
-    test::call_service(&service, delete_request).await;
+    delete_transaction!(&service, transaction.id);
 
     utils::delete_user(database_pool, &user_id);
 }

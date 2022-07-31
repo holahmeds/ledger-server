@@ -33,6 +33,36 @@ macro_rules! build_app {
     };
 }
 
+macro_rules! create_transaction {
+    (&$service:ident, $new_transaction:ident) => {{
+        let request = TestRequest::post()
+            .uri("/transactions")
+            .set_json(&$new_transaction)
+            .to_request();
+        let response = test::call_service(&$service, request).await;
+        assert!(
+            response.status().is_success(),
+            "Got {} response when creating transaction",
+            response.status()
+        );
+        test::read_body_json(response).await
+    }};
+}
+
+macro_rules! delete_transaction {
+    (&$service:ident, $transaction_id:expr) => {{
+        let delete_request = TestRequest::delete()
+            .uri(format!("/transactions/{}", $transaction_id).as_str())
+            .to_request();
+        let response = test::call_service(&$service, delete_request).await;
+        assert!(
+            response.status().is_success(),
+            "Got {} response when deleting transaction",
+            response.status()
+        )
+    }};
+}
+
 #[derive(Deserialize)]
 struct TestConfig {
     database_url: String,

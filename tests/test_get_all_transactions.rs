@@ -53,12 +53,7 @@ async fn test_get_all_transactions(database_pool: &DbPool) {
 
     let mut inserted_transactions: Vec<Transaction> = vec![];
     for t in new_transactions {
-        let request = TestRequest::post()
-            .uri("/transactions")
-            .set_json(&t)
-            .to_request();
-        let response = test::call_service(&service, request).await;
-        let transaction = test::read_body_json(response).await;
+        let transaction = create_transaction!(&service, t);
         inserted_transactions.push(transaction);
     }
 
@@ -70,10 +65,7 @@ async fn test_get_all_transactions(database_pool: &DbPool) {
     assert_eq!(inserted_transactions, transactions);
 
     for t in inserted_transactions {
-        let delete_request = TestRequest::delete()
-            .uri(format!("/transactions/{}", t.id).as_str())
-            .to_request();
-        test::call_service(&service, delete_request).await;
+        delete_transaction!(&service, t.id);
     }
 
     utils::delete_user(database_pool, &user_id);
