@@ -6,8 +6,9 @@ use crate::user::UserId;
 use crate::{user, DbPool};
 use actix_web::{web, HttpRequest, HttpResponse, Responder};
 use serde::Deserialize;
+use serde::Serialize;
 
-#[derive(Deserialize)]
+#[derive(Serialize, Deserialize)]
 pub struct UserCredentials {
     pub id: UserId,
     pub password: String,
@@ -51,7 +52,7 @@ pub async fn get_token(
     let matched = password::verify_password(credentials.password, user.password_hash)?;
     if matched {
         let jwt_auth = req.app_data::<JWTAuth>().unwrap();
-        Ok(HttpResponse::Ok().body(jwt_auth.create_token_for_user(user.id)))
+        Ok(HttpResponse::Ok().body(jwt_auth.create_token(user.id)))
     } else {
         Ok(HttpResponse::Unauthorized().finish())
     }

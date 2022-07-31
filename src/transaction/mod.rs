@@ -2,6 +2,7 @@ use chrono::NaiveDate;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 
+use crate::user::UserId;
 use models::NewTransactionEntry;
 use models::TransactionEntry;
 
@@ -82,13 +83,14 @@ impl NewTransaction {
         }
     }
 
-    fn split_tags(self) -> (NewTransactionEntry, Vec<String>) {
+    fn split_tags(self, user_id: UserId) -> (NewTransactionEntry, Vec<String>) {
         let new_transaction_entry = NewTransactionEntry {
             category: self.category,
             transactee: self.transactee,
             note: self.note,
             date: self.date,
             amount: self.amount,
+            user_id,
         };
         (new_transaction_entry, self.tags)
     }

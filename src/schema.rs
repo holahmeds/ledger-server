@@ -13,6 +13,7 @@ table! {
         note -> Nullable<Varchar>,
         date -> Date,
         amount -> Numeric,
+        user_id -> Varchar,
     }
 }
 
@@ -24,6 +25,7 @@ table! {
 }
 
 joinable!(transaction_tags -> transactions (transaction_id));
+joinable!(transactions -> users (user_id));
 
 allow_tables_to_appear_in_same_query!(
     transaction_tags,

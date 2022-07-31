@@ -7,6 +7,7 @@ use rust_decimal::Decimal;
 
 use crate::schema::transaction_tags;
 use crate::schema::transactions;
+use crate::user::UserId;
 
 use super::{NewTransaction, Transaction};
 
@@ -19,6 +20,7 @@ pub struct TransactionEntry {
     pub note: Option<String>,
     pub date: NaiveDate,
     pub amount: Decimal,
+    pub user_id: UserId,
 }
 
 #[derive(Insertable, AsChangeset)]
@@ -29,6 +31,7 @@ pub struct NewTransactionEntry {
     pub note: Option<String>,
     pub date: NaiveDate,
     pub amount: Decimal,
+    pub user_id: UserId,
 }
 
 #[derive(Associations, Identifiable, Queryable, Insertable)]
@@ -39,11 +42,18 @@ struct TransactionTag {
     pub tag: String,
 }
 
-pub fn get_transaction(db_conn: &PgConnection, transaction_id: i32) -> Result<Transaction, Error> {
+pub fn get_transaction(
+    db_conn: &PgConnection,
+    user: UserId,
+    transaction_id: i32,
+) -> Result<Transaction, Error> {
     use crate::schema::transaction_tags::columns::tag;
     use crate::schema::transactions::dsl::*;
 
-    let transaction_entry: TransactionEntry = transactions.find(transaction_id).first(db_conn)?;
+    let transaction_entry: TransactionEntry = transactions
+        .find(transaction_id)
+        .filter(user_id.eq(user))
+        .get_result(db_conn)?;
     let transaction_tags = TransactionTag::belonging_to(&transaction_entry)
         .select(tag)
         .load::<String>(db_conn)?;
@@ -54,8 +64,13 @@ pub fn get_transaction(db_conn: &PgConnection, transaction_id: i32) -> Result<Tr
     ))
 }
 
-pub fn get_all_transactions(db_conn: &PgConnection) -> Result<Vec<Transaction>, Error> {
-    let transactions_entries = transactions::table.load(db_conn)?;
+pub fn get_all_transactions(
+    db_conn: &PgConnection,
+    user: UserId,
+) -> Result<Vec<Transaction>, Error> {
+    let transactions_entries = transactions::table
+        .filter(transactions::user_id.eq(user))
+        .load(db_conn)?;
     let transaction_tags = TransactionTag::belonging_to(&transactions_entries)
         .load::<TransactionTag>(db_conn)?
         .grouped_by(&transactions_entries);
@@ -73,9 +88,10 @@ pub fn get_all_transactions(db_conn: &PgConnection) -> Result<Vec<Transaction>, 
 
 pub fn create_new_transaction(
     db_conn: &PgConnection,
+    user: UserId,
     new_transaction: NewTransaction,
 ) -> Result<Transaction, Error> {
-    let (new_transaction_entry, tags) = new_transaction.split_tags();
+    let (new_transaction_entry, tags) = new_transaction.split_tags(user);
 
     let transaction_entry: TransactionEntry = diesel::insert_into(transactions::table)
         .values(new_transaction_entry)
@@ -98,14 +114,19 @@ pub fn create_new_transaction(
 
 pub fn update_transaction(
     db_conn: &PgConnection,
+    user: UserId,
     transaction_id: i32,
     updated_transaction: NewTransaction,
 ) -> Result<Transaction, Error> {
-    let (new_transaction_entry, updated_tags) = updated_transaction.split_tags();
+    let (new_transaction_entry, updated_tags) = updated_transaction.split_tags(user.clone());
 
-    let transaction_entry = diesel::update(transactions::table.find(transaction_id))
-        .set(new_transaction_entry)
-        .get_result(db_conn)?;
+    let transaction_entry = diesel::update(
+        transactions::table
+            .find(transaction_id)
+            .filter(transactions::user_id.eq(user)),
+    )
+    .set(new_transaction_entry)
+    .get_result(db_conn)?;
 
     let existing_tags: Vec<String> = transaction_tags::table
         .filter(transaction_tags::transaction_id.eq(transaction_id))
@@ -144,6 +165,7 @@ pub fn update_transaction(
 
 pub fn delete_transaction(
     db_conn: &PgConnection,
+    user: UserId,
     transaction_id: i32,
 ) -> Result<Transaction, Error> {
     let tag_list = transaction_tags::table
@@ -151,8 +173,12 @@ pub fn delete_transaction(
         .select(transaction_tags::tag)
         .load::<String>(db_conn)?;
 
-    let transaction_entry =
-        diesel::delete(transactions::table.find(transaction_id)).get_result(db_conn)?;
+    let transaction_entry = diesel::delete(
+        transactions::table
+            .find(transaction_id)
+            .filter(transactions::user_id.eq(user)),
+    )
+    .get_result(db_conn)?;
 
     Ok(Transaction::from_entry_and_tags(
         transaction_entry,
@@ -160,28 +186,32 @@ pub fn delete_transaction(
     ))
 }
 
-pub fn get_all_categories(db_conn: &PgConnection) -> Result<Vec<String>, Error> {
+pub fn get_all_categories(db_conn: &PgConnection, user: UserId) -> Result<Vec<String>, Error> {
     use crate::schema::transactions::dsl::*;
 
     transactions
+        .filter(user_id.eq(user))
         .select(category)
         .distinct()
         .load::<String>(db_conn)
 }
 
-pub fn get_all_tags(db_conn: &PgConnection) -> Result<Vec<String>, Error> {
+pub fn get_all_tags(db_conn: &PgConnection, user: UserId) -> Result<Vec<String>, Error> {
     use crate::schema::transaction_tags::dsl::*;
 
     transaction_tags
+        .left_join(transactions::table)
+        .filter(transactions::user_id.eq(user))
         .select(tag)
         .distinct()
         .load::<String>(db_conn)
 }
 
-pub fn get_all_transactees(db_conn: &PgConnection) -> Result<Vec<String>, Error> {
+pub fn get_all_transactees(db_conn: &PgConnection, user: UserId) -> Result<Vec<String>, Error> {
     use crate::schema::transactions::dsl::*;
 
     let results = transactions
+        .filter(user_id.eq(user))
         .select(transactee)
         .distinct()
         .load::<Option<String>>(db_conn)?;

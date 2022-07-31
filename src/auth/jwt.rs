@@ -13,7 +13,7 @@ pub struct JWTAuth {
 #[derive(Serialize, Deserialize)]
 struct Claims {
     exp: usize,
-    sub: Option<UserId>,
+    sub: UserId,
 }
 
 impl JWTAuth {
@@ -26,28 +26,16 @@ impl JWTAuth {
         })
     }
 
-    pub fn create_token(&self) -> String {
+    pub fn create_token(&self, user_id: UserId) -> String {
         let claims = Claims {
             exp: Self::generate_exp(),
-            sub: None,
+            sub: user_id,
         };
 
         jsonwebtoken::encode(&Header::default(), &claims, &self.encoding_key).unwrap()
     }
 
-    pub fn create_token_for_user(&self, user_id: UserId) -> String {
-        let claims = Claims {
-            exp: Self::generate_exp(),
-            sub: Some(user_id),
-        };
-
-        jsonwebtoken::encode(&Header::default(), &claims, &self.encoding_key).unwrap()
-    }
-
-    pub fn validate_token(
-        &self,
-        token: &str,
-    ) -> Result<Option<UserId>, jsonwebtoken::errors::Error> {
+    pub fn validate_token(&self, token: &str) -> Result<UserId, jsonwebtoken::errors::Error> {
         let claim =
             jsonwebtoken::decode::<Claims>(token, &self.decoding_key, &Validation::default())?;
         Ok(claim.claims.sub)
@@ -72,13 +60,7 @@ mod tests {
         let secret = base64::encode(secret);
         let jwt_auth = JWTAuth::from_base64_secret(secret).unwrap();
 
-        let token = jwt_auth.create_token();
-        assert_eq!(jwt_auth.validate_token(&token).unwrap(), None);
-
-        let token = jwt_auth.create_token_for_user("alice".into());
-        assert_eq!(
-            jwt_auth.validate_token(&token).unwrap(),
-            Some("alice".into())
-        );
+        let token = jwt_auth.create_token("alice".into());
+        assert_eq!(jwt_auth.validate_token(&token), Ok("alice".into()));
     }
 }

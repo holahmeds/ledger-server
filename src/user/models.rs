@@ -4,7 +4,7 @@ use diesel::result::Error;
 use crate::schema::users;
 use crate::user::UserId;
 
-#[derive(Insertable, Queryable, Identifiable)]
+#[derive(Insertable, Queryable, Identifiable, Clone)]
 #[table_name = "users"]
 pub struct User {
     pub id: UserId,

@@ -57,7 +57,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
     embedded_migrations::run_with_output(&connection, &mut std::io::stdout())?;
 
     let jwt_auth = JWTAuth::from_base64_secret(config.secret).unwrap();
-    info!("Token: {}", jwt_auth.create_token());
     let bearer_auth_middleware = HttpAuthentication::bearer(auth::request_validator);
 
     HttpServer::new(move || {
