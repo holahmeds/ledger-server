@@ -14,6 +14,25 @@ use ledger::DbPool;
 
 pub mod mock;
 
+macro_rules! build_app {
+    ($pool:ident, $user_id:ident) => {
+        App::new()
+            .app_data(Data::new($pool.clone()))
+            .wrap(ledger::tracing::create_middleware())
+            .service(
+                web::scope("/transactions")
+                    .service(handlers::get_transaction)
+                    .service(handlers::get_all_transactions)
+                    .service(handlers::create_new_transaction)
+                    .service(handlers::update_transaction)
+                    .service(handlers::delete_transaction)
+                    .wrap(MockAuthentication {
+                        user_id: $user_id.clone(),
+                    }),
+            )
+    };
+}
+
 #[derive(Deserialize)]
 struct TestConfig {
     database_url: String,

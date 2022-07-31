@@ -19,6 +19,7 @@ use ledger::user::UserId;
 use ledger::DbPool;
 use utils::database_pool;
 
+#[macro_use]
 mod utils;
 
 #[instrument(skip(database_pool))]
@@ -28,16 +29,7 @@ async fn test_get_all_transactions(database_pool: &DbPool) {
     let user_id: UserId = "test-user".into();
     utils::create_user(database_pool, &user_id);
 
-    let state = Data::new(database_pool.clone());
-    let app = App::new().app_data(state).service(
-        web::scope("/transactions")
-            .service(handlers::get_all_transactions)
-            .service(handlers::create_new_transaction)
-            .service(handlers::delete_transaction)
-            .wrap(MockAuthentication {
-                user_id: user_id.clone(),
-            }),
-    );
+    let app = build_app!(database_pool, user_id);
     let service = test::init_service(app).await;
 
     let new_transactions = vec![

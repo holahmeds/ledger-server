@@ -17,6 +17,7 @@ use ledger::user::UserId;
 use ledger::DbPool;
 use utils::database_pool;
 
+#[macro_use]
 mod utils;
 
 #[instrument(skip(database_pool))]
@@ -26,16 +27,7 @@ async fn test_update_transaction(database_pool: &DbPool) {
     let user_id: UserId = "test-user".into();
     utils::create_user(database_pool, &user_id);
 
-    let state = Data::new(database_pool.clone());
-    let app = App::new().app_data(state).service(
-        web::scope("/transactions")
-            .service(handlers::update_transaction)
-            .service(handlers::create_new_transaction)
-            .service(handlers::delete_transaction)
-            .wrap(MockAuthentication {
-                user_id: user_id.clone(),
-            }),
-    );
+    let app = build_app!(database_pool, user_id);
     let service = test::init_service(app).await;
 
     let new_transaction = NewTransaction::new(
@@ -90,16 +82,7 @@ async fn test_update_tags(database_pool: &DbPool) {
     let user_id: UserId = "test-user2".into();
     utils::create_user(database_pool, &user_id);
 
-    let state = Data::new(database_pool.clone());
-    let app = App::new().app_data(state).service(
-        web::scope("/transactions")
-            .service(handlers::update_transaction)
-            .service(handlers::create_new_transaction)
-            .service(handlers::delete_transaction)
-            .wrap(MockAuthentication {
-                user_id: user_id.clone(),
-            }),
-    );
+    let app = build_app!(database_pool, user_id);
     let service = test::init_service(app).await;
 
     let new_transaction = NewTransaction::new(
@@ -154,14 +137,7 @@ async fn test_update_invalid_transaction(database_pool: &DbPool) {
     let user_id: UserId = "test-user3".into();
     utils::create_user(database_pool, &user_id);
 
-    let state = Data::new(database_pool.clone());
-    let app = App::new().app_data(state).service(
-        web::scope("/")
-            .service(handlers::update_transaction)
-            .wrap(MockAuthentication {
-                user_id: user_id.clone(),
-            }),
-    );
+    let app = build_app!(database_pool, user_id);
     let service = test::init_service(app).await;
 
     let update = NewTransaction::new(
@@ -173,7 +149,7 @@ async fn test_update_invalid_transaction(database_pool: &DbPool) {
         vec![],
     );
     let request = TestRequest::put()
-        .uri(format!("/{}", 0).as_str()) // non-existent transaction ID
+        .uri(format!("/transactions/{}", 0).as_str()) // non-existent transaction ID
         .set_json(&update)
         .to_request();
     let response = test::call_service(&service, request).await;
