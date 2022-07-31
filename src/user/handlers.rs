@@ -16,7 +16,7 @@ pub async fn update_password(
     user_id: Option<web::ReqData<UserId>>,
     credentials: web::Json<NewPassword>,
 ) -> Result<impl Responder, HandlerError> {
-    if let None = user_id {
+    if user_id.is_none() {
         return Ok(HttpResponse::Unauthorized().finish());
     }
 
@@ -36,7 +36,7 @@ pub async fn delete_user(
     pool: web::Data<DbPool>,
     user_id: Option<web::ReqData<UserId>>,
 ) -> Result<impl Responder, HandlerError> {
-    if let None = user_id {
+    if user_id.is_none() {
         return Ok(HttpResponse::Unauthorized().finish());
     }
 

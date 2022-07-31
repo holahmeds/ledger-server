@@ -13,8 +13,7 @@ pub struct User {
 
 pub fn get_user(db_conn: &PgConnection, user_id: &str) -> Result<User, Error> {
     use crate::schema::users::dsl::users;
-    let result = users.find(user_id).first(db_conn);
-    result
+    users.find(user_id).first(db_conn)
 }
 
 pub fn create_user(db_conn: &PgConnection, user: User) -> Result<(), Error> {
