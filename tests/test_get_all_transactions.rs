@@ -24,9 +24,9 @@ mod utils;
 #[instrument(skip(database_pool))]
 #[rstest]
 #[actix_rt::test]
-async fn test_get_all_transactions(database_pool: DbPool) {
+async fn test_get_all_transactions(database_pool: &DbPool) {
     let user_id: UserId = "test-user".into();
-    utils::create_user(&database_pool, &user_id);
+    utils::create_user(database_pool, &user_id);
 
     let state = Data::new(database_pool.clone());
     let app = App::new().app_data(state).service(
@@ -84,5 +84,5 @@ async fn test_get_all_transactions(database_pool: DbPool) {
         test::call_service(&service, delete_request).await;
     }
 
-    utils::delete_user(&database_pool, &user_id);
+    utils::delete_user(database_pool, &user_id);
 }

@@ -22,9 +22,9 @@ mod utils;
 #[instrument(skip(database_pool))]
 #[rstest]
 #[actix_rt::test]
-async fn test_delete_transaction(database_pool: DbPool) {
+async fn test_delete_transaction(database_pool: &DbPool) {
     let user_id: UserId = "test-user".into();
-    utils::create_user(&database_pool, &user_id);
+    utils::create_user(database_pool, &user_id);
 
     let state = Data::new(database_pool.clone());
     let app = App::new().app_data(state).service(
@@ -68,15 +68,15 @@ async fn test_delete_transaction(database_pool: DbPool) {
     let deleted_transaction = test::read_body_json(response).await;
     assert_eq!(transaction, deleted_transaction);
 
-    utils::delete_user(&database_pool, &user_id);
+    utils::delete_user(database_pool, &user_id);
 }
 
 #[instrument(skip(database_pool))]
 #[rstest]
 #[actix_rt::test]
-async fn test_delete_invalid_transaction(database_pool: DbPool) {
+async fn test_delete_invalid_transaction(database_pool: &DbPool) {
     let user_id: UserId = "test-user2".into();
-    utils::create_user(&database_pool, &user_id);
+    utils::create_user(database_pool, &user_id);
 
     let state = Data::new(database_pool.clone());
     let app = App::new()
@@ -94,5 +94,5 @@ async fn test_delete_invalid_transaction(database_pool: DbPool) {
 
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
 
-    utils::delete_user(&database_pool, &user_id);
+    utils::delete_user(database_pool, &user_id);
 }
