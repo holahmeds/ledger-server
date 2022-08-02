@@ -27,6 +27,7 @@ use ledger::{auth, user};
 struct Config {
     database_url: String,
     secret: String,
+    signups_enabled: bool,
 }
 
 embed_migrations!();
@@ -60,10 +61,13 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let bearer_auth_middleware = HttpAuthentication::bearer(auth::request_validator);
 
     HttpServer::new(move || {
-        let state = Data::new(pool.clone());
+        let mut auth_scope = web::scope("/auth").service(auth::handlers::get_token);
+        if config.signups_enabled {
+            auth_scope = auth_scope.service(auth::handlers::signup);
+        }
         App::new()
             .app_data(jwt_auth.clone())
-            .app_data(state)
+            .app_data(Data::new(pool.clone()))
             .wrap(ledger::tracing::create_middleware())
             .service(
                 web::scope("/transactions")
@@ -83,11 +87,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     .service(user::handlers::delete_user)
                     .wrap(bearer_auth_middleware.clone()),
             )
-            .service(
-                web::scope("/auth")
-                    .service(auth::handlers::signup)
-                    .service(auth::handlers::get_token),
-            )
+            .service(auth_scope)
             .app_data(web::JsonConfig::default().error_handler(|err, req| {
                 error!(req_path = req.path(), %err);
                 match err {
