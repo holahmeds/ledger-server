@@ -1,6 +1,8 @@
 use chrono::NaiveDate;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
+use std::cmp::Ordering;
+use std::cmp::Ordering::Equal;
 
 use crate::user::UserId;
 use models::NewTransactionEntry;
@@ -50,6 +52,17 @@ impl Transaction {
             date: transaction_entry.date,
             amount: transaction_entry.amount,
             tags,
+        }
+    }
+}
+
+impl PartialOrd for Transaction {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        let date_ordering = self.date.partial_cmp(&other.date);
+        if let Some(Equal) = date_ordering {
+            self.id.partial_cmp(&other.id)
+        } else {
+            date_ordering
         }
     }
 }

@@ -70,6 +70,7 @@ pub fn get_all_transactions(
 ) -> Result<Vec<Transaction>, Error> {
     let transactions_entries = transactions::table
         .filter(transactions::user_id.eq(user))
+        .order((transactions::date.desc(), transactions::id.desc()))
         .load(db_conn)?;
     let transaction_tags = TransactionTag::belonging_to(&transactions_entries)
         .load::<TransactionTag>(db_conn)?
