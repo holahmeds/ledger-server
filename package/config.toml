@@ -1,0 +1,3 @@
+database_url = ""
+secret = ""
+signups_enabled = true

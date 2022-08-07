@@ -84,3 +84,7 @@ target/
 /config.toml
 /config_test.toml
 .env
+
+/package/src
+/package/pkg
+/package/ledger-server-*.pkg.tar.zst

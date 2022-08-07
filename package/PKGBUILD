@@ -1,0 +1,31 @@
+pkgname='ledger-server'
+pkgdesc='Server to sync transaction data'
+pkgver='0.2.0'
+pkgrel='1'
+arch=('x86_64')
+depends=('cargo')
+source=('ledger-server.service'
+        'ledger-server.sysusers.conf'
+        'config.toml')
+sha256sums=('3d8c31016d2e0032bb779d216d4dca4c4ea64587ca53c6792efd1a6fbcaabfba'
+            '16da37528bfc797bbda7f193db86101941047ae24943b564374ef26e8d9ad7d3'
+            '935cda930cb959f83d13f371c3f8ab1f8e454a89c700ad91d6766a2019d59f0a')
+backup=('etc/ledger/config.toml')
+
+prepare() {
+    cargo fetch --locked --target "$CARCH-unknown-linux-gnu"
+}
+
+build() {
+    export RUSTUP_TOOLCHAIN=stable
+    export CARGO_TARGET_DIR=target
+    cargo build --frozen --release --all-features
+}
+
+package() {
+    install -Dm0755 -t "$pkgdir/usr/bin/" "target/release/ledger"
+    install -D -m 644 "${srcdir}/config.toml" "${pkgdir}/etc/ledger/config.toml"
+
+    install -D -m 644 "${srcdir}/ledger-server.service" "${pkgdir}/usr/lib/systemd/system/ledger-server.service"
+    install -D -m 644 "${srcdir}/ledger-server.sysusers.conf" "${pkgdir}/usr/lib/sysusers.d/ledger-server.conf"
+}
