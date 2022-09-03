@@ -1,15 +1,15 @@
 pkgname='ledger-server'
 pkgdesc='Server to sync transaction data'
-pkgver='0.2.0'
+pkgver='0.3.0'
 pkgrel='1'
 arch=('x86_64')
 depends=('cargo')
 source=('ledger-server.service'
         'ledger-server.sysusers.conf'
         'config.toml')
-sha256sums=('3d8c31016d2e0032bb779d216d4dca4c4ea64587ca53c6792efd1a6fbcaabfba'
+sha256sums=('68282d9b2ac5247948e289ca781ad12b55b5203064d1187dfc472602b6f85ad5'
             '16da37528bfc797bbda7f193db86101941047ae24943b564374ef26e8d9ad7d3'
-            '935cda930cb959f83d13f371c3f8ab1f8e454a89c700ad91d6766a2019d59f0a')
+            'aa051c79e75217513a1800b008514c58712cc321216cb471c6b8efc13f60ddbc')
 backup=('etc/ledger/config.toml')
 
 prepare() {
