@@ -7,6 +7,7 @@ After=network-online.target
 User=ledger
 Group=ledger
 SyslogIdentifier=ledger
+ConfigurationDirectory=ledger
 ExecStart=/usr/bin/ledger
 Type=simple
 

@@ -7,7 +7,7 @@ extern crate serde_json;
 
 use std::error::Error;
 use std::fs;
-use std::path::Path;
+use std::path::PathBuf;
 
 use actix_web::error::JsonPayloadError;
 use actix_web::web::Data;
@@ -115,13 +115,15 @@ async fn main() -> Result<(), Box<dyn Error>> {
     Ok(())
 }
 
-fn get_config_file() -> Result<&'static str, &'static str> {
-    if Path::new("config.toml").exists() {
-        return Ok("config.toml");
+fn get_config_file() -> Result<PathBuf, &'static str> {
+    let config_current_dir = PathBuf::from("config.toml");
+    if config_current_dir.exists() {
+        return Ok(config_current_dir);
     }
-    if cfg!(unix) {
-        if Path::new("/etc/ledger/config.toml").exists() {
-            return Ok("/etc/ledger/config.toml");
+    if let Ok(config_env) = std::env::var("CONFIGURATION_DIRECTORY") {
+        let config_path = PathBuf::from(config_env).join("config.toml");
+        if config_path.exists() {
+            return Ok(config_path);
         }
     }
 
