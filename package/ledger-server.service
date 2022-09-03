@@ -8,6 +8,7 @@ User=ledger
 Group=ledger
 SyslogIdentifier=ledger
 ConfigurationDirectory=ledger
+StateDirectory=ledger
 ExecStart=/usr/bin/ledger
 Type=simple
 

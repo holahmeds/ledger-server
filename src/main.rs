@@ -16,6 +16,7 @@ use actix_web::{HttpResponse, HttpServer};
 use actix_web_httpauth::middleware::HttpAuthentication;
 use diesel::r2d2;
 use diesel::r2d2::ConnectionManager;
+use rand::Rng;
 use serde::Deserialize;
 use tracing::Level;
 
@@ -26,7 +27,6 @@ use ledger::{auth, user};
 #[derive(Deserialize)]
 struct Config {
     database_url: String,
-    secret: String,
     signups_enabled: bool,
 }
 
@@ -57,7 +57,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let connection = pool.get()?;
     embedded_migrations::run_with_output(&connection, &mut std::io::stdout())?;
 
-    let jwt_auth = JWTAuth::from_base64_secret(config.secret).unwrap();
+    let secret = get_secret()?;
+    let jwt_auth = JWTAuth::from_secret(secret);
     let bearer_auth_middleware = HttpAuthentication::bearer(auth::request_validator);
 
     HttpServer::new(move || {
@@ -128,4 +129,31 @@ fn get_config_file() -> Result<PathBuf, &'static str> {
     }
 
     Err("Config file not found")
+}
+
+fn get_state_dir() -> PathBuf {
+    if let Ok(state_env) = std::env::var("STATE_DIRECTORY") {
+        return PathBuf::from(state_env);
+    }
+
+    PathBuf::from("data")
+}
+
+/// Gets the secret from file. If the file does not exist it will generate a new secret and save it
+/// to the file
+fn get_secret() -> Result<Vec<u8>, Box<dyn Error>> {
+    let state_dir = get_state_dir();
+    let secret_file = state_dir.join("secret");
+    if secret_file.exists() {
+        Ok(fs::read(secret_file)?)
+    } else {
+        let mut rng = rand::thread_rng();
+        let mut secret: [u8; 128] = [0; 128];
+        rng.fill(&mut secret);
+
+        fs::create_dir_all(state_dir)?;
+        fs::write(secret_file, secret)?;
+
+        Ok(secret.to_vec())
+    }
 }

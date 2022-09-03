@@ -1,3 +1,2 @@
 database_url = "postgres://localhost/ledger"
-secret = ""
 signups_enabled = true
