@@ -5,6 +5,7 @@ use crate::user::models::User;
 use crate::user::UserId;
 use crate::{user, DbPool};
 use actix_web::{web, HttpRequest, HttpResponse, Responder};
+use anyhow::Context;
 use serde::Deserialize;
 use serde::Serialize;
 
@@ -20,20 +21,19 @@ pub async fn signup(
     credentials: web::Json<UserCredentials>,
 ) -> Result<impl Responder, HandlerError> {
     let credentials = credentials.into_inner();
-    let conn = pool.get()?;
-
     let password_hash = password::encode_password(credentials.password)?;
 
     web::block(move || {
         user::models::create_user(
-            &conn,
+            &pool,
             User {
                 id: credentials.id,
                 password_hash,
             },
         )
     })
-    .await??;
+    .await
+    .context("Blocking error")??;
 
     Ok(HttpResponse::Ok())
 }
@@ -45,9 +45,10 @@ pub async fn get_token(
     req: HttpRequest,
 ) -> Result<impl Responder, HandlerError> {
     let credentials = credentials.into_inner();
-    let con = pool.get()?;
 
-    let user = web::block(move || user::models::get_user(&con, &credentials.id)).await??;
+    let user = web::block(move || user::models::get_user(&pool, &credentials.id))
+        .await
+        .context("Blocking error")??;
 
     let matched = password::verify_password(credentials.password, user.password_hash)?;
     if matched {

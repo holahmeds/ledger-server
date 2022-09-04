@@ -1,4 +1,5 @@
 use actix_web::{web, HttpResponse, Responder};
+use anyhow::Context;
 use serde::Deserialize;
 
 use crate::error::HandlerError;
@@ -20,13 +21,12 @@ pub async fn update_password(
         return Ok(HttpResponse::Unauthorized().finish());
     }
 
-    let conn = pool.get()?;
-
     let password_hash = auth::password::encode_password(credentials.into_inner().new_password)?;
     web::block(move || {
-        models::update_password_hash(&conn, &user_id.unwrap().into_inner(), &password_hash)
+        models::update_password_hash(&pool, &user_id.unwrap().into_inner(), &password_hash)
     })
-    .await??;
+    .await
+    .context("Blocking error")??;
 
     Ok(HttpResponse::Ok().finish())
 }
@@ -40,9 +40,9 @@ pub async fn delete_user(
         return Ok(HttpResponse::Unauthorized().finish());
     }
 
-    let conn = pool.get()?;
-
-    web::block(move || models::delete_user(&conn, &user_id.unwrap().into_inner())).await??;
+    web::block(move || models::delete_user(&pool, &user_id.unwrap().into_inner()))
+        .await
+        .context("Blocking error")??;
 
     Ok(HttpResponse::Ok().finish())
 }

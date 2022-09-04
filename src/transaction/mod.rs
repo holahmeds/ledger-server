@@ -9,7 +9,7 @@ use models::NewTransactionEntry;
 use models::TransactionEntry;
 
 pub mod handlers;
-mod models;
+pub mod models;
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]
 pub struct Transaction {

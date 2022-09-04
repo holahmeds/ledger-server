@@ -1,6 +1,7 @@
 use actix_web::web;
 use actix_web::HttpResponse;
 use actix_web::Responder;
+use anyhow::Context;
 
 use crate::error::HandlerError;
 use crate::user::UserId;
@@ -15,12 +16,11 @@ pub async fn get_transaction(
     user_id: web::ReqData<UserId>,
     transaction_id: web::Path<i32>,
 ) -> Result<impl Responder, HandlerError> {
-    let conn = pool.get()?;
-
     let transaction = web::block(move || {
-        models::get_transaction(&conn, user_id.into_inner(), transaction_id.into_inner())
+        models::get_transaction(&pool, user_id.into_inner(), transaction_id.into_inner())
     })
-    .await??;
+    .await
+    .context("Blocking error")??;
     Ok(HttpResponse::Ok().json(transaction))
 }
 
@@ -29,10 +29,9 @@ pub async fn get_all_transactions(
     pool: web::Data<DbPool>,
     user_id: web::ReqData<UserId>,
 ) -> Result<impl Responder, HandlerError> {
-    let conn = pool.get()?;
-
-    let transaction =
-        web::block(move || models::get_all_transactions(&conn, user_id.into_inner())).await??;
+    let transaction = web::block(move || models::get_all_transactions(&pool, user_id.into_inner()))
+        .await
+        .context("Blocking error")??;
     Ok(HttpResponse::Ok().json(transaction))
 }
 
@@ -42,12 +41,11 @@ pub async fn create_new_transaction(
     user_id: web::ReqData<UserId>,
     new_transaction: web::Json<NewTransaction>,
 ) -> Result<impl Responder, HandlerError> {
-    let conn = pool.get()?;
-
     let transaction = web::block(move || {
-        models::create_new_transaction(&conn, user_id.into_inner(), new_transaction.into_inner())
+        models::create_new_transaction(&pool, user_id.into_inner(), new_transaction.into_inner())
     })
-    .await??;
+    .await
+    .context("Blocking error")??;
     Ok(HttpResponse::Ok().json(transaction))
 }
 
@@ -58,17 +56,16 @@ pub async fn update_transaction(
     transaction_id: web::Path<i32>,
     updated_transaction: web::Json<NewTransaction>,
 ) -> Result<impl Responder, HandlerError> {
-    let conn = pool.get()?;
-
     let transaction = web::block(move || {
         models::update_transaction(
-            &conn,
+            &pool,
             user_id.into_inner(),
             transaction_id.into_inner(),
             updated_transaction.into_inner(),
         )
     })
-    .await??;
+    .await
+    .context("Blocking error")??;
     Ok(HttpResponse::Ok().json(transaction))
 }
 
@@ -78,12 +75,11 @@ pub async fn delete_transaction(
     user_id: web::ReqData<UserId>,
     transaction_id: web::Path<i32>,
 ) -> Result<impl Responder, HandlerError> {
-    let conn = pool.get()?;
-
     let transaction = web::block(move || {
-        models::delete_transaction(&conn, user_id.into_inner(), transaction_id.into_inner())
+        models::delete_transaction(&pool, user_id.into_inner(), transaction_id.into_inner())
     })
-    .await??;
+    .await
+    .context("Blocking error")??;
     Ok(HttpResponse::Ok().json(transaction))
 }
 
@@ -92,10 +88,9 @@ pub async fn get_all_categories(
     pool: web::Data<DbPool>,
     user_id: web::ReqData<UserId>,
 ) -> Result<impl Responder, HandlerError> {
-    let conn = pool.get()?;
-
-    let categories =
-        web::block(move || models::get_all_categories(&conn, user_id.into_inner())).await??;
+    let categories = web::block(move || models::get_all_categories(&pool, user_id.into_inner()))
+        .await
+        .context("Blocking error")??;
     Ok(HttpResponse::Ok().json(categories))
 }
 
@@ -104,9 +99,9 @@ pub async fn get_all_tags(
     pool: web::Data<DbPool>,
     user_id: web::ReqData<UserId>,
 ) -> Result<impl Responder, HandlerError> {
-    let conn = pool.get()?;
-
-    let tags = web::block(move || models::get_all_tags(&conn, user_id.into_inner())).await??;
+    let tags = web::block(move || models::get_all_tags(&pool, user_id.into_inner()))
+        .await
+        .context("Blocking error")??;
     Ok(HttpResponse::Ok().json(tags))
 }
 
@@ -115,9 +110,8 @@ pub async fn get_all_transactees(
     pool: web::Data<DbPool>,
     user_id: web::ReqData<UserId>,
 ) -> Result<impl Responder, HandlerError> {
-    let conn = pool.get()?;
-
-    let transactees =
-        web::block(move || models::get_all_transactees(&conn, user_id.into_inner())).await??;
+    let transactees = web::block(move || models::get_all_transactees(&pool, user_id.into_inner()))
+        .await
+        .context("Blocking error")??;
     Ok(HttpResponse::Ok().json(transactees))
 }

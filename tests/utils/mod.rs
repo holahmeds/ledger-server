@@ -1,15 +1,13 @@
 use std::fs;
 
 use diesel::r2d2::{ConnectionManager, Pool};
-use diesel::result::DatabaseErrorKind;
-use diesel::result::Error::DatabaseError;
 use rstest::*;
 use serde::Deserialize;
 use tracing::instrument;
 use tracing::Level;
 use tracing::{info, warn};
 
-use ledger::user::models::User;
+use ledger::user::models::{User, UserRepoError};
 use ledger::DbPool;
 
 pub mod mock;
@@ -94,14 +92,13 @@ pub fn create_user(database_pool: &DbPool, user_id: &str) {
         id: user_id.to_string(),
         password_hash: ledger::auth::password::encode_password("pass".to_string()).unwrap(),
     };
-    let db_conn = database_pool.get().unwrap();
-    let result = ledger::user::models::create_user(&db_conn, user);
-    if let Err(DatabaseError(DatabaseErrorKind::UniqueViolation, _)) = result {
+    let result = ledger::user::models::create_user(&database_pool, user);
+    if let Err(UserRepoError::UserNotFound(_)) = result {
         warn!("User already existed");
     }
 }
 
 #[instrument(skip(database_pool))]
 pub fn delete_user(database_pool: &DbPool, user_id: &str) {
-    ledger::user::models::delete_user(&database_pool.get().unwrap(), user_id).unwrap();
+    ledger::user::models::delete_user(&database_pool, user_id).unwrap();
 }

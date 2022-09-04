@@ -1,15 +1,25 @@
+use anyhow::Context;
 use chrono::NaiveDate;
 use diesel::prelude::*;
-use diesel::result::Error;
 use diesel::Insertable;
 use diesel::Queryable;
 use rust_decimal::Decimal;
+use thiserror::Error;
 
 use crate::schema::transaction_tags;
 use crate::schema::transactions;
 use crate::user::UserId;
+use crate::DbPool;
 
 use super::{NewTransaction, Transaction};
+
+#[derive(Error, Debug)]
+pub enum TransactionRepoError {
+    #[error("Transaction with id {0} not found")]
+    TransactionNotFound(i32),
+    #[error(transparent)]
+    Other(#[from] anyhow::Error),
+}
 
 #[derive(Queryable, Identifiable)]
 #[table_name = "transactions"]
@@ -43,20 +53,28 @@ struct TransactionTag {
 }
 
 pub fn get_transaction(
-    db_conn: &PgConnection,
+    pool: &DbPool,
     user: UserId,
     transaction_id: i32,
-) -> Result<Transaction, Error> {
-    use crate::schema::transaction_tags::columns::tag;
+) -> Result<Transaction, TransactionRepoError> {
     use crate::schema::transactions::dsl::*;
+
+    let db_conn = pool.get().context("Unable to get connection from pool")?;
 
     let transaction_entry: TransactionEntry = transactions
         .find(transaction_id)
         .filter(user_id.eq(user))
-        .get_result(db_conn)?;
-    let transaction_tags = TransactionTag::belonging_to(&transaction_entry)
-        .select(tag)
-        .load::<String>(db_conn)?;
+        .get_result(&db_conn)
+        .map_err(|e| match e {
+            diesel::result::Error::NotFound => {
+                TransactionRepoError::TransactionNotFound(transaction_id)
+            }
+            _ => TransactionRepoError::Other(anyhow::Error::new(e).context(format!(
+                "Unable to get transaction {} from database",
+                transaction_id
+            ))),
+        })?;
+    let transaction_tags = get_tags(&db_conn, transaction_id)?;
 
     Ok(Transaction::from_entry_and_tags(
         transaction_entry,
@@ -65,15 +83,19 @@ pub fn get_transaction(
 }
 
 pub fn get_all_transactions(
-    db_conn: &PgConnection,
+    pool: &DbPool,
     user: UserId,
-) -> Result<Vec<Transaction>, Error> {
+) -> Result<Vec<Transaction>, TransactionRepoError> {
+    let db_conn = pool.get().context("Unable to get connection from pool")?;
+
     let transactions_entries = transactions::table
         .filter(transactions::user_id.eq(user))
         .order((transactions::date.desc(), transactions::id.desc()))
-        .load(db_conn)?;
+        .load(&db_conn)
+        .context("Unable to retrieve transactions")?;
     let transaction_tags = TransactionTag::belonging_to(&transactions_entries)
-        .load::<TransactionTag>(db_conn)?
+        .load::<TransactionTag>(&db_conn)
+        .context("Unable to retrieve tags for transactions")?
         .grouped_by(&transactions_entries);
 
     let transactions_list = transactions_entries
@@ -88,37 +110,32 @@ pub fn get_all_transactions(
 }
 
 pub fn create_new_transaction(
-    db_conn: &PgConnection,
+    pool: &DbPool,
     user: UserId,
     new_transaction: NewTransaction,
-) -> Result<Transaction, Error> {
+) -> Result<Transaction, TransactionRepoError> {
+    let db_conn = pool.get().context("Unable to get connection from pool")?;
+
     let (new_transaction_entry, tags) = new_transaction.split_tags(user);
 
     let transaction_entry: TransactionEntry = diesel::insert_into(transactions::table)
         .values(new_transaction_entry)
-        .get_result(db_conn)?;
+        .get_result(&db_conn)
+        .context("Unable to insert transaction")?;
 
-    let transaction_tag_list: Vec<TransactionTag> = tags
-        .clone()
-        .into_iter()
-        .map(|t| TransactionTag {
-            transaction_id: transaction_entry.id,
-            tag: t,
-        })
-        .collect();
-    diesel::insert_into(transaction_tags::table)
-        .values(transaction_tag_list)
-        .execute(db_conn)?;
+    add_tags(&db_conn, transaction_entry.id, tags.clone())?;
 
     Ok(Transaction::from_entry_and_tags(transaction_entry, tags))
 }
 
 pub fn update_transaction(
-    db_conn: &PgConnection,
+    pool: &DbPool,
     user: UserId,
     transaction_id: i32,
     updated_transaction: NewTransaction,
-) -> Result<Transaction, Error> {
+) -> Result<Transaction, TransactionRepoError> {
+    let db_conn = pool.get().context("Unable to get connection from pool")?;
+
     let (new_transaction_entry, updated_tags) = updated_transaction.split_tags(user.clone());
 
     let transaction_entry = diesel::update(
@@ -127,25 +144,25 @@ pub fn update_transaction(
             .filter(transactions::user_id.eq(user)),
     )
     .set(new_transaction_entry)
-    .get_result(db_conn)?;
+    .get_result(&db_conn)
+    .map_err(|e| match e {
+        diesel::result::Error::NotFound => {
+            TransactionRepoError::TransactionNotFound(transaction_id)
+        }
+        _ => TransactionRepoError::Other(
+            anyhow::Error::new(e)
+                .context(format!("Unable to update transaction {}", transaction_id)),
+        ),
+    })?;
 
-    let existing_tags: Vec<String> = transaction_tags::table
-        .filter(transaction_tags::transaction_id.eq(transaction_id))
-        .select(transaction_tags::tag)
-        .load(db_conn)?;
+    let existing_tags: Vec<String> = get_tags(&db_conn, transaction_id)?;
 
-    let new_tags: Vec<TransactionTag> = updated_tags
+    let new_tags: Vec<String> = updated_tags
         .clone()
         .into_iter()
         .filter(|t| !existing_tags.contains(t))
-        .map(|t| TransactionTag {
-            transaction_id,
-            tag: t,
-        })
         .collect();
-    diesel::insert_into(transaction_tags::table)
-        .values(new_tags)
-        .execute(db_conn)?;
+    add_tags(&db_conn, transaction_id, new_tags)?;
 
     let removed_tags: Vec<&String> = existing_tags
         .iter()
@@ -156,7 +173,8 @@ pub fn update_transaction(
             .filter(transaction_tags::transaction_id.eq(transaction_id))
             .filter(transaction_tags::tag.eq_any(removed_tags)),
     )
-    .execute(db_conn)?;
+    .execute(&db_conn)
+    .with_context(|| format!("Unable to remove tags for transaction {}", transaction_id))?;
 
     Ok(Transaction::from_entry_and_tags(
         transaction_entry,
@@ -165,21 +183,29 @@ pub fn update_transaction(
 }
 
 pub fn delete_transaction(
-    db_conn: &PgConnection,
+    pool: &DbPool,
     user: UserId,
     transaction_id: i32,
-) -> Result<Transaction, Error> {
-    let tag_list = transaction_tags::table
-        .filter(transaction_tags::transaction_id.eq(transaction_id))
-        .select(transaction_tags::tag)
-        .load::<String>(db_conn)?;
+) -> Result<Transaction, TransactionRepoError> {
+    let db_conn = pool.get().context("Unable to get connection from pool")?;
+
+    let tag_list = get_tags(&db_conn, transaction_id)?;
 
     let transaction_entry = diesel::delete(
         transactions::table
             .find(transaction_id)
             .filter(transactions::user_id.eq(user)),
     )
-    .get_result(db_conn)?;
+    .get_result(&db_conn)
+    .map_err(|e| match e {
+        diesel::result::Error::NotFound => {
+            TransactionRepoError::TransactionNotFound(transaction_id)
+        }
+        _ => TransactionRepoError::Other(
+            anyhow::Error::new(e)
+                .context(format!("Unable to delete transaction {}", transaction_id)),
+        ),
+    })?;
 
     Ok(Transaction::from_entry_and_tags(
         transaction_entry,
@@ -187,37 +213,86 @@ pub fn delete_transaction(
     ))
 }
 
-pub fn get_all_categories(db_conn: &PgConnection, user: UserId) -> Result<Vec<String>, Error> {
+pub fn get_all_categories(
+    pool: &DbPool,
+    user: UserId,
+) -> Result<Vec<String>, TransactionRepoError> {
     use crate::schema::transactions::dsl::*;
 
-    transactions
-        .filter(user_id.eq(user))
+    let db_conn = pool.get().context("Unable to get connection from pool")?;
+
+    let categories = transactions
+        .filter(user_id.eq(&user))
         .select(category)
         .distinct()
-        .load::<String>(db_conn)
+        .load::<String>(&db_conn)
+        .with_context(|| format!("Unable to get all categories for user {}", user))?;
+    Ok(categories)
 }
 
-pub fn get_all_tags(db_conn: &PgConnection, user: UserId) -> Result<Vec<String>, Error> {
+pub fn get_all_tags(pool: &DbPool, user: UserId) -> Result<Vec<String>, TransactionRepoError> {
     use crate::schema::transaction_tags::dsl::*;
 
-    transaction_tags
+    let db_conn = pool.get().context("Unable to get connection from pool")?;
+
+    let tags = transaction_tags
         .left_join(transactions::table)
-        .filter(transactions::user_id.eq(user))
+        .filter(transactions::user_id.eq(&user))
         .select(tag)
         .distinct()
-        .load::<String>(db_conn)
+        .load::<String>(&db_conn)
+        .with_context(|| format!("Unable to get all tags for user {}", user))?;
+    Ok(tags)
 }
 
-pub fn get_all_transactees(db_conn: &PgConnection, user: UserId) -> Result<Vec<String>, Error> {
+pub fn get_all_transactees(
+    pool: &DbPool,
+    user: UserId,
+) -> Result<Vec<String>, TransactionRepoError> {
     use crate::schema::transactions::dsl::*;
 
+    let db_conn = pool.get().context("Unable to get connection from pool")?;
+
     let results = transactions
-        .filter(user_id.eq(user))
+        .filter(user_id.eq(&user))
         .select(transactee)
         .distinct()
-        .load::<Option<String>>(db_conn)?;
+        .load::<Option<String>>(&db_conn)
+        .with_context(|| format!("Unable to get all transactees for user {}", user))?;
 
     // remove null entry if there is one
     let transactees = results.into_iter().filter_map(|i| i).collect();
     Ok(transactees)
+}
+
+fn get_tags(
+    db_conn: &PgConnection,
+    transaction_id: i32,
+) -> Result<Vec<String>, TransactionRepoError> {
+    let tags = transaction_tags::table
+        .filter(transaction_tags::transaction_id.eq(transaction_id))
+        .select(transaction_tags::tag)
+        .load::<String>(db_conn)
+        .with_context(|| format!("Unable to find tags for transaction {}", transaction_id))?;
+    Ok(tags)
+}
+
+fn add_tags(
+    db_conn: &PgConnection,
+    transaction_id: i32,
+    tags: Vec<String>,
+) -> Result<(), TransactionRepoError> {
+    let transaction_tag_list: Vec<TransactionTag> = tags
+        .clone()
+        .into_iter()
+        .map(|tag| TransactionTag {
+            transaction_id,
+            tag,
+        })
+        .collect();
+    diesel::insert_into(transaction_tags::table)
+        .values(transaction_tag_list)
+        .execute(db_conn)
+        .with_context(|| format!("Unable to insert tags for transaction {}", transaction_id))?;
+    Ok(())
 }

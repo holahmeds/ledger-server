@@ -1,72 +1,53 @@
-use actix_web::body::BoxBody;
-use actix_web::{HttpResponse, ResponseError};
-use diesel::result::DatabaseErrorKind;
-use std::fmt::{Debug, Display, Formatter};
+use crate::transaction::models::TransactionRepoError;
+use crate::user::models::UserRepoError;
+use actix_web::http::StatusCode;
+use actix_web::ResponseError;
+use std::fmt::Debug;
+use thiserror::Error;
 
+#[derive(Error, Debug)]
 pub enum HandlerError {
-    DbError(diesel::result::Error),
-    PoolError(r2d2::Error),
-    BlockingError(actix_web::error::BlockingError),
-    AuthError(argon2::Error),
+    #[error("Authentication error")]
+    AuthError(#[from] argon2::Error),
+    #[error("Internal Server Error")]
+    OtherError(#[from] anyhow::Error),
+    #[error(transparent)]
+    TransactionNotFoundError(TransactionRepoError),
+    #[error(transparent)]
+    UserNotFoundError(UserRepoError),
+    #[error(transparent)]
+    UserAlreadyExists(UserRepoError),
 }
 
-impl From<diesel::result::Error> for HandlerError {
-    fn from(e: diesel::result::Error) -> Self {
-        HandlerError::DbError(e)
-    }
-}
-
-impl From<r2d2::Error> for HandlerError {
-    fn from(e: r2d2::Error) -> Self {
-        HandlerError::PoolError(e)
-    }
-}
-
-impl From<actix_web::error::BlockingError> for HandlerError {
-    fn from(e: actix_web::error::BlockingError) -> Self {
-        HandlerError::BlockingError(e)
-    }
-}
-
-impl From<argon2::Error> for HandlerError {
-    fn from(e: argon2::Error) -> Self {
-        HandlerError::AuthError(e)
-    }
-}
-
-impl Debug for HandlerError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            HandlerError::DbError(e) => f.write_fmt(format_args!("DbError({})", e)),
-            HandlerError::PoolError(e) => f.write_fmt(format_args!("PoolError({})", e)),
-            HandlerError::BlockingError(_) => f.write_str("BlockingError"),
-            HandlerError::AuthError(e) => f.write_fmt(format_args!("AuthError({})", e)),
+impl From<TransactionRepoError> for HandlerError {
+    fn from(e: TransactionRepoError) -> Self {
+        match e {
+            TransactionRepoError::TransactionNotFound(_) => {
+                HandlerError::TransactionNotFoundError(e)
+            }
+            TransactionRepoError::Other(e) => HandlerError::OtherError(e),
         }
     }
 }
 
-impl Display for HandlerError {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        match self {
-            HandlerError::DbError(e) => f.write_fmt(format_args!("DbError({})", e)),
-            HandlerError::PoolError(e) => f.write_fmt(format_args!("PoolError({})", e)),
-            HandlerError::BlockingError(_) => f.write_str("BlockingError"),
-            HandlerError::AuthError(e) => f.write_fmt(format_args!("AuthError({})", e)),
+impl From<UserRepoError> for HandlerError {
+    fn from(e: UserRepoError) -> Self {
+        match e {
+            UserRepoError::UserNotFound(_) => HandlerError::UserNotFoundError(e),
+            UserRepoError::UserAlreadyExists(_) => HandlerError::UserAlreadyExists(e),
+            UserRepoError::Other(e) => HandlerError::OtherError(e),
         }
     }
 }
 
 impl ResponseError for HandlerError {
-    fn error_response(&self) -> HttpResponse<BoxBody> {
+    fn status_code(&self) -> StatusCode {
         match self {
-            HandlerError::DbError(diesel::result::Error::NotFound) => {
-                HttpResponse::NotFound().finish()
+            HandlerError::TransactionNotFoundError(_) | HandlerError::UserNotFoundError(_) => {
+                StatusCode::NOT_FOUND
             }
-            HandlerError::DbError(diesel::result::Error::DatabaseError(
-                DatabaseErrorKind::UniqueViolation,
-                _,
-            )) => HttpResponse::Conflict().finish(),
-            _ => HttpResponse::InternalServerError().finish(),
+            HandlerError::UserAlreadyExists(_) => StatusCode::CONFLICT,
+            _ => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
 }
