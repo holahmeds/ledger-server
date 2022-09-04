@@ -59,7 +59,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let secret = get_secret()?;
     let jwt_auth = JWTAuth::from_secret(secret);
-    let bearer_auth_middleware = HttpAuthentication::bearer(auth::request_validator);
+    let bearer_auth_middleware = HttpAuthentication::bearer(auth::credentials_validator);
 
     HttpServer::new(move || {
         let mut auth_scope = web::scope("/auth").service(auth::handlers::get_token);
