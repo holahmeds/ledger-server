@@ -55,11 +55,21 @@ mod tests {
     use crate::auth::jwt::JWTAuth;
 
     #[test]
-    async fn returns_user() {
+    async fn valid_token() {
         let secret: [u8; 32] = rand::random();
         let jwt_auth = JWTAuth::from_secret(secret.to_vec());
 
         let token = jwt_auth.create_token("alice".into());
         assert_eq!(jwt_auth.validate_token(&token), Ok("alice".into()));
+    }
+
+    #[test]
+    async fn invalid_token() {
+        let secret: [u8; 32] = rand::random();
+        let jwt_auth = JWTAuth::from_secret(secret.to_vec());
+
+        let token_bytes: [u8; 32] = rand::random();
+        let token = base64::encode(token_bytes);
+        assert!(jwt_auth.validate_token(&token).is_err())
     }
 }
