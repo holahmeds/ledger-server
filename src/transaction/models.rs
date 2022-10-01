@@ -74,7 +74,8 @@ pub fn get_transaction(
                 transaction_id
             ))),
         })?;
-    let transaction_tags = get_tags(&db_conn, transaction_id)?;
+    let transaction_tags = get_tags(&db_conn, transaction_id)
+        .with_context(|| format!("Unable to get tags for transaction {}", transaction_id))?;
 
     Ok(Transaction::from_entry_and_tags(
         transaction_entry,
@@ -118,12 +119,16 @@ pub fn create_new_transaction(
 
     let (new_transaction_entry, tags) = new_transaction.split_tags(user);
 
-    let transaction_entry: TransactionEntry = diesel::insert_into(transactions::table)
-        .values(new_transaction_entry)
-        .get_result(&db_conn)
-        .context("Unable to insert transaction")?;
+    let transaction_entry = db_conn
+        .transaction::<_, diesel::result::Error, _>(|| {
+            let transaction_entry: TransactionEntry = diesel::insert_into(transactions::table)
+                .values(new_transaction_entry)
+                .get_result(&db_conn)?;
 
-    add_tags(&db_conn, transaction_entry.id, tags.clone())?;
+            add_tags(&db_conn, transaction_entry.id, tags.clone())?;
+            Ok(transaction_entry)
+        })
+        .context("Unable to insert transaction")?;
 
     Ok(Transaction::from_entry_and_tags(transaction_entry, tags))
 }
@@ -138,43 +143,47 @@ pub fn update_transaction(
 
     let (new_transaction_entry, updated_tags) = updated_transaction.split_tags(user.clone());
 
-    let transaction_entry = diesel::update(
-        transactions::table
-            .find(transaction_id)
-            .filter(transactions::user_id.eq(user)),
-    )
-    .set(new_transaction_entry)
-    .get_result(&db_conn)
-    .map_err(|e| match e {
-        diesel::result::Error::NotFound => {
-            TransactionRepoError::TransactionNotFound(transaction_id)
-        }
-        _ => TransactionRepoError::Other(
-            anyhow::Error::new(e)
-                .context(format!("Unable to update transaction {}", transaction_id)),
-        ),
-    })?;
+    let transaction_entry = db_conn
+        .transaction(|| {
+            let transaction_entry = diesel::update(
+                transactions::table
+                    .find(transaction_id)
+                    .filter(transactions::user_id.eq(user)),
+            )
+            .set(new_transaction_entry)
+            .get_result(&db_conn)?;
 
-    let existing_tags: Vec<String> = get_tags(&db_conn, transaction_id)?;
+            let existing_tags: Vec<String> = get_tags(&db_conn, transaction_id)?;
 
-    let new_tags: Vec<String> = updated_tags
-        .clone()
-        .into_iter()
-        .filter(|t| !existing_tags.contains(t))
-        .collect();
-    add_tags(&db_conn, transaction_id, new_tags)?;
+            let new_tags: Vec<String> = updated_tags
+                .clone()
+                .into_iter()
+                .filter(|t| !existing_tags.contains(t))
+                .collect();
+            add_tags(&db_conn, transaction_id, new_tags)?;
 
-    let removed_tags: Vec<&String> = existing_tags
-        .iter()
-        .filter(|t| !updated_tags.contains(t))
-        .collect();
-    diesel::delete(
-        transaction_tags::table
-            .filter(transaction_tags::transaction_id.eq(transaction_id))
-            .filter(transaction_tags::tag.eq_any(removed_tags)),
-    )
-    .execute(&db_conn)
-    .with_context(|| format!("Unable to remove tags for transaction {}", transaction_id))?;
+            let removed_tags: Vec<&String> = existing_tags
+                .iter()
+                .filter(|t| !updated_tags.contains(t))
+                .collect();
+            diesel::delete(
+                transaction_tags::table
+                    .filter(transaction_tags::transaction_id.eq(transaction_id))
+                    .filter(transaction_tags::tag.eq_any(removed_tags)),
+            )
+            .execute(&db_conn)?;
+
+            Ok(transaction_entry)
+        })
+        .map_err(|e| match e {
+            diesel::result::Error::NotFound => {
+                TransactionRepoError::TransactionNotFound(transaction_id)
+            }
+            _ => TransactionRepoError::Other(
+                anyhow::Error::new(e)
+                    .context(format!("Unable to update transaction {}", transaction_id)),
+            ),
+        })?;
 
     Ok(Transaction::from_entry_and_tags(
         transaction_entry,
@@ -189,7 +198,8 @@ pub fn delete_transaction(
 ) -> Result<Transaction, TransactionRepoError> {
     let db_conn = pool.get().context("Unable to get connection from pool")?;
 
-    let tag_list = get_tags(&db_conn, transaction_id)?;
+    let tag_list = get_tags(&db_conn, transaction_id)
+        .with_context(|| format!("Unable to get tags for transaction {}", transaction_id))?;
 
     let transaction_entry = diesel::delete(
         transactions::table
@@ -268,12 +278,11 @@ pub fn get_all_transactees(
 fn get_tags(
     db_conn: &PgConnection,
     transaction_id: i32,
-) -> Result<Vec<String>, TransactionRepoError> {
+) -> Result<Vec<String>, diesel::result::Error> {
     let tags = transaction_tags::table
         .filter(transaction_tags::transaction_id.eq(transaction_id))
         .select(transaction_tags::tag)
-        .load::<String>(db_conn)
-        .with_context(|| format!("Unable to find tags for transaction {}", transaction_id))?;
+        .load::<String>(db_conn)?;
     Ok(tags)
 }
 
@@ -281,7 +290,7 @@ fn add_tags(
     db_conn: &PgConnection,
     transaction_id: i32,
     tags: Vec<String>,
-) -> Result<(), TransactionRepoError> {
+) -> Result<(), diesel::result::Error> {
     let transaction_tag_list: Vec<TransactionTag> = tags
         .clone()
         .into_iter()
@@ -292,7 +301,6 @@ fn add_tags(
         .collect();
     diesel::insert_into(transaction_tags::table)
         .values(transaction_tag_list)
-        .execute(db_conn)
-        .with_context(|| format!("Unable to insert tags for transaction {}", transaction_id))?;
+        .execute(db_conn)?;
     Ok(())
 }
