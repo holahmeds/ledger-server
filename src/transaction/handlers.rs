@@ -2,6 +2,8 @@ use actix_web::web;
 use actix_web::HttpResponse;
 use actix_web::Responder;
 use anyhow::Context;
+use chrono::NaiveDate;
+use serde::Deserialize;
 
 use crate::error::HandlerError;
 use crate::user::UserId;
@@ -9,6 +11,14 @@ use crate::DbPool;
 
 use super::models;
 use super::NewTransaction;
+
+#[derive(Deserialize)]
+pub struct Filter {
+    from: Option<NaiveDate>,
+    until: Option<NaiveDate>,
+    category: Option<String>,
+    transactee: Option<String>,
+}
 
 #[get("/{transaction_id}")]
 pub async fn get_transaction(
@@ -25,13 +35,23 @@ pub async fn get_transaction(
 }
 
 #[get("")]
-pub async fn get_all_transactions(
+pub async fn get_transactions(
     pool: web::Data<DbPool>,
     user_id: web::ReqData<UserId>,
+    filter: web::Query<Filter>,
 ) -> Result<impl Responder, HandlerError> {
-    let transaction = web::block(move || models::get_all_transactions(&pool, user_id.into_inner()))
-        .await
-        .context("Blocking error")??;
+    let transaction = web::block(move || {
+        models::get_transactions(
+            &pool,
+            user_id.into_inner(),
+            filter.from,
+            filter.until,
+            filter.category.as_deref(),
+            filter.transactee.as_deref(),
+        )
+    })
+    .await
+    .context("Blocking error")??;
     Ok(HttpResponse::Ok().json(transaction))
 }
 

@@ -76,7 +76,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     .service(transaction::handlers::get_all_tags)
                     .service(transaction::handlers::get_all_transactees)
                     .service(transaction::handlers::get_transaction)
-                    .service(transaction::handlers::get_all_transactions)
+                    .service(transaction::handlers::get_transactions)
                     .service(transaction::handlers::create_new_transaction)
                     .service(transaction::handlers::update_transaction)
                     .service(transaction::handlers::delete_transaction)

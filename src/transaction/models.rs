@@ -83,14 +83,32 @@ pub fn get_transaction(
     ))
 }
 
-pub fn get_all_transactions(
+pub fn get_transactions(
     pool: &DbPool,
     user: UserId,
+    from: Option<NaiveDate>,
+    until: Option<NaiveDate>,
+    category: Option<&str>,
+    transactee: Option<&str>,
 ) -> Result<Vec<Transaction>, TransactionRepoError> {
     let db_conn = pool.get().context("Unable to get connection from pool")?;
 
-    let transactions_entries = transactions::table
+    let mut query = transactions::table
         .filter(transactions::user_id.eq(user))
+        .into_boxed();
+    if let Some(from) = from {
+        query = query.filter(transactions::date.ge(from))
+    }
+    if let Some(until) = until {
+        query = query.filter(transactions::date.le(until))
+    }
+    if let Some(category) = category {
+        query = query.filter(transactions::category.eq(category))
+    }
+    if let Some(transactee) = transactee {
+        query = query.filter(transactions::transactee.eq(transactee))
+    }
+    let transactions_entries = query
         .order((transactions::date.desc(), transactions::id.desc()))
         .load(&db_conn)
         .context("Unable to retrieve transactions")?;

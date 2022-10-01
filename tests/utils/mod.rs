@@ -20,7 +20,7 @@ macro_rules! build_app {
             .service(
                 web::scope("/transactions")
                     .service(handlers::get_transaction)
-                    .service(handlers::get_all_transactions)
+                    .service(handlers::get_transactions)
                     .service(handlers::create_new_transaction)
                     .service(handlers::update_transaction)
                     .service(handlers::delete_transaction)
