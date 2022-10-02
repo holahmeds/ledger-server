@@ -3,17 +3,18 @@ use std::fs;
 use diesel::r2d2::{ConnectionManager, Pool};
 use rstest::*;
 use serde::Deserialize;
-use tracing::instrument;
+use tracing::info;
 use tracing::Level;
-use tracing::{info, warn};
+use uuid::Uuid;
 
-use ledger::user::models::{User, UserRepoError};
+use ledger::user::models::User;
+use ledger::user::UserId;
 use ledger::DbPool;
 
 pub mod mock;
 
 macro_rules! build_app {
-    ($pool:ident, $user_id:ident) => {
+    ($pool:ident, $user_id:expr) => {
         App::new()
             .app_data(Data::new($pool.clone()))
             .wrap(ledger::tracing::create_middleware())
@@ -24,9 +25,7 @@ macro_rules! build_app {
                     .service(handlers::create_new_transaction)
                     .service(handlers::update_transaction)
                     .service(handlers::delete_transaction)
-                    .wrap(MockAuthentication {
-                        user_id: $user_id.clone(),
-                    }),
+                    .wrap(MockAuthentication { user_id: $user_id }),
             )
     };
 }
@@ -47,23 +46,37 @@ macro_rules! create_transaction {
     }};
 }
 
-macro_rules! delete_transaction {
-    (&$service:ident, $transaction_id:expr) => {{
-        let delete_request = TestRequest::delete()
-            .uri(format!("/transactions/{}", $transaction_id).as_str())
-            .to_request();
-        let response = test::call_service(&$service, delete_request).await;
-        assert!(
-            response.status().is_success(),
-            "Got {} response when deleting transaction",
-            response.status()
-        )
-    }};
-}
-
 #[derive(Deserialize)]
 struct TestConfig {
     database_url: String,
+}
+
+pub struct TestUser {
+    pub user_id: UserId,
+    pool: DbPool,
+}
+
+impl TestUser {
+    fn new(db_pool: &DbPool) -> TestUser {
+        let user_id = "test-user-".to_owned() + &Uuid::new_v4().to_string();
+        let user = User {
+            id: user_id.to_string(),
+            password_hash: ledger::auth::password::encode_password("pass".to_string()).unwrap(),
+        };
+        ledger::user::models::create_user(&db_pool, user).unwrap();
+        info!(%user_id, "Created user");
+        TestUser {
+            user_id,
+            pool: db_pool.clone(),
+        }
+    }
+}
+
+impl Drop for TestUser {
+    fn drop(&mut self) {
+        info!(%self.user_id, "Deleted user");
+        ledger::user::models::delete_user(&self.pool, &self.user_id).unwrap();
+    }
 }
 
 #[fixture]
@@ -86,19 +99,7 @@ pub fn database_pool() -> DbPool {
     pool
 }
 
-#[instrument(skip(database_pool))]
-pub fn create_user(database_pool: &DbPool, user_id: &str) {
-    let user = User {
-        id: user_id.to_string(),
-        password_hash: ledger::auth::password::encode_password("pass".to_string()).unwrap(),
-    };
-    let result = ledger::user::models::create_user(&database_pool, user);
-    if let Err(UserRepoError::UserNotFound(_)) = result {
-        warn!("User already existed");
-    }
-}
-
-#[instrument(skip(database_pool))]
-pub fn delete_user(database_pool: &DbPool, user_id: &str) {
-    ledger::user::models::delete_user(&database_pool, user_id).unwrap();
+#[fixture]
+pub fn test_user(database_pool: &DbPool) -> TestUser {
+    TestUser::new(&database_pool)
 }

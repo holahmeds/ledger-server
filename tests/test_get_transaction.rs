@@ -16,21 +16,19 @@ use tracing::instrument;
 
 use crate::utils::mock::MockAuthentication;
 use ledger::transaction::{handlers, NewTransaction, Transaction};
-use ledger::user::UserId;
 use ledger::DbPool;
 use utils::database_pool;
+use utils::test_user;
+use utils::TestUser;
 
 #[macro_use]
 mod utils;
 
-#[instrument(skip(database_pool))]
+#[instrument(skip(database_pool, test_user))]
 #[rstest]
 #[actix_rt::test]
-async fn test_get_transaction(database_pool: &DbPool) {
-    let user_id: UserId = "test-user".into();
-    utils::create_user(database_pool, &user_id);
-
-    let app = build_app!(database_pool, user_id);
+async fn test_get_transaction(database_pool: &DbPool, test_user: TestUser) {
+    let app = build_app!(database_pool, test_user.user_id.clone());
     let service = test::init_service(app).await;
 
     let new_transaction = NewTransaction::new(
@@ -51,20 +49,13 @@ async fn test_get_transaction(database_pool: &DbPool) {
 
     let returned_transaction = test::read_body_json(response).await;
     assert_eq!(transaction, returned_transaction);
-
-    delete_transaction!(&service, transaction.id);
-
-    utils::delete_user(database_pool, &user_id);
 }
 
-#[instrument(skip(database_pool))]
+#[instrument(skip(database_pool, test_user))]
 #[rstest]
 #[actix_rt::test]
-async fn test_get_invalid_transaction(database_pool: &DbPool) {
-    let user_id: UserId = "test-user2".into();
-    utils::create_user(database_pool, &user_id);
-
-    let app = build_app!(database_pool, user_id);
+async fn test_get_invalid_transaction(database_pool: &DbPool, test_user: TestUser) {
+    let app = build_app!(database_pool, test_user.user_id.clone());
     let service = test::init_service(app).await;
 
     let request = TestRequest::get()
@@ -73,6 +64,4 @@ async fn test_get_invalid_transaction(database_pool: &DbPool) {
     let response = test::call_service(&service, request).await;
 
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
-
-    utils::delete_user(database_pool, &user_id);
 }

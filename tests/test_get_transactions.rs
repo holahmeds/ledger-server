@@ -15,21 +15,19 @@ use tracing::instrument;
 
 use crate::utils::mock::MockAuthentication;
 use ledger::transaction::{handlers, NewTransaction, Transaction};
-use ledger::user::UserId;
 use ledger::DbPool;
 use utils::database_pool;
+use utils::test_user;
+use utils::TestUser;
 
 #[macro_use]
 mod utils;
 
-#[instrument(skip(database_pool))]
+#[instrument(skip(database_pool, test_user))]
 #[rstest]
 #[actix_rt::test]
-async fn test_get_all_transactions(database_pool: &DbPool) {
-    let user_id: UserId = "test-user".into();
-    utils::create_user(database_pool, &user_id);
-
-    let app = build_app!(database_pool, user_id);
+async fn test_get_all_transactions(database_pool: &DbPool, test_user: TestUser) {
+    let app = build_app!(database_pool, test_user.user_id.clone());
     let service = test::init_service(app).await;
 
     let new_transactions = vec![
@@ -63,22 +61,13 @@ async fn test_get_all_transactions(database_pool: &DbPool) {
 
     let transactions: Vec<Transaction> = test::read_body_json(response).await;
     assert_eq!(inserted_transactions, transactions);
-
-    for t in inserted_transactions {
-        delete_transaction!(&service, t.id);
-    }
-
-    utils::delete_user(database_pool, &user_id);
 }
 
-#[instrument(skip(database_pool))]
+#[instrument(skip(database_pool, test_user))]
 #[rstest]
 #[actix_rt::test]
-async fn test_transactions_sorted(database_pool: &DbPool) {
-    let user_id: UserId = "test-user2".into();
-    utils::create_user(database_pool, &user_id);
-
-    let app = build_app!(database_pool, user_id);
+async fn test_transactions_sorted(database_pool: &DbPool, test_user: TestUser) {
+    let app = build_app!(database_pool, test_user.user_id.clone());
     let service = test::init_service(app).await;
 
     let new_transactions = vec![
@@ -121,22 +110,13 @@ async fn test_transactions_sorted(database_pool: &DbPool) {
         transactions.windows(2).all(|w| w[0] >= w[1]),
         "transactions not sorted"
     );
-
-    for t in transactions {
-        delete_transaction!(&service, t.id);
-    }
-
-    utils::delete_user(database_pool, &user_id);
 }
 
-#[instrument(skip(database_pool))]
+#[instrument(skip(database_pool, test_user))]
 #[rstest]
 #[actix_rt::test]
-async fn test_get_transactions_filter_category(database_pool: &DbPool) {
-    let user_id: UserId = "test-user3".into();
-    utils::create_user(database_pool, &user_id);
-
-    let app = build_app!(database_pool, user_id);
+async fn test_get_transactions_filter_category(database_pool: &DbPool, test_user: TestUser) {
+    let app = build_app!(database_pool, test_user.user_id.clone());
     let service = test::init_service(app).await;
 
     let new_transactions = vec![
@@ -172,22 +152,13 @@ async fn test_get_transactions_filter_category(database_pool: &DbPool) {
 
     let transactions: Vec<Transaction> = test::read_body_json(response).await;
     assert!(transactions.iter().all(|t| t.category == "Loan"));
-
-    for t in inserted_transactions {
-        delete_transaction!(&service, t.id);
-    }
-
-    utils::delete_user(database_pool, &user_id);
 }
 
-#[instrument(skip(database_pool))]
+#[instrument(skip(database_pool, test_user))]
 #[rstest]
 #[actix_rt::test]
-async fn test_get_transactions_filter_transactee(database_pool: &DbPool) {
-    let user_id: UserId = "test-user4".into();
-    utils::create_user(database_pool, &user_id);
-
-    let app = build_app!(database_pool, user_id);
+async fn test_get_transactions_filter_transactee(database_pool: &DbPool, test_user: TestUser) {
+    let app = build_app!(database_pool, test_user.user_id.clone());
     let service = test::init_service(app).await;
 
     let new_transactions = vec![
@@ -225,22 +196,13 @@ async fn test_get_transactions_filter_transactee(database_pool: &DbPool) {
     assert!(transactions
         .iter()
         .all(|t| t.transactee == Some("Alice".to_owned())));
-
-    for t in inserted_transactions {
-        delete_transaction!(&service, t.id);
-    }
-
-    utils::delete_user(database_pool, &user_id);
 }
 
-#[instrument(skip(database_pool))]
+#[instrument(skip(database_pool, test_user))]
 #[rstest]
 #[actix_rt::test]
-async fn test_get_transactions_filter_from(database_pool: &DbPool) {
-    let user_id: UserId = "test-user5".into();
-    utils::create_user(database_pool, &user_id);
-
-    let app = build_app!(database_pool, user_id);
+async fn test_get_transactions_filter_from(database_pool: &DbPool, test_user: TestUser) {
+    let app = build_app!(database_pool, test_user.user_id.clone());
     let service = test::init_service(app).await;
 
     let new_transactions = vec![
@@ -278,22 +240,13 @@ async fn test_get_transactions_filter_from(database_pool: &DbPool) {
     assert!(transactions
         .iter()
         .all(|t| t.date > NaiveDate::from_str("2021-01-01").unwrap()));
-
-    for t in inserted_transactions {
-        delete_transaction!(&service, t.id);
-    }
-
-    utils::delete_user(database_pool, &user_id);
 }
 
-#[instrument(skip(database_pool))]
+#[instrument(skip(database_pool, test_user))]
 #[rstest]
 #[actix_rt::test]
-async fn test_get_transactions_filter_until(database_pool: &DbPool) {
-    let user_id: UserId = "test-user6".into();
-    utils::create_user(database_pool, &user_id);
-
-    let app = build_app!(database_pool, user_id);
+async fn test_get_transactions_filter_until(database_pool: &DbPool, test_user: TestUser) {
+    let app = build_app!(database_pool, test_user.user_id.clone());
     let service = test::init_service(app).await;
 
     let new_transactions = vec![
@@ -331,10 +284,4 @@ async fn test_get_transactions_filter_until(database_pool: &DbPool) {
     assert!(transactions
         .iter()
         .all(|t| t.date < NaiveDate::from_str("2021-01-01").unwrap()));
-
-    for t in inserted_transactions {
-        delete_transaction!(&service, t.id);
-    }
-
-    utils::delete_user(database_pool, &user_id);
 }
