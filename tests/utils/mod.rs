@@ -63,7 +63,7 @@ impl TestUser {
             id: user_id.to_string(),
             password_hash: ledger::auth::password::encode_password("pass".to_string()).unwrap(),
         };
-        ledger::user::models::create_user(&db_pool, user).unwrap();
+        ledger::user::models::create_user(db_pool, user).unwrap();
         info!(%user_id, "Created user");
         TestUser {
             user_id,
@@ -101,5 +101,5 @@ pub fn database_pool() -> DbPool {
 
 #[fixture]
 pub fn test_user(database_pool: &DbPool) -> TestUser {
-    TestUser::new(&database_pool)
+    TestUser::new(database_pool)
 }

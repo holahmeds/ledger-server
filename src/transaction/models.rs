@@ -310,7 +310,6 @@ fn add_tags(
     tags: Vec<String>,
 ) -> Result<(), diesel::result::Error> {
     let transaction_tag_list: Vec<TransactionTag> = tags
-        .clone()
         .into_iter()
         .map(|tag| TransactionTag {
             transaction_id,
