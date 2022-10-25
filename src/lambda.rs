@@ -12,12 +12,18 @@ use lambda_web::{run_actix_on_lambda, LambdaError};
 use ledger::auth::jwt::JWTAuth;
 use ledger::{auth, transaction, user};
 use std::env;
-use tracing::{error, info};
+use tracing::{error, info, Level};
 
 embed_migrations!();
 
 #[actix_web::main]
 async fn main() -> Result<(), LambdaError> {
+    tracing_subscriber::fmt()
+        .with_max_level(Level::INFO)
+        .with_ansi(true)
+        .init();
+    info!("tracing initialized");
+
     let signups_enabled = env::var("SIGNUPS_ENABLED")
         .expect("SIGNUPS_ENABLED not set")
         .parse()?;
