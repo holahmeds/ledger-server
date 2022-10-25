@@ -23,7 +23,7 @@ build() {
 }
 
 package() {
-    install -Dm0755 -t "$pkgdir/usr/bin/" "target/release/ledger"
+    install -Dm0755 -t "$pkgdir/usr/bin/" "target/release/ledger-server"
     install -D -m 644 "${srcdir}/config.toml" "${pkgdir}/etc/ledger/config.toml"
 
     install -D -m 644 "${srcdir}/ledger-server.service" "${pkgdir}/usr/lib/systemd/system/ledger-server.service"

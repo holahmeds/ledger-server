@@ -9,7 +9,7 @@ Group=ledger
 SyslogIdentifier=ledger
 ConfigurationDirectory=ledger
 StateDirectory=ledger
-ExecStart=/usr/bin/ledger
+ExecStart=/usr/bin/ledger-server
 Type=simple
 
 [Install]
