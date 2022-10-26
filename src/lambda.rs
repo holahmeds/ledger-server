@@ -39,9 +39,11 @@ async fn main() -> Result<(), LambdaError> {
         .build(manager)
         .expect("Unable to build database pool");
 
-    info!("Running migrations");
-    let connection = pool.get()?;
-    embedded_migrations::run_with_output(&connection, &mut std::io::stdout())?;
+    {
+        info!("Running migrations");
+        let connection = pool.get()?;
+        embedded_migrations::run_with_output(&connection, &mut std::io::stdout())?;
+    }
 
     let jwt_auth = JWTAuth::from_secret(secret);
     let bearer_auth_middleware = HttpAuthentication::bearer(auth::credentials_validator);

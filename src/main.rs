@@ -53,9 +53,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .build(manager)
         .expect("Unable to build database pool");
 
-    info!("Running migrations");
-    let connection = pool.get()?;
-    embedded_migrations::run_with_output(&connection, &mut std::io::stdout())?;
+    {
+        info!("Running migrations");
+        let connection = pool.get()?;
+        embedded_migrations::run_with_output(&connection, &mut std::io::stdout())?;
+    }
 
     let secret = get_secret()?;
     let jwt_auth = JWTAuth::from_secret(secret);
