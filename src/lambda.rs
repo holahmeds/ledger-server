@@ -20,7 +20,10 @@ embed_migrations!();
 async fn main() -> Result<(), LambdaError> {
     tracing_subscriber::fmt()
         .with_max_level(Level::INFO)
+        // ansi escape codes messes up cloudwatch logs
         .with_ansi(false)
+        // cloudwatch adds timestamps
+        .without_time()
         .init();
     info!("tracing initialized");
 
