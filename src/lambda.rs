@@ -32,6 +32,7 @@ async fn main() -> Result<(), LambdaError> {
 
     let manager: ConnectionManager<diesel::PgConnection> = ConnectionManager::new(database_url);
     let pool = r2d2::Pool::builder()
+        .max_size(1)
         .build(manager)
         .expect("Unable to build database pool");
 
