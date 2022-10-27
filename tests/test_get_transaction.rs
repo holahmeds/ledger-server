@@ -6,7 +6,6 @@ use std::str::FromStr;
 use actix_web::http::StatusCode;
 use actix_web::test;
 use actix_web::test::TestRequest;
-use actix_web::web;
 use actix_web::web::Data;
 use actix_web::App;
 use chrono::NaiveDate;
@@ -15,7 +14,7 @@ use rust_decimal::Decimal;
 use tracing::instrument;
 
 use crate::utils::mock::MockAuthentication;
-use ledger::transaction::{handlers, NewTransaction, Transaction};
+use ledger::transaction::{NewTransaction, Transaction};
 use ledger::DbPool;
 use utils::database_pool;
 use utils::test_user;

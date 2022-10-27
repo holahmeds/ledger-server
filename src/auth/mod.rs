@@ -1,13 +1,13 @@
 use crate::user::UserId;
 use actix_web::dev::ServiceRequest;
-use actix_web::{Error, HttpMessage};
+use actix_web::{web, Error, HttpMessage, Scope};
 use actix_web_httpauth::extractors::bearer::BearerAuth;
 use actix_web_httpauth::extractors::{bearer, AuthenticationError};
 use actix_web_httpauth::headers::www_authenticate::bearer::Bearer;
 use jwt::JWTAuth;
 use tracing_actix_web::RootSpan;
 
-pub mod handlers;
+mod handlers;
 pub mod jwt;
 pub mod password;
 
@@ -28,6 +28,14 @@ pub async fn credentials_validator(
         let challenge = Bearer::build().error(bearer::Error::InvalidToken).finish();
         Err((AuthenticationError::new(challenge).into(), req))
     }
+}
+
+pub fn auth_service(signups_enabled: bool) -> Scope {
+    let mut auth_scope = web::scope("/auth").service(handlers::get_token);
+    if signups_enabled {
+        auth_scope = auth_scope.service(handlers::signup);
+    }
+    auth_scope
 }
 
 #[cfg(test)]

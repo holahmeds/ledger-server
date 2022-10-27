@@ -49,33 +49,13 @@ async fn main() -> Result<(), LambdaError> {
     let bearer_auth_middleware = HttpAuthentication::bearer(auth::credentials_validator);
 
     let factory = move || {
-        let mut auth_scope = web::scope("/auth").service(auth::handlers::get_token);
-        if signups_enabled {
-            auth_scope = auth_scope.service(auth::handlers::signup);
-        }
         App::new()
             .app_data(jwt_auth.clone())
             .app_data(Data::new(pool.clone()))
             .wrap(ledger::tracing::create_middleware())
-            .service(
-                web::scope("/transactions")
-                    .service(transaction::handlers::get_all_categories)
-                    .service(transaction::handlers::get_all_tags)
-                    .service(transaction::handlers::get_all_transactees)
-                    .service(transaction::handlers::get_transaction)
-                    .service(transaction::handlers::get_transactions)
-                    .service(transaction::handlers::create_new_transaction)
-                    .service(transaction::handlers::update_transaction)
-                    .service(transaction::handlers::delete_transaction)
-                    .wrap(bearer_auth_middleware.clone()),
-            )
-            .service(
-                web::scope("/user")
-                    .service(user::handlers::update_password)
-                    .service(user::handlers::delete_user)
-                    .wrap(bearer_auth_middleware.clone()),
-            )
-            .service(auth_scope)
+            .service(transaction::transaction_service().wrap(bearer_auth_middleware.clone()))
+            .service(user::user_service().wrap(bearer_auth_middleware.clone()))
+            .service(auth::auth_service(signups_enabled))
             .app_data(web::JsonConfig::default().error_handler(|err, req| {
                 error!(req_path = req.path(), %err);
                 match err {
