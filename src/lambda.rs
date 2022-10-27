@@ -1,5 +1,3 @@
-#[macro_use]
-extern crate diesel_migrations;
 extern crate base64;
 
 use actix_web::error::JsonPayloadError;
@@ -7,14 +5,11 @@ use actix_web::web::Data;
 use actix_web::{web, App, HttpResponse};
 use actix_web_httpauth::middleware::HttpAuthentication;
 use diesel::r2d2::ConnectionManager;
-use diesel_migrations::embed_migrations;
 use lambda_web::{run_actix_on_lambda, LambdaError};
 use ledger::auth::jwt::JWTAuth;
 use ledger::{auth, transaction, user};
 use std::env;
 use tracing::{error, info, Level};
-
-embed_migrations!();
 
 #[actix_web::main]
 async fn main() -> Result<(), LambdaError> {
@@ -38,12 +33,6 @@ async fn main() -> Result<(), LambdaError> {
         .max_size(1)
         .build(manager)
         .expect("Unable to build database pool");
-
-    {
-        info!("Running migrations");
-        let connection = pool.get()?;
-        embedded_migrations::run_with_output(&connection, &mut std::io::stdout())?;
-    }
 
     let jwt_auth = JWTAuth::from_secret(secret);
     let bearer_auth_middleware = HttpAuthentication::bearer(auth::credentials_validator);
