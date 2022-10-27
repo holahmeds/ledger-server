@@ -1,7 +1,7 @@
 FROM rust as builder
 
 ADD . ./
-RUN cargo build --release --bin ledger-lambda --features="lambda"
+RUN cargo build --release --bin ledger-lambda --no-default-features --features="lambda"
 
 FROM debian:buster-slim
 RUN apt-get update \
