@@ -7,7 +7,7 @@ depends=('cargo')
 source=('ledger-server.service'
         'ledger-server.sysusers.conf'
         'config.toml')
-sha256sums=('68282d9b2ac5247948e289ca781ad12b55b5203064d1187dfc472602b6f85ad5'
+sha256sums=('2dcd61537142d5c5019a017cdeb8fbe7e0c8e9ac101c9e5ec4636e09e7f1c8b5'
             '16da37528bfc797bbda7f193db86101941047ae24943b564374ef26e8d9ad7d3'
             'aa051c79e75217513a1800b008514c58712cc321216cb471c6b8efc13f60ddbc')
 backup=('etc/ledger/config.toml')
@@ -23,7 +23,7 @@ build() {
 }
 
 package() {
-    install -Dm0755 -t "$pkgdir/usr/bin/" "target/release/ledger"
+    install -Dm0755 -t "$pkgdir/usr/bin/" "target/release/ledger-server"
     install -D -m 644 "${srcdir}/config.toml" "${pkgdir}/etc/ledger/config.toml"
 
     install -D -m 644 "${srcdir}/ledger-server.service" "${pkgdir}/usr/lib/systemd/system/ledger-server.service"

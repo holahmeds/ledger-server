@@ -1,3 +1,4 @@
+use actix_web::{web, Scope};
 use chrono::NaiveDate;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
@@ -8,7 +9,7 @@ use crate::user::UserId;
 use models::NewTransactionEntry;
 use models::TransactionEntry;
 
-pub mod handlers;
+mod handlers;
 pub mod models;
 
 #[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]
@@ -107,4 +108,16 @@ impl NewTransaction {
         };
         (new_transaction_entry, self.tags)
     }
+}
+
+pub fn transaction_service() -> Scope {
+    web::scope("/transactions")
+        .service(handlers::get_all_categories)
+        .service(handlers::get_all_tags)
+        .service(handlers::get_all_transactees)
+        .service(handlers::get_transaction)
+        .service(handlers::get_transactions)
+        .service(handlers::create_new_transaction)
+        .service(handlers::update_transaction)
+        .service(handlers::delete_transaction)
 }

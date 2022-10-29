@@ -53,42 +53,24 @@ async fn main() -> Result<(), Box<dyn Error>> {
         .build(manager)
         .expect("Unable to build database pool");
 
-    info!("Running migrations");
-    let connection = pool.get()?;
-    embedded_migrations::run_with_output(&connection, &mut std::io::stdout())?;
+    {
+        info!("Running migrations");
+        let connection = pool.get()?;
+        embedded_migrations::run_with_output(&connection, &mut std::io::stdout())?;
+    }
 
     let secret = get_secret()?;
     let jwt_auth = JWTAuth::from_secret(secret);
     let bearer_auth_middleware = HttpAuthentication::bearer(auth::credentials_validator);
 
     HttpServer::new(move || {
-        let mut auth_scope = web::scope("/auth").service(auth::handlers::get_token);
-        if config.signups_enabled {
-            auth_scope = auth_scope.service(auth::handlers::signup);
-        }
         App::new()
             .app_data(jwt_auth.clone())
             .app_data(Data::new(pool.clone()))
             .wrap(ledger::tracing::create_middleware())
-            .service(
-                web::scope("/transactions")
-                    .service(transaction::handlers::get_all_categories)
-                    .service(transaction::handlers::get_all_tags)
-                    .service(transaction::handlers::get_all_transactees)
-                    .service(transaction::handlers::get_transaction)
-                    .service(transaction::handlers::get_transactions)
-                    .service(transaction::handlers::create_new_transaction)
-                    .service(transaction::handlers::update_transaction)
-                    .service(transaction::handlers::delete_transaction)
-                    .wrap(bearer_auth_middleware.clone()),
-            )
-            .service(
-                web::scope("/user")
-                    .service(user::handlers::update_password)
-                    .service(user::handlers::delete_user)
-                    .wrap(bearer_auth_middleware.clone()),
-            )
-            .service(auth_scope)
+            .service(transaction::transaction_service().wrap(bearer_auth_middleware.clone()))
+            .service(user::user_service().wrap(bearer_auth_middleware.clone()))
+            .service(auth::auth_service(config.signups_enabled))
             .app_data(web::JsonConfig::default().error_handler(|err, req| {
                 error!(req_path = req.path(), %err);
                 match err {

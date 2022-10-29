@@ -5,12 +5,22 @@ authors = ["Ahmed Rafiq Ullah <ahmedrafiq47@gmail.com>"]
 license = "MIT"
 edition = "2021"
 
+[[bin]]
+name = "ledger-server"
+path = "src/main.rs"
+required-features = ["server"]
+
+[[bin]]
+name = "ledger-lambda"
+path = "src/lambda.rs"
+required-features = ["lambda"]
+
 [dependencies]
 actix-web = "4.0.1"
 actix-web-httpauth = "0.8.0"
 chrono = { version = "0.4.19", features = ["serde"] }
 diesel = { version = "1.4.8", features = ["chrono", "postgres", "r2d2"] }
-diesel_migrations = "1.4.0"
+diesel_migrations = { version = "1.4.0", optional = true }
 r2d2 = "0.8.10"
 serde = { version = "1.0.125", features = ["derive"] }
 serde_json = "1.0.64"
@@ -24,6 +34,13 @@ rust-argon2 = "1.0.0"
 rand = "0.8.5"
 thiserror = "1.0.33"
 anyhow = "1.0.63"
+lambda-web = { version = "0.2.0", features = ["actix4"], optional = true }
+base64 = { version = "0.13.1", optional = true }
+
+[features]
+default = ["server"]
+server = ["diesel_migrations"]
+lambda = ["lambda-web", "base64"]
 
 [dev-dependencies]
 actix-rt = "2.2.0"

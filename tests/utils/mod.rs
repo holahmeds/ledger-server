@@ -19,12 +19,7 @@ macro_rules! build_app {
             .app_data(Data::new($pool.clone()))
             .wrap(ledger::tracing::create_middleware())
             .service(
-                web::scope("/transactions")
-                    .service(handlers::get_transaction)
-                    .service(handlers::get_transactions)
-                    .service(handlers::create_new_transaction)
-                    .service(handlers::update_transaction)
-                    .service(handlers::delete_transaction)
+                ledger::transaction::transaction_service()
                     .wrap(MockAuthentication { user_id: $user_id }),
             )
     };
