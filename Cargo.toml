@@ -36,6 +36,7 @@ thiserror = "1.0.33"
 anyhow = "1.0.63"
 lambda-web = { version = "0.2.0", features = ["actix4"], optional = true }
 base64 = { version = "0.13.1", optional = true }
+async-trait = "0.1.58"
 
 [features]
 default = ["server"]

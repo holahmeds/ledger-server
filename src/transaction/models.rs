@@ -1,25 +1,21 @@
+use actix_web::web;
 use anyhow::Context;
+use async_trait::async_trait;
 use chrono::NaiveDate;
 use diesel::prelude::*;
+use diesel::r2d2::ConnectionManager;
 use diesel::Insertable;
 use diesel::Queryable;
+use r2d2::PooledConnection;
 use rust_decimal::Decimal;
-use thiserror::Error;
 
 use crate::schema::transaction_tags;
 use crate::schema::transactions;
+use crate::transaction::{TransactionRepo, TransactionRepoError};
 use crate::user::UserId;
 use crate::DbPool;
 
 use super::{NewTransaction, Transaction};
-
-#[derive(Error, Debug)]
-pub enum TransactionRepoError {
-    #[error("Transaction with id {0} not found")]
-    TransactionNotFound(i32),
-    #[error(transparent)]
-    Other(#[from] anyhow::Error),
-}
 
 #[derive(Queryable, Identifiable)]
 #[table_name = "transactions"]
@@ -52,245 +48,281 @@ struct TransactionTag {
     pub tag: String,
 }
 
-pub fn get_transaction(
-    pool: &DbPool,
-    user: UserId,
-    transaction_id: i32,
-) -> Result<Transaction, TransactionRepoError> {
-    use crate::schema::transactions::dsl::*;
+pub struct DieselTransactionRepo {
+    db_pool: DbPool,
+}
 
-    let db_conn = pool.get().context("Unable to get connection from pool")?;
+impl DieselTransactionRepo {
+    pub fn new(db_pool: DbPool) -> DieselTransactionRepo {
+        DieselTransactionRepo { db_pool }
+    }
 
-    let transaction_entry: TransactionEntry = transactions
-        .find(transaction_id)
-        .filter(user_id.eq(user))
-        .get_result(&db_conn)
-        .map_err(|e| match e {
-            diesel::result::Error::NotFound => {
-                TransactionRepoError::TransactionNotFound(transaction_id)
+    async fn block<F, R>(&self, f: F) -> Result<R, TransactionRepoError>
+    where
+        F: FnOnce(
+                PooledConnection<ConnectionManager<PgConnection>>,
+            ) -> Result<R, TransactionRepoError>
+            + Send
+            + 'static,
+        R: Send + 'static,
+    {
+        let pool = self.db_pool.clone();
+        web::block(move || {
+            let db_conn = pool.get().context("Unable to get connection from pool")?;
+            f(db_conn)
+        })
+        .await
+        .context("Blocking error")?
+    }
+}
+
+#[async_trait]
+impl TransactionRepo for DieselTransactionRepo {
+    async fn get_transaction(
+        &self,
+        user: UserId,
+        transaction_id: i32,
+    ) -> Result<Transaction, TransactionRepoError> {
+        self.block(move |db_conn| {
+            use crate::schema::transactions::dsl::*;
+
+            let transaction_entry = transactions
+                .find(transaction_id)
+                .filter(user_id.eq(user))
+                .get_result(&db_conn)
+                .map_err(|e| match e {
+                    diesel::result::Error::NotFound => {
+                        TransactionRepoError::TransactionNotFound(transaction_id)
+                    }
+                    _ => TransactionRepoError::Other(anyhow::Error::new(e).context(format!(
+                        "Unable to get transaction {} from database",
+                        transaction_id
+                    ))),
+                })?;
+            let transaction_tags = get_tags(&db_conn, transaction_id).with_context(|| {
+                format!("Unable to get tags for transaction {}", transaction_id)
+            })?;
+
+            Ok(Transaction::from_entry_and_tags(
+                transaction_entry,
+                transaction_tags,
+            ))
+        })
+        .await
+    }
+
+    async fn get_all_transactions(
+        &self,
+        user: UserId,
+        from: Option<NaiveDate>,
+        until: Option<NaiveDate>,
+        category: Option<String>,
+        transactee: Option<String>,
+    ) -> Result<Vec<Transaction>, TransactionRepoError> {
+        self.block(move |db_conn| {
+            let mut query = transactions::table
+                .filter(transactions::user_id.eq(user))
+                .into_boxed();
+            if let Some(from) = from {
+                query = query.filter(transactions::date.ge(from))
             }
-            _ => TransactionRepoError::Other(anyhow::Error::new(e).context(format!(
-                "Unable to get transaction {} from database",
-                transaction_id
-            ))),
-        })?;
-    let transaction_tags = get_tags(&db_conn, transaction_id)
-        .with_context(|| format!("Unable to get tags for transaction {}", transaction_id))?;
+            if let Some(until) = until {
+                query = query.filter(transactions::date.le(until))
+            }
+            if let Some(category) = category {
+                query = query.filter(transactions::category.eq(category))
+            }
+            if let Some(transactee) = transactee {
+                query = query.filter(transactions::transactee.eq(transactee))
+            }
 
-    Ok(Transaction::from_entry_and_tags(
-        transaction_entry,
-        transaction_tags,
-    ))
-}
+            let transactions_entries = query
+                .order((transactions::date.desc(), transactions::id.desc()))
+                .load(&db_conn)
+                .context("Unable to retrieve transactions")?;
+            let transaction_tags = TransactionTag::belonging_to(&transactions_entries)
+                .load::<TransactionTag>(&db_conn)
+                .context("Unable to retrieve tags for transactions")?
+                .grouped_by(&transactions_entries);
 
-pub fn get_transactions(
-    pool: &DbPool,
-    user: UserId,
-    from: Option<NaiveDate>,
-    until: Option<NaiveDate>,
-    category: Option<&str>,
-    transactee: Option<&str>,
-) -> Result<Vec<Transaction>, TransactionRepoError> {
-    let db_conn = pool.get().context("Unable to get connection from pool")?;
-
-    let mut query = transactions::table
-        .filter(transactions::user_id.eq(user))
-        .into_boxed();
-    if let Some(from) = from {
-        query = query.filter(transactions::date.ge(from))
-    }
-    if let Some(until) = until {
-        query = query.filter(transactions::date.le(until))
-    }
-    if let Some(category) = category {
-        query = query.filter(transactions::category.eq(category))
-    }
-    if let Some(transactee) = transactee {
-        query = query.filter(transactions::transactee.eq(transactee))
-    }
-    let transactions_entries = query
-        .order((transactions::date.desc(), transactions::id.desc()))
-        .load(&db_conn)
-        .context("Unable to retrieve transactions")?;
-    let transaction_tags = TransactionTag::belonging_to(&transactions_entries)
-        .load::<TransactionTag>(&db_conn)
-        .context("Unable to retrieve tags for transactions")?
-        .grouped_by(&transactions_entries);
-
-    let transactions_list = transactions_entries
-        .into_iter()
-        .zip(transaction_tags)
-        .map(|(transaction_entry, transaction_tag_list)| {
-            let tags = transaction_tag_list.into_iter().map(|tt| tt.tag).collect();
-            Transaction::from_entry_and_tags(transaction_entry, tags)
+            let transactions_list = transactions_entries
+                .into_iter()
+                .zip(transaction_tags)
+                .map(|(transaction_entry, transaction_tag_list)| {
+                    let tags = transaction_tag_list.into_iter().map(|tt| tt.tag).collect();
+                    Transaction::from_entry_and_tags(transaction_entry, tags)
+                })
+                .collect();
+            Ok(transactions_list)
         })
-        .collect();
-    Ok(transactions_list)
-}
+        .await
+    }
 
-pub fn create_new_transaction(
-    pool: &DbPool,
-    user: UserId,
-    new_transaction: NewTransaction,
-) -> Result<Transaction, TransactionRepoError> {
-    let db_conn = pool.get().context("Unable to get connection from pool")?;
+    async fn create_new_transaction(
+        &self,
+        user: UserId,
+        new_transaction: NewTransaction,
+    ) -> Result<Transaction, TransactionRepoError> {
+        let (new_transaction_entry, tags) = new_transaction.split_tags(user);
 
-    let (new_transaction_entry, tags) = new_transaction.split_tags(user);
+        self.block(move |db_conn| {
+            let transaction_entry = db_conn
+                .transaction::<_, diesel::result::Error, _>(|| {
+                    let transaction_entry: TransactionEntry =
+                        diesel::insert_into(transactions::table)
+                            .values(new_transaction_entry)
+                            .get_result(&db_conn)?;
 
-    let transaction_entry = db_conn
-        .transaction::<_, diesel::result::Error, _>(|| {
-            let transaction_entry: TransactionEntry = diesel::insert_into(transactions::table)
-                .values(new_transaction_entry)
-                .get_result(&db_conn)?;
-
-            add_tags(&db_conn, transaction_entry.id, tags.clone())?;
-            Ok(transaction_entry)
+                    add_tags(&db_conn, transaction_entry.id, tags.clone())?;
+                    Ok(transaction_entry)
+                })
+                .context("Unable to insert transaction")?;
+            Ok(Transaction::from_entry_and_tags(transaction_entry, tags))
         })
-        .context("Unable to insert transaction")?;
+        .await
+    }
 
-    Ok(Transaction::from_entry_and_tags(transaction_entry, tags))
-}
+    async fn update_transaction(
+        &self,
+        user: UserId,
+        transaction_id: i32,
+        updated_transaction: NewTransaction,
+    ) -> Result<Transaction, TransactionRepoError> {
+        let (new_transaction_entry, updated_tags) = updated_transaction.split_tags(user.clone());
 
-pub fn update_transaction(
-    pool: &DbPool,
-    user: UserId,
-    transaction_id: i32,
-    updated_transaction: NewTransaction,
-) -> Result<Transaction, TransactionRepoError> {
-    let db_conn = pool.get().context("Unable to get connection from pool")?;
+        self.block(move |db_conn| {
+            let transaction_entry = db_conn
+                .transaction(|| {
+                    let transaction_entry = diesel::update(
+                        transactions::table
+                            .find(transaction_id)
+                            .filter(transactions::user_id.eq(user)),
+                    )
+                    .set(new_transaction_entry)
+                    .get_result(&db_conn)?;
 
-    let (new_transaction_entry, updated_tags) = updated_transaction.split_tags(user.clone());
+                    let existing_tags: Vec<String> = get_tags(&db_conn, transaction_id)?;
 
-    let transaction_entry = db_conn
-        .transaction(|| {
-            let transaction_entry = diesel::update(
+                    let new_tags: Vec<String> = updated_tags
+                        .clone()
+                        .into_iter()
+                        .filter(|t| !existing_tags.contains(t))
+                        .collect();
+                    add_tags(&db_conn, transaction_id, new_tags)?;
+
+                    let removed_tags: Vec<&String> = existing_tags
+                        .iter()
+                        .filter(|t| !updated_tags.contains(t))
+                        .collect();
+                    diesel::delete(
+                        transaction_tags::table
+                            .filter(transaction_tags::transaction_id.eq(transaction_id))
+                            .filter(transaction_tags::tag.eq_any(removed_tags)),
+                    )
+                    .execute(&db_conn)?;
+
+                    Ok(transaction_entry)
+                })
+                .map_err(|e| match e {
+                    diesel::result::Error::NotFound => {
+                        TransactionRepoError::TransactionNotFound(transaction_id)
+                    }
+                    _ => TransactionRepoError::Other(
+                        anyhow::Error::new(e)
+                            .context(format!("Unable to update transaction {}", transaction_id)),
+                    ),
+                })?;
+
+            Ok(Transaction::from_entry_and_tags(
+                transaction_entry,
+                updated_tags,
+            ))
+        })
+        .await
+    }
+
+    async fn delete_transaction(
+        &self,
+        user: UserId,
+        transaction_id: i32,
+    ) -> Result<Transaction, TransactionRepoError> {
+        self.block(move |db_conn| {
+            let tag_list = get_tags(&db_conn, transaction_id).with_context(|| {
+                format!("Unable to get tags for transaction {}", transaction_id)
+            })?;
+
+            let transaction_entry = diesel::delete(
                 transactions::table
                     .find(transaction_id)
                     .filter(transactions::user_id.eq(user)),
             )
-            .set(new_transaction_entry)
-            .get_result(&db_conn)?;
+            .get_result(&db_conn)
+            .map_err(|e| match e {
+                diesel::result::Error::NotFound => {
+                    TransactionRepoError::TransactionNotFound(transaction_id)
+                }
+                _ => TransactionRepoError::Other(
+                    anyhow::Error::new(e)
+                        .context(format!("Unable to delete transaction {}", transaction_id)),
+                ),
+            })?;
 
-            let existing_tags: Vec<String> = get_tags(&db_conn, transaction_id)?;
-
-            let new_tags: Vec<String> = updated_tags
-                .clone()
-                .into_iter()
-                .filter(|t| !existing_tags.contains(t))
-                .collect();
-            add_tags(&db_conn, transaction_id, new_tags)?;
-
-            let removed_tags: Vec<&String> = existing_tags
-                .iter()
-                .filter(|t| !updated_tags.contains(t))
-                .collect();
-            diesel::delete(
-                transaction_tags::table
-                    .filter(transaction_tags::transaction_id.eq(transaction_id))
-                    .filter(transaction_tags::tag.eq_any(removed_tags)),
-            )
-            .execute(&db_conn)?;
-
-            Ok(transaction_entry)
+            Ok(Transaction::from_entry_and_tags(
+                transaction_entry,
+                tag_list,
+            ))
         })
-        .map_err(|e| match e {
-            diesel::result::Error::NotFound => {
-                TransactionRepoError::TransactionNotFound(transaction_id)
-            }
-            _ => TransactionRepoError::Other(
-                anyhow::Error::new(e)
-                    .context(format!("Unable to update transaction {}", transaction_id)),
-            ),
-        })?;
+        .await
+    }
 
-    Ok(Transaction::from_entry_and_tags(
-        transaction_entry,
-        updated_tags,
-    ))
-}
+    async fn get_all_categories(&self, user: UserId) -> Result<Vec<String>, TransactionRepoError> {
+        self.block(move |db_conn| {
+            use crate::schema::transactions::dsl::*;
 
-pub fn delete_transaction(
-    pool: &DbPool,
-    user: UserId,
-    transaction_id: i32,
-) -> Result<Transaction, TransactionRepoError> {
-    let db_conn = pool.get().context("Unable to get connection from pool")?;
+            let categories = transactions
+                .filter(user_id.eq(&user))
+                .select(category)
+                .distinct()
+                .load::<String>(&db_conn)
+                .with_context(|| format!("Unable to get all categories for user {}", user))?;
+            Ok(categories)
+        })
+        .await
+    }
 
-    let tag_list = get_tags(&db_conn, transaction_id)
-        .with_context(|| format!("Unable to get tags for transaction {}", transaction_id))?;
+    async fn get_all_tags(&self, user: UserId) -> Result<Vec<String>, TransactionRepoError> {
+        self.block(move |db_conn| {
+            use crate::schema::transaction_tags::dsl::*;
 
-    let transaction_entry = diesel::delete(
-        transactions::table
-            .find(transaction_id)
-            .filter(transactions::user_id.eq(user)),
-    )
-    .get_result(&db_conn)
-    .map_err(|e| match e {
-        diesel::result::Error::NotFound => {
-            TransactionRepoError::TransactionNotFound(transaction_id)
-        }
-        _ => TransactionRepoError::Other(
-            anyhow::Error::new(e)
-                .context(format!("Unable to delete transaction {}", transaction_id)),
-        ),
-    })?;
+            let tags = transaction_tags
+                .left_join(transactions::table)
+                .filter(transactions::user_id.eq(&user))
+                .select(tag)
+                .distinct()
+                .load::<String>(&db_conn)
+                .with_context(|| format!("Unable to get all tags for user {}", user))?;
+            Ok(tags)
+        })
+        .await
+    }
 
-    Ok(Transaction::from_entry_and_tags(
-        transaction_entry,
-        tag_list,
-    ))
-}
+    async fn get_all_transactees(&self, user: UserId) -> Result<Vec<String>, TransactionRepoError> {
+        self.block(move |db_conn| {
+            use crate::schema::transactions::dsl::*;
 
-pub fn get_all_categories(
-    pool: &DbPool,
-    user: UserId,
-) -> Result<Vec<String>, TransactionRepoError> {
-    use crate::schema::transactions::dsl::*;
+            let results = transactions
+                .filter(user_id.eq(&user))
+                .select(transactee)
+                .distinct()
+                .load::<Option<String>>(&db_conn)
+                .with_context(|| format!("Unable to get all transactees for user {}", user))?;
 
-    let db_conn = pool.get().context("Unable to get connection from pool")?;
-
-    let categories = transactions
-        .filter(user_id.eq(&user))
-        .select(category)
-        .distinct()
-        .load::<String>(&db_conn)
-        .with_context(|| format!("Unable to get all categories for user {}", user))?;
-    Ok(categories)
-}
-
-pub fn get_all_tags(pool: &DbPool, user: UserId) -> Result<Vec<String>, TransactionRepoError> {
-    use crate::schema::transaction_tags::dsl::*;
-
-    let db_conn = pool.get().context("Unable to get connection from pool")?;
-
-    let tags = transaction_tags
-        .left_join(transactions::table)
-        .filter(transactions::user_id.eq(&user))
-        .select(tag)
-        .distinct()
-        .load::<String>(&db_conn)
-        .with_context(|| format!("Unable to get all tags for user {}", user))?;
-    Ok(tags)
-}
-
-pub fn get_all_transactees(
-    pool: &DbPool,
-    user: UserId,
-) -> Result<Vec<String>, TransactionRepoError> {
-    use crate::schema::transactions::dsl::*;
-
-    let db_conn = pool.get().context("Unable to get connection from pool")?;
-
-    let results = transactions
-        .filter(user_id.eq(&user))
-        .select(transactee)
-        .distinct()
-        .load::<Option<String>>(&db_conn)
-        .with_context(|| format!("Unable to get all transactees for user {}", user))?;
-
-    // remove null entry if there is one
-    let transactees = results.into_iter().filter_map(|i| i).collect();
-    Ok(transactees)
+            // remove null entry if there is one
+            let transactees = results.into_iter().filter_map(|i| i).collect();
+            Ok(transactees)
+        })
+        .await
+    }
 }
 
 fn get_tags(

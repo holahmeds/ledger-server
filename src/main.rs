@@ -8,6 +8,7 @@ extern crate serde_json;
 use std::error::Error;
 use std::fs;
 use std::path::PathBuf;
+use std::sync::Arc;
 
 use actix_web::error::JsonPayloadError;
 use actix_web::web::Data;
@@ -22,6 +23,8 @@ use tracing::Level;
 
 use ledger::auth::jwt::JWTAuth;
 use ledger::transaction;
+use ledger::transaction::models::DieselTransactionRepo;
+use ledger::transaction::TransactionRepo;
 use ledger::{auth, user};
 
 #[derive(Deserialize)]
@@ -64,9 +67,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let bearer_auth_middleware = HttpAuthentication::bearer(auth::credentials_validator);
 
     HttpServer::new(move || {
+        let transaction_repo: Arc<dyn TransactionRepo> =
+            Arc::new(DieselTransactionRepo::new(pool.clone()));
         App::new()
             .app_data(jwt_auth.clone())
             .app_data(Data::new(pool.clone()))
+            .app_data(Data::new(transaction_repo))
             .wrap(ledger::tracing::create_middleware())
             .service(transaction::transaction_service().wrap(bearer_auth_middleware.clone()))
             .service(user::user_service().wrap(bearer_auth_middleware.clone()))

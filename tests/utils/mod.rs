@@ -1,4 +1,5 @@
 use std::fs;
+use std::sync::Arc;
 
 use diesel::r2d2::{ConnectionManager, Pool};
 use rstest::*;
@@ -7,6 +8,8 @@ use tracing::info;
 use tracing::Level;
 use uuid::Uuid;
 
+use ledger::transaction::models::DieselTransactionRepo;
+use ledger::transaction::TransactionRepo;
 use ledger::user::models::User;
 use ledger::user::UserId;
 use ledger::DbPool;
@@ -14,9 +17,10 @@ use ledger::DbPool;
 pub mod mock;
 
 macro_rules! build_app {
-    ($pool:ident, $user_id:expr) => {
+    ($pool:ident, $transaction_repo:ident, $user_id:expr) => {
         App::new()
             .app_data(Data::new($pool.clone()))
+            .app_data(Data::new($transaction_repo))
             .wrap(ledger::tracing::create_middleware())
             .service(
                 ledger::transaction::transaction_service()
@@ -92,6 +96,11 @@ pub fn database_pool() -> DbPool {
     info!("Database pool created");
 
     pool
+}
+
+#[fixture]
+pub fn transaction_repo(database_pool: &DbPool) -> Arc<dyn TransactionRepo> {
+    Arc::new(DieselTransactionRepo::new(database_pool.clone()))
 }
 
 #[fixture]

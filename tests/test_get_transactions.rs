@@ -2,6 +2,7 @@ extern crate futures_util;
 extern crate serde_json;
 
 use std::str::FromStr;
+use std::sync::Arc;
 
 use actix_web::test;
 use actix_web::test::TestRequest;
@@ -13,20 +14,25 @@ use rust_decimal::Decimal;
 use tracing::instrument;
 
 use crate::utils::mock::MockAuthentication;
-use ledger::transaction::{NewTransaction, Transaction};
+use ledger::transaction::{NewTransaction, Transaction, TransactionRepo};
 use ledger::DbPool;
 use utils::database_pool;
 use utils::test_user;
+use utils::transaction_repo;
 use utils::TestUser;
 
 #[macro_use]
 mod utils;
 
-#[instrument(skip(database_pool, test_user))]
+#[instrument(skip(database_pool, transaction_repo, test_user))]
 #[rstest]
 #[actix_rt::test]
-async fn test_get_all_transactions(database_pool: &DbPool, test_user: TestUser) {
-    let app = build_app!(database_pool, test_user.user_id.clone());
+async fn test_get_all_transactions(
+    database_pool: &DbPool,
+    transaction_repo: Arc<dyn TransactionRepo>,
+    test_user: TestUser,
+) {
+    let app = build_app!(database_pool, transaction_repo, test_user.user_id.clone());
     let service = test::init_service(app).await;
 
     let new_transactions = vec![
@@ -62,11 +68,15 @@ async fn test_get_all_transactions(database_pool: &DbPool, test_user: TestUser) 
     assert_eq!(inserted_transactions, transactions);
 }
 
-#[instrument(skip(database_pool, test_user))]
+#[instrument(skip(database_pool, transaction_repo, test_user))]
 #[rstest]
 #[actix_rt::test]
-async fn test_transactions_sorted(database_pool: &DbPool, test_user: TestUser) {
-    let app = build_app!(database_pool, test_user.user_id.clone());
+async fn test_transactions_sorted(
+    database_pool: &DbPool,
+    transaction_repo: Arc<dyn TransactionRepo>,
+    test_user: TestUser,
+) {
+    let app = build_app!(database_pool, transaction_repo, test_user.user_id.clone());
     let service = test::init_service(app).await;
 
     let new_transactions = vec![
@@ -111,11 +121,15 @@ async fn test_transactions_sorted(database_pool: &DbPool, test_user: TestUser) {
     );
 }
 
-#[instrument(skip(database_pool, test_user))]
+#[instrument(skip(database_pool, transaction_repo, test_user))]
 #[rstest]
 #[actix_rt::test]
-async fn test_get_transactions_filter_category(database_pool: &DbPool, test_user: TestUser) {
-    let app = build_app!(database_pool, test_user.user_id.clone());
+async fn test_get_transactions_filter_category(
+    database_pool: &DbPool,
+    transaction_repo: Arc<dyn TransactionRepo>,
+    test_user: TestUser,
+) {
+    let app = build_app!(database_pool, transaction_repo, test_user.user_id.clone());
     let service = test::init_service(app).await;
 
     let new_transactions = vec![
@@ -153,11 +167,15 @@ async fn test_get_transactions_filter_category(database_pool: &DbPool, test_user
     assert!(transactions.iter().all(|t| t.category == "Loan"));
 }
 
-#[instrument(skip(database_pool, test_user))]
+#[instrument(skip(database_pool, transaction_repo, test_user))]
 #[rstest]
 #[actix_rt::test]
-async fn test_get_transactions_filter_transactee(database_pool: &DbPool, test_user: TestUser) {
-    let app = build_app!(database_pool, test_user.user_id.clone());
+async fn test_get_transactions_filter_transactee(
+    database_pool: &DbPool,
+    transaction_repo: Arc<dyn TransactionRepo>,
+    test_user: TestUser,
+) {
+    let app = build_app!(database_pool, transaction_repo, test_user.user_id.clone());
     let service = test::init_service(app).await;
 
     let new_transactions = vec![
@@ -197,11 +215,15 @@ async fn test_get_transactions_filter_transactee(database_pool: &DbPool, test_us
         .all(|t| t.transactee == Some("Alice".to_owned())));
 }
 
-#[instrument(skip(database_pool, test_user))]
+#[instrument(skip(database_pool, transaction_repo, test_user))]
 #[rstest]
 #[actix_rt::test]
-async fn test_get_transactions_filter_from(database_pool: &DbPool, test_user: TestUser) {
-    let app = build_app!(database_pool, test_user.user_id.clone());
+async fn test_get_transactions_filter_from(
+    database_pool: &DbPool,
+    transaction_repo: Arc<dyn TransactionRepo>,
+    test_user: TestUser,
+) {
+    let app = build_app!(database_pool, transaction_repo, test_user.user_id.clone());
     let service = test::init_service(app).await;
 
     let new_transactions = vec![
@@ -241,11 +263,15 @@ async fn test_get_transactions_filter_from(database_pool: &DbPool, test_user: Te
         .all(|t| t.date > NaiveDate::from_str("2021-01-01").unwrap()));
 }
 
-#[instrument(skip(database_pool, test_user))]
+#[instrument(skip(database_pool, transaction_repo, test_user))]
 #[rstest]
 #[actix_rt::test]
-async fn test_get_transactions_filter_until(database_pool: &DbPool, test_user: TestUser) {
-    let app = build_app!(database_pool, test_user.user_id.clone());
+async fn test_get_transactions_filter_until(
+    database_pool: &DbPool,
+    transaction_repo: Arc<dyn TransactionRepo>,
+    test_user: TestUser,
+) {
+    let app = build_app!(database_pool, transaction_repo, test_user.user_id.clone());
     let service = test::init_service(app).await;
 
     let new_transactions = vec![

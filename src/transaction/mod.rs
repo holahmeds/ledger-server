@@ -1,9 +1,11 @@
 use actix_web::{web, Scope};
+use async_trait::async_trait;
 use chrono::NaiveDate;
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 use std::cmp::Ordering::Equal;
+use thiserror::Error;
 
 use crate::user::UserId;
 use models::NewTransactionEntry;
@@ -120,4 +122,48 @@ pub fn transaction_service() -> Scope {
         .service(handlers::create_new_transaction)
         .service(handlers::update_transaction)
         .service(handlers::delete_transaction)
+}
+
+#[async_trait]
+pub trait TransactionRepo: Sync + Send {
+    async fn get_transaction(
+        &self,
+        user: UserId,
+        transaction_id: i32,
+    ) -> Result<Transaction, TransactionRepoError>;
+    async fn get_all_transactions(
+        &self,
+        user: UserId,
+        from: Option<NaiveDate>,
+        until: Option<NaiveDate>,
+        category: Option<String>,
+        transactee: Option<String>,
+    ) -> Result<Vec<Transaction>, TransactionRepoError>;
+    async fn create_new_transaction(
+        &self,
+        user: UserId,
+        new_transaction: NewTransaction,
+    ) -> Result<Transaction, TransactionRepoError>;
+    async fn update_transaction(
+        &self,
+        user: UserId,
+        transaction_id: i32,
+        updated_transaction: NewTransaction,
+    ) -> Result<Transaction, TransactionRepoError>;
+    async fn delete_transaction(
+        &self,
+        user: UserId,
+        transaction_id: i32,
+    ) -> Result<Transaction, TransactionRepoError>;
+    async fn get_all_categories(&self, user: UserId) -> Result<Vec<String>, TransactionRepoError>;
+    async fn get_all_tags(&self, user: UserId) -> Result<Vec<String>, TransactionRepoError>;
+    async fn get_all_transactees(&self, user: UserId) -> Result<Vec<String>, TransactionRepoError>;
+}
+
+#[derive(Error, Debug)]
+pub enum TransactionRepoError {
+    #[error("Transaction with id {0} not found")]
+    TransactionNotFound(i32),
+    #[error(transparent)]
+    Other(#[from] anyhow::Error),
 }
