@@ -25,6 +25,8 @@ use ledger::auth::jwt::JWTAuth;
 use ledger::transaction;
 use ledger::transaction::models::DieselTransactionRepo;
 use ledger::transaction::TransactionRepo;
+use ledger::user::models::DieselUserRepo;
+use ledger::user::UserRepo;
 use ledger::{auth, user};
 
 #[derive(Deserialize)]
@@ -69,10 +71,11 @@ async fn main() -> Result<(), Box<dyn Error>> {
     HttpServer::new(move || {
         let transaction_repo: Arc<dyn TransactionRepo> =
             Arc::new(DieselTransactionRepo::new(pool.clone()));
+        let user_repo: Arc<dyn UserRepo> = Arc::new(DieselUserRepo::new(pool.clone()));
         App::new()
             .app_data(jwt_auth.clone())
-            .app_data(Data::new(pool.clone()))
             .app_data(Data::new(transaction_repo))
+            .app_data(Data::new(user_repo))
             .wrap(ledger::tracing::create_middleware())
             .service(transaction::transaction_service().wrap(bearer_auth_middleware.clone()))
             .service(user::user_service().wrap(bearer_auth_middleware.clone()))

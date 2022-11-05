@@ -13,24 +13,23 @@ use tracing::instrument;
 
 use crate::utils::mock::MockAuthentication;
 use ledger::transaction::{NewTransaction, Transaction, TransactionRepo};
-use ledger::DbPool;
-use utils::database_pool;
-use utils::test_user;
+use ledger::user::UserRepo;
 use utils::transaction_repo;
+use utils::user_repo;
 use utils::TestUser;
 
 #[macro_use]
 mod utils;
 
-#[instrument(skip(database_pool, transaction_repo, test_user))]
+#[instrument(skip(transaction_repo, user_repo))]
 #[rstest]
 #[actix_rt::test]
 async fn test_update_transaction(
-    database_pool: &DbPool,
     transaction_repo: Arc<dyn TransactionRepo>,
-    test_user: TestUser,
+    user_repo: Box<dyn UserRepo>,
 ) {
-    let app = build_app!(database_pool, transaction_repo, test_user.user_id.clone());
+    let test_user = TestUser::new(user_repo).await;
+    let app = build_app!(transaction_repo, test_user.user_id.clone());
     let service = test::init_service(app).await;
 
     let new_transaction = NewTransaction::new(
@@ -71,15 +70,15 @@ async fn test_update_transaction(
     assert_eq!(updated_transaction.transactee, update.transactee);
 }
 
-#[instrument(skip(database_pool, transaction_repo, test_user))]
+#[instrument(skip(transaction_repo, user_repo))]
 #[rstest]
 #[actix_rt::test]
 async fn test_update_tags(
-    database_pool: &DbPool,
     transaction_repo: Arc<dyn TransactionRepo>,
-    test_user: TestUser,
+    user_repo: Box<dyn UserRepo>,
 ) {
-    let app = build_app!(database_pool, transaction_repo, test_user.user_id.clone());
+    let test_user = TestUser::new(user_repo).await;
+    let app = build_app!(transaction_repo, test_user.user_id.clone());
     let service = test::init_service(app).await;
 
     let new_transaction = NewTransaction::new(
@@ -113,15 +112,15 @@ async fn test_update_tags(
     assert_eq!(updated_transaction.tags, update.tags);
 }
 
-#[instrument(skip(database_pool, transaction_repo, test_user))]
+#[instrument(skip(transaction_repo, user_repo))]
 #[rstest]
 #[actix_rt::test]
 async fn test_update_invalid_transaction(
-    database_pool: &DbPool,
     transaction_repo: Arc<dyn TransactionRepo>,
-    test_user: TestUser,
+    user_repo: Box<dyn UserRepo>,
 ) {
-    let app = build_app!(database_pool, transaction_repo, test_user.user_id.clone());
+    let test_user = TestUser::new(user_repo).await;
+    let app = build_app!(transaction_repo, test_user.user_id.clone());
     let service = test::init_service(app).await;
 
     let update = NewTransaction::new(

@@ -10,16 +10,15 @@ use uuid::Uuid;
 
 use ledger::transaction::models::DieselTransactionRepo;
 use ledger::transaction::TransactionRepo;
-use ledger::user::models::User;
-use ledger::user::UserId;
+use ledger::user::models::{DieselUserRepo, User};
+use ledger::user::{UserId, UserRepo};
 use ledger::DbPool;
 
 pub mod mock;
 
 macro_rules! build_app {
-    ($pool:ident, $transaction_repo:ident, $user_id:expr) => {
+    ($transaction_repo:ident, $user_id:expr) => {
         App::new()
-            .app_data(Data::new($pool.clone()))
             .app_data(Data::new($transaction_repo))
             .wrap(ledger::tracing::create_middleware())
             .service(
@@ -52,29 +51,29 @@ struct TestConfig {
 
 pub struct TestUser {
     pub user_id: UserId,
-    pool: DbPool,
+    repo: Box<dyn UserRepo>,
 }
 
 impl TestUser {
-    fn new(db_pool: &DbPool) -> TestUser {
+    pub async fn new(user_repo: Box<dyn UserRepo>) -> TestUser {
         let user_id = "test-user-".to_owned() + &Uuid::new_v4().to_string();
         let user = User {
             id: user_id.to_string(),
             password_hash: ledger::auth::password::encode_password("pass".to_string()).unwrap(),
         };
-        ledger::user::models::create_user(db_pool, user).unwrap();
+        user_repo.create_user(user).await.unwrap();
         info!(%user_id, "Created user");
         TestUser {
             user_id,
-            pool: db_pool.clone(),
+            repo: user_repo,
         }
     }
 }
 
 impl Drop for TestUser {
     fn drop(&mut self) {
+        futures::executor::block_on(self.repo.delete_user(&self.user_id)).unwrap();
         info!(%self.user_id, "Deleted user");
-        ledger::user::models::delete_user(&self.pool, &self.user_id).unwrap();
     }
 }
 
@@ -104,6 +103,6 @@ pub fn transaction_repo(database_pool: &DbPool) -> Arc<dyn TransactionRepo> {
 }
 
 #[fixture]
-pub fn test_user(database_pool: &DbPool) -> TestUser {
-    TestUser::new(database_pool)
+pub fn user_repo(database_pool: &DbPool) -> Box<dyn UserRepo> {
+    Box::new(DieselUserRepo::new(database_pool.clone()))
 }
