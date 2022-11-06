@@ -8,8 +8,8 @@ use std::sync::Arc;
 use crate::error::HandlerError;
 use crate::user::UserId;
 
-use super::NewTransaction;
-use super::TransactionRepo;
+use crate::repo::transaction_repo::NewTransaction;
+use crate::repo::transaction_repo::TransactionRepo;
 
 #[derive(Deserialize)]
 pub struct Filter {

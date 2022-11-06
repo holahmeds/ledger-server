@@ -2,9 +2,10 @@ use actix_web::{web, HttpResponse, Responder};
 use serde::Deserialize;
 use std::sync::Arc;
 
-use super::{UserId, UserRepo};
+use super::UserId;
 use crate::auth;
 use crate::error::HandlerError;
+use crate::repo::user_repo::UserRepo;
 
 #[derive(Deserialize)]
 pub struct NewPassword {

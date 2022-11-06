@@ -1,8 +1,9 @@
 use crate::auth::jwt::JWTAuth;
 use crate::auth::password;
 use crate::error::HandlerError;
-use crate::user::models::User;
-use crate::user::{UserId, UserRepo};
+use crate::repo::user_repo::User;
+use crate::repo::user_repo::UserRepo;
+use crate::user::UserId;
 use actix_web::{web, HttpRequest, HttpResponse, Responder};
 use serde::Deserialize;
 use serde::Serialize;

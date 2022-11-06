@@ -1,51 +1,76 @@
+use super::DbPool;
+use crate::repo::transaction_repo::{
+    NewTransaction, Transaction, TransactionRepo, TransactionRepoError,
+};
+use crate::schema::{transaction_tags, transactions};
+use crate::user::UserId;
 use actix_web::web;
 use anyhow::Context;
 use async_trait::async_trait;
 use chrono::NaiveDate;
 use diesel::prelude::*;
 use diesel::r2d2::ConnectionManager;
-use diesel::Insertable;
-use diesel::Queryable;
+use diesel::{Connection, PgConnection, QueryDsl, RunQueryDsl};
 use r2d2::PooledConnection;
 use rust_decimal::Decimal;
 
-use crate::schema::transaction_tags;
-use crate::schema::transactions;
-use crate::transaction::{TransactionRepo, TransactionRepoError};
-use crate::user::UserId;
-use crate::DbPool;
-
-use super::{NewTransaction, Transaction};
-
 #[derive(Queryable, Identifiable)]
 #[table_name = "transactions"]
-pub struct TransactionEntry {
-    pub id: i32,
-    pub category: String,
-    pub transactee: Option<String>,
-    pub note: Option<String>,
-    pub date: NaiveDate,
-    pub amount: Decimal,
-    pub user_id: UserId,
+struct TransactionEntry {
+    id: i32,
+    category: String,
+    transactee: Option<String>,
+    note: Option<String>,
+    date: NaiveDate,
+    amount: Decimal,
+    user_id: UserId,
 }
 
 #[derive(Insertable, AsChangeset)]
 #[table_name = "transactions"]
-pub struct NewTransactionEntry {
-    pub category: String,
-    pub transactee: Option<String>,
-    pub note: Option<String>,
-    pub date: NaiveDate,
-    pub amount: Decimal,
-    pub user_id: UserId,
+struct NewTransactionEntry {
+    category: String,
+    transactee: Option<String>,
+    note: Option<String>,
+    date: NaiveDate,
+    amount: Decimal,
+    user_id: UserId,
+}
+
+impl Transaction {
+    fn from_entry_and_tags(transaction_entry: TransactionEntry, tags: Vec<String>) -> Transaction {
+        Transaction {
+            id: transaction_entry.id,
+            category: transaction_entry.category,
+            transactee: transaction_entry.transactee,
+            note: transaction_entry.note,
+            date: transaction_entry.date,
+            amount: transaction_entry.amount,
+            tags,
+        }
+    }
+}
+
+impl NewTransaction {
+    fn split_tags(self, user_id: UserId) -> (NewTransactionEntry, Vec<String>) {
+        let new_transaction_entry = NewTransactionEntry {
+            category: self.category,
+            transactee: self.transactee,
+            note: self.note,
+            date: self.date,
+            amount: self.amount,
+            user_id,
+        };
+        (new_transaction_entry, self.tags)
+    }
 }
 
 #[derive(Associations, Identifiable, Queryable, Insertable)]
 #[primary_key(transaction_id, tag)]
 #[belongs_to(TransactionEntry, foreign_key = "transaction_id")]
 struct TransactionTag {
-    pub transaction_id: i32,
-    pub tag: String,
+    transaction_id: i32,
+    tag: String,
 }
 
 pub struct DieselTransactionRepo {
@@ -85,6 +110,7 @@ impl TransactionRepo for DieselTransactionRepo {
     ) -> Result<Transaction, TransactionRepoError> {
         self.block(move |db_conn| {
             use crate::schema::transactions::dsl::*;
+            use diesel::QueryDsl;
 
             let transaction_entry = transactions
                 .find(transaction_id)

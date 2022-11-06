@@ -15,8 +15,8 @@ use rust_decimal::Decimal;
 use tracing::instrument;
 
 use crate::utils::mock::MockAuthentication;
-use ledger::transaction::{NewTransaction, Transaction, TransactionRepo};
-use ledger::user::UserRepo;
+use ledger::repo::transaction_repo::{NewTransaction, Transaction, TransactionRepo};
+use ledger::repo::user_repo::UserRepo;
 use utils::transaction_repo;
 use utils::user_repo;
 use utils::TestUser;
@@ -29,7 +29,7 @@ mod utils;
 #[actix_rt::test]
 async fn test_create_api_response(
     transaction_repo: Arc<dyn TransactionRepo>,
-    user_repo: Box<dyn UserRepo>,
+    user_repo: Arc<dyn UserRepo>,
 ) {
     let test_user = TestUser::new(user_repo).await;
     let app = build_app!(transaction_repo, test_user.user_id.clone());

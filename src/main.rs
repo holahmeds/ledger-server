@@ -1,5 +1,3 @@
-#[macro_use]
-extern crate diesel_migrations;
 extern crate jsonwebtoken;
 #[macro_use]
 extern crate tracing;
@@ -8,25 +6,19 @@ extern crate serde_json;
 use std::error::Error;
 use std::fs;
 use std::path::PathBuf;
-use std::sync::Arc;
 
 use actix_web::error::JsonPayloadError;
 use actix_web::web::Data;
 use actix_web::{web, App};
 use actix_web::{HttpResponse, HttpServer};
 use actix_web_httpauth::middleware::HttpAuthentication;
-use diesel::r2d2;
-use diesel::r2d2::ConnectionManager;
 use rand::Rng;
 use serde::Deserialize;
 use tracing::Level;
 
 use ledger::auth::jwt::JWTAuth;
+use ledger::repo::diesel::create_repos;
 use ledger::transaction;
-use ledger::transaction::models::DieselTransactionRepo;
-use ledger::transaction::TransactionRepo;
-use ledger::user::models::DieselUserRepo;
-use ledger::user::UserRepo;
 use ledger::{auth, user};
 
 #[derive(Deserialize)]
@@ -34,8 +26,6 @@ struct Config {
     database_url: String,
     signups_enabled: bool,
 }
-
-embed_migrations!();
 
 #[actix_web::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -52,30 +42,17 @@ async fn main() -> Result<(), Box<dyn Error>> {
     };
     let config: Config = toml::from_str(config.as_str())?;
 
-    let manager: ConnectionManager<diesel::PgConnection> =
-        ConnectionManager::new(config.database_url);
-    let pool = r2d2::Pool::builder()
-        .build(manager)
-        .expect("Unable to build database pool");
-
-    {
-        info!("Running migrations");
-        let connection = pool.get()?;
-        embedded_migrations::run_with_output(&connection, &mut std::io::stdout())?;
-    }
+    let (transaction_repo, user_repo) = create_repos(config.database_url, 10, true);
 
     let secret = get_secret()?;
     let jwt_auth = JWTAuth::from_secret(secret);
     let bearer_auth_middleware = HttpAuthentication::bearer(auth::credentials_validator);
 
     HttpServer::new(move || {
-        let transaction_repo: Arc<dyn TransactionRepo> =
-            Arc::new(DieselTransactionRepo::new(pool.clone()));
-        let user_repo: Arc<dyn UserRepo> = Arc::new(DieselUserRepo::new(pool.clone()));
         App::new()
             .app_data(jwt_auth.clone())
-            .app_data(Data::new(transaction_repo))
-            .app_data(Data::new(user_repo))
+            .app_data(Data::new(transaction_repo.clone()))
+            .app_data(Data::new(user_repo.clone()))
             .wrap(ledger::tracing::create_middleware())
             .service(transaction::transaction_service().wrap(bearer_auth_middleware.clone()))
             .service(user::user_service().wrap(bearer_auth_middleware.clone()))

@@ -1,18 +1,17 @@
 use std::fs;
 use std::sync::Arc;
 
-use diesel::r2d2::{ConnectionManager, Pool};
 use rstest::*;
 use serde::Deserialize;
 use tracing::info;
 use tracing::Level;
 use uuid::Uuid;
 
-use ledger::transaction::models::DieselTransactionRepo;
-use ledger::transaction::TransactionRepo;
-use ledger::user::models::{DieselUserRepo, User};
-use ledger::user::{UserId, UserRepo};
-use ledger::DbPool;
+use ledger::repo::diesel::create_repos;
+use ledger::repo::transaction_repo::TransactionRepo;
+use ledger::repo::user_repo::User;
+use ledger::repo::user_repo::UserRepo;
+use ledger::user::UserId;
 
 pub mod mock;
 
@@ -51,11 +50,11 @@ struct TestConfig {
 
 pub struct TestUser {
     pub user_id: UserId,
-    repo: Box<dyn UserRepo>,
+    repo: Arc<dyn UserRepo>,
 }
 
 impl TestUser {
-    pub async fn new(user_repo: Box<dyn UserRepo>) -> TestUser {
+    pub async fn new(user_repo: Arc<dyn UserRepo>) -> TestUser {
         let user_id = "test-user-".to_owned() + &Uuid::new_v4().to_string();
         let user = User {
             id: user_id.to_string(),
@@ -79,8 +78,9 @@ impl Drop for TestUser {
 
 #[fixture]
 #[once]
-pub fn database_pool() -> DbPool {
+pub fn repos() -> (Arc<dyn TransactionRepo>, Arc<dyn UserRepo>) {
     tracing_subscriber::fmt()
+        .pretty()
         .with_max_level(Level::DEBUG)
         .init();
     info!("tracing initialized");
@@ -88,21 +88,17 @@ pub fn database_pool() -> DbPool {
     let config = fs::read_to_string("config_test.toml").unwrap();
     let config: TestConfig = toml::from_str(config.as_str()).unwrap();
 
-    let manager: ConnectionManager<diesel::PgConnection> =
-        ConnectionManager::new(config.database_url);
-
-    let pool = Pool::builder().build(manager).unwrap();
-    info!("Database pool created");
-
-    pool
+    create_repos(config.database_url, 10, false)
 }
 
 #[fixture]
-pub fn transaction_repo(database_pool: &DbPool) -> Arc<dyn TransactionRepo> {
-    Arc::new(DieselTransactionRepo::new(database_pool.clone()))
+pub fn transaction_repo(
+    repos: &(Arc<dyn TransactionRepo>, Arc<dyn UserRepo>),
+) -> Arc<dyn TransactionRepo> {
+    repos.0.clone()
 }
 
 #[fixture]
-pub fn user_repo(database_pool: &DbPool) -> Box<dyn UserRepo> {
-    Box::new(DieselUserRepo::new(database_pool.clone()))
+pub fn user_repo(repos: &(Arc<dyn TransactionRepo>, Arc<dyn UserRepo>)) -> Arc<dyn UserRepo> {
+    repos.1.clone()
 }

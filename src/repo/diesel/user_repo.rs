@@ -1,31 +1,39 @@
+use super::DbPool;
+use crate::repo::user_repo::{User, UserRepo, UserRepoError};
+use crate::schema::users;
+use crate::user::UserId;
 use actix_web::web;
 use anyhow::Context;
 use async_trait::async_trait;
 use diesel::prelude::*;
 use diesel::r2d2::ConnectionManager;
 use diesel::result::DatabaseErrorKind;
+use diesel::{PgConnection, QueryDsl, RunQueryDsl};
 use r2d2::PooledConnection;
-use thiserror::Error;
-
-use super::{UserId, UserRepo};
-use crate::schema::users;
-use crate::DbPool;
-
-#[derive(Error, Debug)]
-pub enum UserRepoError {
-    #[error("User {0} not found")]
-    UserNotFound(UserId),
-    #[error("User {0} already exists")]
-    UserAlreadyExists(UserId),
-    #[error(transparent)]
-    Other(#[from] anyhow::Error),
-}
 
 #[derive(Insertable, Queryable, Identifiable, Clone)]
 #[table_name = "users"]
-pub struct User {
+pub struct UserEntry {
     pub id: UserId,
     pub password_hash: String,
+}
+
+impl From<UserEntry> for User {
+    fn from(u: UserEntry) -> Self {
+        User {
+            id: u.id,
+            password_hash: u.password_hash,
+        }
+    }
+}
+
+impl From<User> for UserEntry {
+    fn from(u: User) -> Self {
+        UserEntry {
+            id: u.id,
+            password_hash: u.password_hash,
+        }
+    }
 }
 
 pub struct DieselUserRepo {
@@ -60,24 +68,26 @@ impl UserRepo for DieselUserRepo {
         let user_id = user_id.to_owned();
         self.block(move |db_conn| {
             use crate::schema::users::dsl::users;
+            use diesel::{QueryDsl, RunQueryDsl};
 
-            let user = users.find(&user_id).first(&db_conn).map_err(|e| match e {
+            let user: UserEntry = users.find(&user_id).first(&db_conn).map_err(|e| match e {
                 diesel::result::Error::NotFound => UserRepoError::UserNotFound(user_id),
                 _ => UserRepoError::Other(e.into()),
             })?;
-            Ok(user)
+            Ok(user.into())
         })
         .await
     }
 
     async fn create_user(&self, user: User) -> Result<(), UserRepoError> {
+        let user_entry: UserEntry = user.into();
         self.block(move |db_conn| {
             diesel::insert_into(users::table)
-                .values(&user)
+                .values(&user_entry)
                 .execute(&db_conn)
                 .map_err(|e| match e {
                     diesel::result::Error::DatabaseError(DatabaseErrorKind::UniqueViolation, _) => {
-                        UserRepoError::UserAlreadyExists(user.id.to_owned())
+                        UserRepoError::UserAlreadyExists(user_entry.id.to_owned())
                     }
                     _ => UserRepoError::Other(e.into()),
                 })?;
@@ -95,7 +105,7 @@ impl UserRepo for DieselUserRepo {
         let password_hash = password_hash.to_owned();
         self.block(move |db_conn| {
             // using get_result() so that we get NotFound if the user doesn't exist
-            let _: User = diesel::update(users::table.find(&user_id))
+            let _: UserEntry = diesel::update(users::table.find(&user_id))
                 .set(users::password_hash.eq(password_hash))
                 .get_result(&db_conn)
                 .map_err(|e| match e {
@@ -111,7 +121,7 @@ impl UserRepo for DieselUserRepo {
         let user_id = user_id.to_owned();
         self.block(move |db_conn| {
             // using get_result() so that we get NotFound if the user doesn't exist
-            let _: User = diesel::delete(users::table.find(&user_id))
+            let _: UserEntry = diesel::delete(users::table.find(&user_id))
                 .get_result(&db_conn)
                 .map_err(|e| match e {
                     diesel::result::Error::NotFound => UserRepoError::UserNotFound(user_id),
