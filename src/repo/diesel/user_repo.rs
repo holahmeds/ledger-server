@@ -1,7 +1,6 @@
+use super::schema::users;
 use super::DbPool;
 use crate::repo::user_repo::{User, UserRepo, UserRepoError};
-use crate::schema::users;
-use crate::user::UserId;
 use actix_web::web;
 use anyhow::Context;
 use async_trait::async_trait;
@@ -14,7 +13,7 @@ use r2d2::PooledConnection;
 #[derive(Insertable, Queryable, Identifiable, Clone)]
 #[table_name = "users"]
 pub struct UserEntry {
-    pub id: UserId,
+    pub id: String,
     pub password_hash: String,
 }
 
@@ -67,7 +66,7 @@ impl UserRepo for DieselUserRepo {
     async fn get_user(&self, user_id: &str) -> Result<User, UserRepoError> {
         let user_id = user_id.to_owned();
         self.block(move |db_conn| {
-            use crate::schema::users::dsl::users;
+            use crate::repo::diesel::schema::users::dsl::users;
             use diesel::{QueryDsl, RunQueryDsl};
 
             let user: UserEntry = users.find(&user_id).first(&db_conn).map_err(|e| match e {

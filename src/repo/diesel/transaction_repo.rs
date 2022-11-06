@@ -1,8 +1,8 @@
+use super::schema::{transaction_tags, transactions};
 use super::DbPool;
 use crate::repo::transaction_repo::{
     NewTransaction, Transaction, TransactionRepo, TransactionRepoError,
 };
-use crate::schema::{transaction_tags, transactions};
 use crate::user::UserId;
 use actix_web::web;
 use anyhow::Context;
@@ -109,7 +109,7 @@ impl TransactionRepo for DieselTransactionRepo {
         transaction_id: i32,
     ) -> Result<Transaction, TransactionRepoError> {
         self.block(move |db_conn| {
-            use crate::schema::transactions::dsl::*;
+            use crate::repo::diesel::schema::transactions::dsl::*;
             use diesel::QueryDsl;
 
             let transaction_entry = transactions
@@ -303,7 +303,7 @@ impl TransactionRepo for DieselTransactionRepo {
 
     async fn get_all_categories(&self, user: UserId) -> Result<Vec<String>, TransactionRepoError> {
         self.block(move |db_conn| {
-            use crate::schema::transactions::dsl::*;
+            use crate::repo::diesel::schema::transactions::dsl::*;
 
             let categories = transactions
                 .filter(user_id.eq(&user))
@@ -318,7 +318,7 @@ impl TransactionRepo for DieselTransactionRepo {
 
     async fn get_all_tags(&self, user: UserId) -> Result<Vec<String>, TransactionRepoError> {
         self.block(move |db_conn| {
-            use crate::schema::transaction_tags::dsl::*;
+            use crate::repo::diesel::schema::transaction_tags::dsl::*;
 
             let tags = transaction_tags
                 .left_join(transactions::table)
@@ -334,7 +334,7 @@ impl TransactionRepo for DieselTransactionRepo {
 
     async fn get_all_transactees(&self, user: UserId) -> Result<Vec<String>, TransactionRepoError> {
         self.block(move |db_conn| {
-            use crate::schema::transactions::dsl::*;
+            use crate::repo::diesel::schema::transactions::dsl::*;
 
             let results = transactions
                 .filter(user_id.eq(&user))

@@ -1,3 +1,4 @@
+mod schema;
 mod transaction_repo;
 mod user_repo;
 
