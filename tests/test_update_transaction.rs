@@ -14,20 +14,17 @@ use tracing::instrument;
 use crate::utils::mock::MockAuthentication;
 use ledger::repo::transaction_repo::{NewTransaction, Transaction, TransactionRepo};
 use ledger::repo::user_repo::UserRepo;
-use utils::transaction_repo;
-use utils::user_repo;
+use utils::repos;
 use utils::TestUser;
 
 #[macro_use]
 mod utils;
 
-#[instrument(skip(transaction_repo, user_repo))]
+#[instrument(skip(repos))]
 #[rstest]
 #[actix_rt::test]
-async fn test_update_transaction(
-    transaction_repo: Arc<dyn TransactionRepo>,
-    user_repo: Arc<dyn UserRepo>,
-) {
+async fn test_update_transaction(#[future] repos: (Arc<dyn TransactionRepo>, Arc<dyn UserRepo>)) {
+    let (transaction_repo, user_repo) = repos.await;
     let test_user = TestUser::new(user_repo).await;
     let app = build_app!(transaction_repo, test_user.user_id.clone());
     let service = test::init_service(app).await;
@@ -68,15 +65,15 @@ async fn test_update_transaction(
     assert_eq!(transaction.id, updated_transaction.id);
     assert_ne!(transaction, updated_transaction);
     assert_eq!(updated_transaction.transactee, update.transactee);
+
+    test_user.delete().await
 }
 
-#[instrument(skip(transaction_repo, user_repo))]
+#[instrument(skip(repos))]
 #[rstest]
 #[actix_rt::test]
-async fn test_update_tags(
-    transaction_repo: Arc<dyn TransactionRepo>,
-    user_repo: Arc<dyn UserRepo>,
-) {
+async fn test_update_tags(#[future] repos: (Arc<dyn TransactionRepo>, Arc<dyn UserRepo>)) {
+    let (transaction_repo, user_repo) = repos.await;
     let test_user = TestUser::new(user_repo).await;
     let app = build_app!(transaction_repo, test_user.user_id.clone());
     let service = test::init_service(app).await;
@@ -110,15 +107,17 @@ async fn test_update_tags(
     assert_ne!(transaction, updated_transaction);
     assert_eq!(updated_transaction.transactee, update.transactee);
     assert_eq!(updated_transaction.tags, update.tags);
+
+    test_user.delete().await
 }
 
-#[instrument(skip(transaction_repo, user_repo))]
+#[instrument(skip(repos))]
 #[rstest]
 #[actix_rt::test]
 async fn test_update_invalid_transaction(
-    transaction_repo: Arc<dyn TransactionRepo>,
-    user_repo: Arc<dyn UserRepo>,
+    #[future] repos: (Arc<dyn TransactionRepo>, Arc<dyn UserRepo>),
 ) {
+    let (transaction_repo, user_repo) = repos.await;
     let test_user = TestUser::new(user_repo).await;
     let app = build_app!(transaction_repo, test_user.user_id.clone());
     let service = test::init_service(app).await;
@@ -138,4 +137,6 @@ async fn test_update_invalid_transaction(
     let response = test::call_service(&service, request).await;
 
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
+
+    test_user.delete().await
 }

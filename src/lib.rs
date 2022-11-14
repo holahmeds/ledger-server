@@ -4,6 +4,7 @@ extern crate actix_web;
 extern crate diesel;
 #[macro_use]
 extern crate diesel_migrations;
+extern crate core;
 
 pub mod auth;
 mod error;

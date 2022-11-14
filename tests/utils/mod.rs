@@ -7,7 +7,7 @@ use tracing::info;
 use tracing::Level;
 use uuid::Uuid;
 
-use ledger::repo::diesel::create_repos;
+use ledger::repo::sqlx::create_repos;
 use ledger::repo::transaction_repo::TransactionRepo;
 use ledger::repo::user_repo::User;
 use ledger::repo::user_repo::UserRepo;
@@ -16,15 +16,17 @@ use ledger::user::UserId;
 pub mod mock;
 
 macro_rules! build_app {
-    ($transaction_repo:ident, $user_id:expr) => {
-        App::new()
+    ($transaction_repo:ident, $user_id:expr) => {{
+        let app = App::new()
             .app_data(Data::new($transaction_repo))
             .wrap(ledger::tracing::create_middleware())
             .service(
                 ledger::transaction::transaction_service()
                     .wrap(MockAuthentication { user_id: $user_id }),
-            )
-    };
+            );
+        tracing::info!("Built app");
+        app
+    }};
 }
 
 macro_rules! create_transaction {
@@ -67,38 +69,26 @@ impl TestUser {
             repo: user_repo,
         }
     }
-}
 
-impl Drop for TestUser {
-    fn drop(&mut self) {
-        futures::executor::block_on(self.repo.delete_user(&self.user_id)).unwrap();
-        info!(%self.user_id, "Deleted user");
+    pub async fn delete(&self) {
+        self.repo.delete_user(&self.user_id).await.unwrap()
     }
 }
 
 #[fixture]
 #[once]
-pub fn repos() -> (Arc<dyn TransactionRepo>, Arc<dyn UserRepo>) {
+pub fn tracing_setup() -> () {
     tracing_subscriber::fmt()
         .pretty()
         .with_max_level(Level::DEBUG)
         .init();
     info!("tracing initialized");
+}
 
+#[fixture]
+pub async fn repos(_tracing_setup: &()) -> (Arc<dyn TransactionRepo>, Arc<dyn UserRepo>) {
     let config = fs::read_to_string("config_test.toml").unwrap();
     let config: TestConfig = toml::from_str(config.as_str()).unwrap();
 
-    create_repos(config.database_url, 10, false)
-}
-
-#[fixture]
-pub fn transaction_repo(
-    repos: &(Arc<dyn TransactionRepo>, Arc<dyn UserRepo>),
-) -> Arc<dyn TransactionRepo> {
-    repos.0.clone()
-}
-
-#[fixture]
-pub fn user_repo(repos: &(Arc<dyn TransactionRepo>, Arc<dyn UserRepo>)) -> Arc<dyn UserRepo> {
-    repos.1.clone()
+    create_repos(config.database_url, 1).await
 }

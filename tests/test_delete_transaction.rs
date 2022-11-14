@@ -14,20 +14,17 @@ use tracing::instrument;
 use crate::utils::mock::MockAuthentication;
 use ledger::repo::transaction_repo::{NewTransaction, Transaction, TransactionRepo};
 use ledger::repo::user_repo::UserRepo;
-use utils::transaction_repo;
-use utils::user_repo;
+use utils::repos;
 use utils::TestUser;
 
 #[macro_use]
 mod utils;
 
-#[instrument(skip(transaction_repo, user_repo))]
+#[instrument(skip(repos))]
 #[rstest]
 #[actix_rt::test]
-async fn test_delete_transaction(
-    transaction_repo: Arc<dyn TransactionRepo>,
-    user_repo: Arc<dyn UserRepo>,
-) {
+async fn test_delete_transaction(#[future] repos: (Arc<dyn TransactionRepo>, Arc<dyn UserRepo>)) {
+    let (transaction_repo, user_repo) = repos.await;
     let test_user = TestUser::new(user_repo).await;
     let app = build_app!(transaction_repo, test_user.user_id.clone());
     let service = test::init_service(app).await;
@@ -50,15 +47,17 @@ async fn test_delete_transaction(
 
     let deleted_transaction = test::read_body_json(response).await;
     assert_eq!(transaction, deleted_transaction);
+
+    test_user.delete().await
 }
 
-#[instrument(skip(transaction_repo, user_repo))]
+#[instrument(skip(repos))]
 #[rstest]
 #[actix_rt::test]
 async fn test_delete_invalid_transaction(
-    transaction_repo: Arc<dyn TransactionRepo>,
-    user_repo: Arc<dyn UserRepo>,
+    #[future] repos: (Arc<dyn TransactionRepo>, Arc<dyn UserRepo>),
 ) {
+    let (transaction_repo, user_repo) = repos.await;
     let test_user = TestUser::new(user_repo).await;
     let app = build_app!(transaction_repo, test_user.user_id.clone());
     let service = test::init_service(app).await;
@@ -69,4 +68,6 @@ async fn test_delete_invalid_transaction(
     let response = test::call_service(&service, request).await;
 
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
+
+    test_user.delete().await
 }
