@@ -2,7 +2,6 @@ extern crate futures_util;
 extern crate serde_json;
 
 use std::str::FromStr;
-use std::sync::Arc;
 
 use actix_web::test;
 use actix_web::test::TestRequest;
@@ -14,19 +13,21 @@ use rust_decimal::Decimal;
 use tracing::instrument;
 
 use crate::utils::mock::MockAuthentication;
-use ledger::repo::transaction_repo::{NewTransaction, Transaction, TransactionRepo};
-use ledger::repo::user_repo::UserRepo;
-use utils::repos;
+use ledger::repo::transaction_repo::{NewTransaction, Transaction};
+use utils::tracing_setup;
 use utils::TestUser;
+use utils::{build_repos, RepoType};
 
 #[macro_use]
 mod utils;
 
-#[instrument(skip(repos))]
+#[instrument]
 #[rstest]
+#[case::diesel(RepoType::Diesel)]
+#[case::sqlx(RepoType::SQLx)]
 #[actix_rt::test]
-async fn test_get_all_transactions(#[future] repos: (Arc<dyn TransactionRepo>, Arc<dyn UserRepo>)) {
-    let (transaction_repo, user_repo) = repos.await;
+async fn test_get_all_transactions(_tracing_setup: &(), #[case] repo_type: RepoType) {
+    let (transaction_repo, user_repo) = build_repos(repo_type).await;
     let test_user = TestUser::new(user_repo).await;
     let app = build_app!(transaction_repo, test_user.user_id.clone());
     let service = test::init_service(app).await;
@@ -66,11 +67,13 @@ async fn test_get_all_transactions(#[future] repos: (Arc<dyn TransactionRepo>, A
     test_user.delete().await
 }
 
-#[instrument(skip(repos))]
+#[instrument]
 #[rstest]
+#[case::diesel(RepoType::Diesel)]
+#[case::sqlx(RepoType::SQLx)]
 #[actix_rt::test]
-async fn test_transactions_sorted(#[future] repos: (Arc<dyn TransactionRepo>, Arc<dyn UserRepo>)) {
-    let (transaction_repo, user_repo) = repos.await;
+async fn test_transactions_sorted(_tracing_setup: &(), #[case] repo_type: RepoType) {
+    let (transaction_repo, user_repo) = build_repos(repo_type).await;
     let test_user = TestUser::new(user_repo).await;
     let app = build_app!(transaction_repo, test_user.user_id.clone());
     let service = test::init_service(app).await;
@@ -119,13 +122,13 @@ async fn test_transactions_sorted(#[future] repos: (Arc<dyn TransactionRepo>, Ar
     test_user.delete().await
 }
 
-#[instrument(skip(repos))]
+#[instrument]
 #[rstest]
+#[case::diesel(RepoType::Diesel)]
+#[case::sqlx(RepoType::SQLx)]
 #[actix_rt::test]
-async fn test_get_transactions_filter_category(
-    #[future] repos: (Arc<dyn TransactionRepo>, Arc<dyn UserRepo>),
-) {
-    let (transaction_repo, user_repo) = repos.await;
+async fn test_get_transactions_filter_category(_tracing_setup: &(), #[case] repo_type: RepoType) {
+    let (transaction_repo, user_repo) = build_repos(repo_type).await;
     let test_user = TestUser::new(user_repo).await;
     let app = build_app!(transaction_repo, test_user.user_id.clone());
     let service = test::init_service(app).await;
@@ -167,13 +170,13 @@ async fn test_get_transactions_filter_category(
     test_user.delete().await
 }
 
-#[instrument(skip(repos))]
+#[instrument]
 #[rstest]
+#[case::diesel(RepoType::Diesel)]
+#[case::sqlx(RepoType::SQLx)]
 #[actix_rt::test]
-async fn test_get_transactions_filter_transactee(
-    #[future] repos: (Arc<dyn TransactionRepo>, Arc<dyn UserRepo>),
-) {
-    let (transaction_repo, user_repo) = repos.await;
+async fn test_get_transactions_filter_transactee(_tracing_setup: &(), #[case] repo_type: RepoType) {
+    let (transaction_repo, user_repo) = build_repos(repo_type).await;
     let test_user = TestUser::new(user_repo).await;
     let app = build_app!(transaction_repo, test_user.user_id.clone());
     let service = test::init_service(app).await;
@@ -217,13 +220,13 @@ async fn test_get_transactions_filter_transactee(
     test_user.delete().await
 }
 
-#[instrument(skip(repos))]
+#[instrument]
 #[rstest]
+#[case::diesel(RepoType::Diesel)]
+#[case::sqlx(RepoType::SQLx)]
 #[actix_rt::test]
-async fn test_get_transactions_filter_from(
-    #[future] repos: (Arc<dyn TransactionRepo>, Arc<dyn UserRepo>),
-) {
-    let (transaction_repo, user_repo) = repos.await;
+async fn test_get_transactions_filter_from(_tracing_setup: &(), #[case] repo_type: RepoType) {
+    let (transaction_repo, user_repo) = build_repos(repo_type).await;
     let test_user = TestUser::new(user_repo).await;
     let app = build_app!(transaction_repo, test_user.user_id.clone());
     let service = test::init_service(app).await;
@@ -267,13 +270,13 @@ async fn test_get_transactions_filter_from(
     test_user.delete().await
 }
 
-#[instrument(skip(repos))]
+#[instrument]
 #[rstest]
+#[case::diesel(RepoType::Diesel)]
+#[case::sqlx(RepoType::SQLx)]
 #[actix_rt::test]
-async fn test_get_transactions_filter_until(
-    #[future] repos: (Arc<dyn TransactionRepo>, Arc<dyn UserRepo>),
-) {
-    let (transaction_repo, user_repo) = repos.await;
+async fn test_get_transactions_filter_until(_tracing_setup: &(), #[case] repo_type: RepoType) {
+    let (transaction_repo, user_repo) = build_repos(repo_type).await;
     let test_user = TestUser::new(user_repo).await;
     let app = build_app!(transaction_repo, test_user.user_id.clone());
     let service = test::init_service(app).await;

@@ -7,7 +7,7 @@ use tracing::info;
 use tracing::Level;
 use uuid::Uuid;
 
-use ledger::repo::sqlx::create_repos;
+use ledger::repo;
 use ledger::repo::transaction_repo::TransactionRepo;
 use ledger::repo::user_repo::User;
 use ledger::repo::user_repo::UserRepo;
@@ -85,10 +85,18 @@ pub fn tracing_setup() -> () {
     info!("tracing initialized");
 }
 
-#[fixture]
-pub async fn repos(_tracing_setup: &()) -> (Arc<dyn TransactionRepo>, Arc<dyn UserRepo>) {
+#[derive(Debug)]
+pub enum RepoType {
+    Diesel,
+    SQLx,
+}
+
+pub async fn build_repos(repo_type: RepoType) -> (Arc<dyn TransactionRepo>, Arc<dyn UserRepo>) {
     let config = fs::read_to_string("config_test.toml").unwrap();
     let config: TestConfig = toml::from_str(config.as_str()).unwrap();
 
-    create_repos(config.database_url, 1).await
+    match repo_type {
+        RepoType::Diesel => repo::diesel::create_repos(config.database_url, 1, false),
+        RepoType::SQLx => repo::sqlx::create_repos(config.database_url, 1).await,
+    }
 }

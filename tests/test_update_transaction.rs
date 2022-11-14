@@ -1,5 +1,4 @@
 use std::str::FromStr;
-use std::sync::Arc;
 
 use actix_web::http::StatusCode;
 use actix_web::test;
@@ -12,19 +11,21 @@ use rust_decimal::Decimal;
 use tracing::instrument;
 
 use crate::utils::mock::MockAuthentication;
-use ledger::repo::transaction_repo::{NewTransaction, Transaction, TransactionRepo};
-use ledger::repo::user_repo::UserRepo;
-use utils::repos;
+use ledger::repo::transaction_repo::{NewTransaction, Transaction};
+use utils::tracing_setup;
 use utils::TestUser;
+use utils::{build_repos, RepoType};
 
 #[macro_use]
 mod utils;
 
-#[instrument(skip(repos))]
+#[instrument]
 #[rstest]
+#[case::diesel(RepoType::Diesel)]
+#[case::sqlx(RepoType::SQLx)]
 #[actix_rt::test]
-async fn test_update_transaction(#[future] repos: (Arc<dyn TransactionRepo>, Arc<dyn UserRepo>)) {
-    let (transaction_repo, user_repo) = repos.await;
+async fn test_update_transaction(_tracing_setup: &(), #[case] repo_type: RepoType) {
+    let (transaction_repo, user_repo) = build_repos(repo_type).await;
     let test_user = TestUser::new(user_repo).await;
     let app = build_app!(transaction_repo, test_user.user_id.clone());
     let service = test::init_service(app).await;
@@ -69,11 +70,13 @@ async fn test_update_transaction(#[future] repos: (Arc<dyn TransactionRepo>, Arc
     test_user.delete().await
 }
 
-#[instrument(skip(repos))]
+#[instrument]
 #[rstest]
+#[case::diesel(RepoType::Diesel)]
+#[case::sqlx(RepoType::SQLx)]
 #[actix_rt::test]
-async fn test_update_tags(#[future] repos: (Arc<dyn TransactionRepo>, Arc<dyn UserRepo>)) {
-    let (transaction_repo, user_repo) = repos.await;
+async fn test_update_tags(_tracing_setup: &(), #[case] repo_type: RepoType) {
+    let (transaction_repo, user_repo) = build_repos(repo_type).await;
     let test_user = TestUser::new(user_repo).await;
     let app = build_app!(transaction_repo, test_user.user_id.clone());
     let service = test::init_service(app).await;
@@ -111,13 +114,13 @@ async fn test_update_tags(#[future] repos: (Arc<dyn TransactionRepo>, Arc<dyn Us
     test_user.delete().await
 }
 
-#[instrument(skip(repos))]
+#[instrument]
 #[rstest]
+#[case::diesel(RepoType::Diesel)]
+#[case::sqlx(RepoType::SQLx)]
 #[actix_rt::test]
-async fn test_update_invalid_transaction(
-    #[future] repos: (Arc<dyn TransactionRepo>, Arc<dyn UserRepo>),
-) {
-    let (transaction_repo, user_repo) = repos.await;
+async fn test_update_invalid_transaction(_tracing_setup: &(), #[case] repo_type: RepoType) {
+    let (transaction_repo, user_repo) = build_repos(repo_type).await;
     let test_user = TestUser::new(user_repo).await;
     let app = build_app!(transaction_repo, test_user.user_id.clone());
     let service = test::init_service(app).await;

@@ -3,7 +3,6 @@ extern crate rstest;
 extern crate serde_json;
 
 use std::str::FromStr;
-use std::sync::Arc;
 
 use actix_web::test;
 use actix_web::test::TestRequest;
@@ -15,19 +14,21 @@ use rust_decimal::Decimal;
 use tracing::instrument;
 
 use crate::utils::mock::MockAuthentication;
-use ledger::repo::transaction_repo::{NewTransaction, Transaction, TransactionRepo};
-use ledger::repo::user_repo::UserRepo;
-use utils::repos;
+use ledger::repo::transaction_repo::{NewTransaction, Transaction};
+use utils::tracing_setup;
 use utils::TestUser;
+use utils::{build_repos, RepoType};
 
 #[macro_use]
 mod utils;
 
-#[instrument(skip(repos))]
+#[instrument]
 #[rstest]
+#[case::diesel(RepoType::Diesel)]
+#[case::sqlx(RepoType::SQLx)]
 #[actix_rt::test]
-async fn test_create_api_response(#[future] repos: (Arc<dyn TransactionRepo>, Arc<dyn UserRepo>)) {
-    let (transaction_repo, user_repo) = repos.await;
+async fn test_create_api_response(_tracing_setup: &(), #[case] repo_type: RepoType) {
+    let (transaction_repo, user_repo) = build_repos(repo_type).await;
     let test_user = TestUser::new(user_repo).await;
     let app = build_app!(transaction_repo, test_user.user_id.clone());
     let service = test::init_service(app).await;
