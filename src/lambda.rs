@@ -6,7 +6,7 @@ use actix_web::{web, App, HttpResponse};
 use actix_web_httpauth::middleware::HttpAuthentication;
 use lambda_web::{run_actix_on_lambda, LambdaError};
 use ledger::auth::jwt::JWTAuth;
-use ledger::repo::diesel::create_repos;
+use ledger::repo::sqlx::create_repos;
 use ledger::{auth, transaction, user};
 use std::env;
 use tracing::{error, info, Level};
@@ -28,7 +28,7 @@ async fn main() -> Result<(), LambdaError> {
     let secret = base64::decode(env::var("SECRET").expect("SECRET not set"))?;
     let database_url = env::var("DATABASE_URL").expect("DATABASE_URL not set");
 
-    let (transaction_repo, user_repo) = create_repos(database_url, 1, false);
+    let (transaction_repo, user_repo) = create_repos(database_url, 1).await;
 
     let jwt_auth = JWTAuth::from_secret(secret);
     let bearer_auth_middleware = HttpAuthentication::bearer(auth::credentials_validator);

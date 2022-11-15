@@ -1,10 +1,13 @@
 #[macro_use]
 extern crate actix_web;
+extern crate core;
+
+#[cfg(feature = "diesel-repo")]
 #[macro_use]
 extern crate diesel;
+#[cfg(feature = "diesel-repo")]
 #[macro_use]
 extern crate diesel_migrations;
-extern crate core;
 
 pub mod auth;
 mod error;
