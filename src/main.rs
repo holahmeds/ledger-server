@@ -1,5 +1,3 @@
-#[macro_use]
-extern crate diesel_migrations;
 extern crate jsonwebtoken;
 #[macro_use]
 extern crate tracing;
@@ -14,23 +12,19 @@ use actix_web::web::Data;
 use actix_web::{web, App};
 use actix_web::{HttpResponse, HttpServer};
 use actix_web_httpauth::middleware::HttpAuthentication;
-use diesel::r2d2;
-use diesel::r2d2::ConnectionManager;
 use rand::Rng;
 use serde::Deserialize;
 use tracing::Level;
 
 use ledger::auth::jwt::JWTAuth;
-use ledger::transaction;
 use ledger::{auth, user};
+use ledger::{repo, transaction};
 
 #[derive(Deserialize)]
 struct Config {
     database_url: String,
     signups_enabled: bool,
 }
-
-embed_migrations!();
 
 #[actix_web::main]
 async fn main() -> Result<(), Box<dyn Error>> {
@@ -47,17 +41,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     };
     let config: Config = toml::from_str(config.as_str())?;
 
-    let manager: ConnectionManager<diesel::PgConnection> =
-        ConnectionManager::new(config.database_url);
-    let pool = r2d2::Pool::builder()
-        .build(manager)
-        .expect("Unable to build database pool");
-
-    {
-        info!("Running migrations");
-        let connection = pool.get()?;
-        embedded_migrations::run_with_output(&connection, &mut std::io::stdout())?;
-    }
+    let (transaction_repo, user_repo) = repo::sqlx::create_repos(config.database_url, 10).await;
 
     let secret = get_secret()?;
     let jwt_auth = JWTAuth::from_secret(secret);
@@ -66,7 +50,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
     HttpServer::new(move || {
         App::new()
             .app_data(jwt_auth.clone())
-            .app_data(Data::new(pool.clone()))
+            .app_data(Data::new(transaction_repo.clone()))
+            .app_data(Data::new(user_repo.clone()))
             .wrap(ledger::tracing::create_middleware())
             .service(transaction::transaction_service().wrap(bearer_auth_middleware.clone()))
             .service(user::user_service().wrap(bearer_auth_middleware.clone()))

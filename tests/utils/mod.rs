@@ -1,28 +1,32 @@
 use std::fs;
+use std::sync::Arc;
 
-use diesel::r2d2::{ConnectionManager, Pool};
 use rstest::*;
 use serde::Deserialize;
 use tracing::info;
 use tracing::Level;
 use uuid::Uuid;
 
-use ledger::user::models::User;
+use ledger::repo;
+use ledger::repo::transaction_repo::TransactionRepo;
+use ledger::repo::user_repo::User;
+use ledger::repo::user_repo::UserRepo;
 use ledger::user::UserId;
-use ledger::DbPool;
 
 pub mod mock;
 
 macro_rules! build_app {
-    ($pool:ident, $user_id:expr) => {
-        App::new()
-            .app_data(Data::new($pool.clone()))
+    ($transaction_repo:ident, $user_id:expr) => {{
+        let app = App::new()
+            .app_data(Data::new($transaction_repo))
             .wrap(ledger::tracing::create_middleware())
             .service(
                 ledger::transaction::transaction_service()
                     .wrap(MockAuthentication { user_id: $user_id }),
-            )
-    };
+            );
+        tracing::info!("Built app");
+        app
+    }};
 }
 
 macro_rules! create_transaction {
@@ -48,53 +52,51 @@ struct TestConfig {
 
 pub struct TestUser {
     pub user_id: UserId,
-    pool: DbPool,
+    repo: Arc<dyn UserRepo>,
 }
 
 impl TestUser {
-    fn new(db_pool: &DbPool) -> TestUser {
+    pub async fn new(user_repo: Arc<dyn UserRepo>) -> TestUser {
         let user_id = "test-user-".to_owned() + &Uuid::new_v4().to_string();
         let user = User {
             id: user_id.to_string(),
             password_hash: ledger::auth::password::encode_password("pass".to_string()).unwrap(),
         };
-        ledger::user::models::create_user(db_pool, user).unwrap();
+        user_repo.create_user(user).await.unwrap();
         info!(%user_id, "Created user");
         TestUser {
             user_id,
-            pool: db_pool.clone(),
+            repo: user_repo,
         }
     }
-}
 
-impl Drop for TestUser {
-    fn drop(&mut self) {
-        info!(%self.user_id, "Deleted user");
-        ledger::user::models::delete_user(&self.pool, &self.user_id).unwrap();
+    pub async fn delete(&self) {
+        self.repo.delete_user(&self.user_id).await.unwrap()
     }
 }
 
 #[fixture]
 #[once]
-pub fn database_pool() -> DbPool {
+pub fn tracing_setup() -> () {
     tracing_subscriber::fmt()
+        .pretty()
         .with_max_level(Level::DEBUG)
         .init();
     info!("tracing initialized");
+}
 
+#[derive(Debug)]
+pub enum RepoType {
+    Diesel,
+    SQLx,
+}
+
+pub async fn build_repos(repo_type: RepoType) -> (Arc<dyn TransactionRepo>, Arc<dyn UserRepo>) {
     let config = fs::read_to_string("config_test.toml").unwrap();
     let config: TestConfig = toml::from_str(config.as_str()).unwrap();
 
-    let manager: ConnectionManager<diesel::PgConnection> =
-        ConnectionManager::new(config.database_url);
-
-    let pool = Pool::builder().build(manager).unwrap();
-    info!("Database pool created");
-
-    pool
-}
-
-#[fixture]
-pub fn test_user(database_pool: &DbPool) -> TestUser {
-    TestUser::new(database_pool)
+    match repo_type {
+        RepoType::Diesel => repo::diesel::create_repos(config.database_url, 1, false),
+        RepoType::SQLx => repo::sqlx::create_repos(config.database_url, 1).await,
+    }
 }

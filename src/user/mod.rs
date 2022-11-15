@@ -1,7 +1,6 @@
-use actix_web::{web, Scope};
-
 mod handlers;
-pub mod models;
+
+use actix_web::{web, Scope};
 
 pub type UserId = String;
 

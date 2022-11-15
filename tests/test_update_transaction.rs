@@ -11,20 +11,23 @@ use rust_decimal::Decimal;
 use tracing::instrument;
 
 use crate::utils::mock::MockAuthentication;
-use ledger::transaction::{NewTransaction, Transaction};
-use ledger::DbPool;
-use utils::database_pool;
-use utils::test_user;
+use ledger::repo::transaction_repo::{NewTransaction, Transaction};
+use utils::tracing_setup;
 use utils::TestUser;
+use utils::{build_repos, RepoType};
 
 #[macro_use]
 mod utils;
 
-#[instrument(skip(database_pool, test_user))]
+#[instrument]
 #[rstest]
+#[case::diesel(RepoType::Diesel)]
+#[case::sqlx(RepoType::SQLx)]
 #[actix_rt::test]
-async fn test_update_transaction(database_pool: &DbPool, test_user: TestUser) {
-    let app = build_app!(database_pool, test_user.user_id.clone());
+async fn test_update_transaction(_tracing_setup: &(), #[case] repo_type: RepoType) {
+    let (transaction_repo, user_repo) = build_repos(repo_type).await;
+    let test_user = TestUser::new(user_repo).await;
+    let app = build_app!(transaction_repo, test_user.user_id.clone());
     let service = test::init_service(app).await;
 
     let new_transaction = NewTransaction::new(
@@ -63,13 +66,19 @@ async fn test_update_transaction(database_pool: &DbPool, test_user: TestUser) {
     assert_eq!(transaction.id, updated_transaction.id);
     assert_ne!(transaction, updated_transaction);
     assert_eq!(updated_transaction.transactee, update.transactee);
+
+    test_user.delete().await
 }
 
-#[instrument(skip(database_pool, test_user))]
+#[instrument]
 #[rstest]
+#[case::diesel(RepoType::Diesel)]
+#[case::sqlx(RepoType::SQLx)]
 #[actix_rt::test]
-async fn test_update_tags(database_pool: &DbPool, test_user: TestUser) {
-    let app = build_app!(database_pool, test_user.user_id.clone());
+async fn test_update_tags(_tracing_setup: &(), #[case] repo_type: RepoType) {
+    let (transaction_repo, user_repo) = build_repos(repo_type).await;
+    let test_user = TestUser::new(user_repo).await;
+    let app = build_app!(transaction_repo, test_user.user_id.clone());
     let service = test::init_service(app).await;
 
     let new_transaction = NewTransaction::new(
@@ -101,13 +110,19 @@ async fn test_update_tags(database_pool: &DbPool, test_user: TestUser) {
     assert_ne!(transaction, updated_transaction);
     assert_eq!(updated_transaction.transactee, update.transactee);
     assert_eq!(updated_transaction.tags, update.tags);
+
+    test_user.delete().await
 }
 
-#[instrument(skip(database_pool, test_user))]
+#[instrument]
 #[rstest]
+#[case::diesel(RepoType::Diesel)]
+#[case::sqlx(RepoType::SQLx)]
 #[actix_rt::test]
-async fn test_update_invalid_transaction(database_pool: &DbPool, test_user: TestUser) {
-    let app = build_app!(database_pool, test_user.user_id.clone());
+async fn test_update_invalid_transaction(_tracing_setup: &(), #[case] repo_type: RepoType) {
+    let (transaction_repo, user_repo) = build_repos(repo_type).await;
+    let test_user = TestUser::new(user_repo).await;
+    let app = build_app!(transaction_repo, test_user.user_id.clone());
     let service = test::init_service(app).await;
 
     let update = NewTransaction::new(
@@ -125,4 +140,6 @@ async fn test_update_invalid_transaction(database_pool: &DbPool, test_user: Test
     let response = test::call_service(&service, request).await;
 
     assert_eq!(response.status(), StatusCode::NOT_FOUND);
+
+    test_user.delete().await
 }

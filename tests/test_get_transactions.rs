@@ -13,20 +13,23 @@ use rust_decimal::Decimal;
 use tracing::instrument;
 
 use crate::utils::mock::MockAuthentication;
-use ledger::transaction::{NewTransaction, Transaction};
-use ledger::DbPool;
-use utils::database_pool;
-use utils::test_user;
+use ledger::repo::transaction_repo::{NewTransaction, Transaction};
+use utils::tracing_setup;
 use utils::TestUser;
+use utils::{build_repos, RepoType};
 
 #[macro_use]
 mod utils;
 
-#[instrument(skip(database_pool, test_user))]
+#[instrument]
 #[rstest]
+#[case::diesel(RepoType::Diesel)]
+#[case::sqlx(RepoType::SQLx)]
 #[actix_rt::test]
-async fn test_get_all_transactions(database_pool: &DbPool, test_user: TestUser) {
-    let app = build_app!(database_pool, test_user.user_id.clone());
+async fn test_get_all_transactions(_tracing_setup: &(), #[case] repo_type: RepoType) {
+    let (transaction_repo, user_repo) = build_repos(repo_type).await;
+    let test_user = TestUser::new(user_repo).await;
+    let app = build_app!(transaction_repo, test_user.user_id.clone());
     let service = test::init_service(app).await;
 
     let new_transactions = vec![
@@ -60,13 +63,19 @@ async fn test_get_all_transactions(database_pool: &DbPool, test_user: TestUser) 
 
     let transactions: Vec<Transaction> = test::read_body_json(response).await;
     assert_eq!(inserted_transactions, transactions);
+
+    test_user.delete().await
 }
 
-#[instrument(skip(database_pool, test_user))]
+#[instrument]
 #[rstest]
+#[case::diesel(RepoType::Diesel)]
+#[case::sqlx(RepoType::SQLx)]
 #[actix_rt::test]
-async fn test_transactions_sorted(database_pool: &DbPool, test_user: TestUser) {
-    let app = build_app!(database_pool, test_user.user_id.clone());
+async fn test_transactions_sorted(_tracing_setup: &(), #[case] repo_type: RepoType) {
+    let (transaction_repo, user_repo) = build_repos(repo_type).await;
+    let test_user = TestUser::new(user_repo).await;
+    let app = build_app!(transaction_repo, test_user.user_id.clone());
     let service = test::init_service(app).await;
 
     let new_transactions = vec![
@@ -109,13 +118,19 @@ async fn test_transactions_sorted(database_pool: &DbPool, test_user: TestUser) {
         transactions.windows(2).all(|w| w[0] >= w[1]),
         "transactions not sorted"
     );
+
+    test_user.delete().await
 }
 
-#[instrument(skip(database_pool, test_user))]
+#[instrument]
 #[rstest]
+#[case::diesel(RepoType::Diesel)]
+#[case::sqlx(RepoType::SQLx)]
 #[actix_rt::test]
-async fn test_get_transactions_filter_category(database_pool: &DbPool, test_user: TestUser) {
-    let app = build_app!(database_pool, test_user.user_id.clone());
+async fn test_get_transactions_filter_category(_tracing_setup: &(), #[case] repo_type: RepoType) {
+    let (transaction_repo, user_repo) = build_repos(repo_type).await;
+    let test_user = TestUser::new(user_repo).await;
+    let app = build_app!(transaction_repo, test_user.user_id.clone());
     let service = test::init_service(app).await;
 
     let new_transactions = vec![
@@ -151,13 +166,19 @@ async fn test_get_transactions_filter_category(database_pool: &DbPool, test_user
 
     let transactions: Vec<Transaction> = test::read_body_json(response).await;
     assert!(transactions.iter().all(|t| t.category == "Loan"));
+
+    test_user.delete().await
 }
 
-#[instrument(skip(database_pool, test_user))]
+#[instrument]
 #[rstest]
+#[case::diesel(RepoType::Diesel)]
+#[case::sqlx(RepoType::SQLx)]
 #[actix_rt::test]
-async fn test_get_transactions_filter_transactee(database_pool: &DbPool, test_user: TestUser) {
-    let app = build_app!(database_pool, test_user.user_id.clone());
+async fn test_get_transactions_filter_transactee(_tracing_setup: &(), #[case] repo_type: RepoType) {
+    let (transaction_repo, user_repo) = build_repos(repo_type).await;
+    let test_user = TestUser::new(user_repo).await;
+    let app = build_app!(transaction_repo, test_user.user_id.clone());
     let service = test::init_service(app).await;
 
     let new_transactions = vec![
@@ -195,13 +216,19 @@ async fn test_get_transactions_filter_transactee(database_pool: &DbPool, test_us
     assert!(transactions
         .iter()
         .all(|t| t.transactee == Some("Alice".to_owned())));
+
+    test_user.delete().await
 }
 
-#[instrument(skip(database_pool, test_user))]
+#[instrument]
 #[rstest]
+#[case::diesel(RepoType::Diesel)]
+#[case::sqlx(RepoType::SQLx)]
 #[actix_rt::test]
-async fn test_get_transactions_filter_from(database_pool: &DbPool, test_user: TestUser) {
-    let app = build_app!(database_pool, test_user.user_id.clone());
+async fn test_get_transactions_filter_from(_tracing_setup: &(), #[case] repo_type: RepoType) {
+    let (transaction_repo, user_repo) = build_repos(repo_type).await;
+    let test_user = TestUser::new(user_repo).await;
+    let app = build_app!(transaction_repo, test_user.user_id.clone());
     let service = test::init_service(app).await;
 
     let new_transactions = vec![
@@ -239,13 +266,19 @@ async fn test_get_transactions_filter_from(database_pool: &DbPool, test_user: Te
     assert!(transactions
         .iter()
         .all(|t| t.date > NaiveDate::from_str("2021-01-01").unwrap()));
+
+    test_user.delete().await
 }
 
-#[instrument(skip(database_pool, test_user))]
+#[instrument]
 #[rstest]
+#[case::diesel(RepoType::Diesel)]
+#[case::sqlx(RepoType::SQLx)]
 #[actix_rt::test]
-async fn test_get_transactions_filter_until(database_pool: &DbPool, test_user: TestUser) {
-    let app = build_app!(database_pool, test_user.user_id.clone());
+async fn test_get_transactions_filter_until(_tracing_setup: &(), #[case] repo_type: RepoType) {
+    let (transaction_repo, user_repo) = build_repos(repo_type).await;
+    let test_user = TestUser::new(user_repo).await;
+    let app = build_app!(transaction_repo, test_user.user_id.clone());
     let service = test::init_service(app).await;
 
     let new_transactions = vec![
@@ -283,4 +316,6 @@ async fn test_get_transactions_filter_until(database_pool: &DbPool, test_user: T
     assert!(transactions
         .iter()
         .all(|t| t.date < NaiveDate::from_str("2021-01-01").unwrap()));
+
+    test_user.delete().await
 }

@@ -1,5 +1,5 @@
-use crate::transaction::models::TransactionRepoError;
-use crate::user::models::UserRepoError;
+use crate::repo::transaction_repo::TransactionRepoError;
+use crate::repo::user_repo::UserRepoError;
 use actix_web::http::StatusCode;
 use actix_web::ResponseError;
 use std::fmt::Debug;
