@@ -22,4 +22,4 @@ jobs:
         with:
           use-cross: true
           command: build
-          args: --release --bin ledger-lambda --no-default-features --features="lambda" --target x86_64-unknown-linux-musl
+          args: --release --bin ledger-lambda --no-default-features --features=lambda --target x86_64-unknown-linux-musl
