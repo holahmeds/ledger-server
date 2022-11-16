@@ -18,4 +18,8 @@ jobs:
           toolchain: stable
           target: x86_64-unknown-linux-musl
           override: true
-      - run: cargo build --release --bin ledger-lambda --no-default-features --features="lambda" --target x86_64-unknown-linux-musl
+      - uses: actions-rs/cargo@v1
+        with:
+          use-cross: true
+          command: build
+          args: --release --bin ledger-lambda --no-default-features --features="lambda" --target x86_64-unknown-linux-musl
