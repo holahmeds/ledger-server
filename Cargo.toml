@@ -1,6 +1,6 @@
 [package]
 name = "ledger"
-version = "0.5.0"
+version = "0.6.0"
 authors = ["Ahmed Rafiq Ullah <ahmedrafiq47@gmail.com>"]
 license = "MIT"
 edition = "2021"
