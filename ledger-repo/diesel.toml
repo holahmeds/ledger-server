@@ -3,3 +3,4 @@
 
 [print_schema]
 file = "src/diesel_repo/schema.rs"
+with_docs = true
