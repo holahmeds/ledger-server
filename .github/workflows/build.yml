@@ -18,8 +18,18 @@ jobs:
           toolchain: stable
           target: x86_64-unknown-linux-musl
           override: true
-      - uses: actions-rs/cargo@v1
+      - name: Build binary
+        uses: actions-rs/cargo@v1
         with:
           use-cross: true
           command: build
           args: --release --bin ledger-lambda --no-default-features --features=lambda --target x86_64-unknown-linux-musl
+      - name: Create zip
+        run: |
+          mv target/x86_64-unknown-linux-musl/release/ledger-lambda bootstrap
+          zip ledger-lambda.zip bootstrap
+      - name: Archive build
+        uses: actions/upload-artifact@v3
+        with:
+          name: lambda-zip
+          path: ledger-lambda.zip
