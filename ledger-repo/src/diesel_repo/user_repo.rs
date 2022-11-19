@@ -1,6 +1,6 @@
 use super::schema::users;
 use super::DbPool;
-use crate::repo::user_repo::{User, UserRepo, UserRepoError};
+use crate::user_repo::{User, UserRepo, UserRepoError};
 use actix_web::web;
 use anyhow::Context;
 use async_trait::async_trait;
@@ -66,7 +66,7 @@ impl UserRepo for DieselUserRepo {
     async fn get_user(&self, user_id: &str) -> Result<User, UserRepoError> {
         let user_id = user_id.to_owned();
         self.block(move |db_conn| {
-            use crate::repo::diesel::schema::users::dsl::users;
+            use crate::diesel_repo::schema::users::dsl::users;
             use diesel::{QueryDsl, RunQueryDsl};
 
             let user: UserEntry = users.find(&user_id).first(&db_conn).map_err(|e| match e {
@@ -90,6 +90,7 @@ impl UserRepo for DieselUserRepo {
                     }
                     _ => UserRepoError::Other(e.into()),
                 })?;
+
             Ok(())
         })
         .await

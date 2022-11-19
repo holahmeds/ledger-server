@@ -1,7 +1,7 @@
-use crate::repo::transaction_repo::TransactionRepoError;
-use crate::repo::user_repo::UserRepoError;
 use actix_web::http::StatusCode;
 use actix_web::ResponseError;
+use ledger_repo::transaction_repo::TransactionRepoError;
+use ledger_repo::user_repo::UserRepoError;
 use std::fmt::Debug;
 use thiserror::Error;
 

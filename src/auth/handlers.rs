@@ -1,10 +1,10 @@
 use crate::auth::jwt::JWTAuth;
 use crate::auth::password;
 use crate::error::HandlerError;
-use crate::repo::user_repo::User;
-use crate::repo::user_repo::UserRepo;
 use crate::user::UserId;
 use actix_web::{web, HttpRequest, HttpResponse, Responder};
+use ledger_repo::user_repo::User;
+use ledger_repo::user_repo::UserRepo;
 use serde::Deserialize;
 use serde::Serialize;
 use std::sync::Arc;

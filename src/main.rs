@@ -17,8 +17,8 @@ use serde::Deserialize;
 use tracing::Level;
 
 use ledger::auth::jwt::JWTAuth;
+use ledger::transaction;
 use ledger::{auth, user};
-use ledger::{repo, transaction};
 
 #[derive(Deserialize)]
 struct Config {
@@ -41,7 +41,8 @@ async fn main() -> Result<(), Box<dyn Error>> {
     };
     let config: Config = toml::from_str(config.as_str())?;
 
-    let (transaction_repo, user_repo) = repo::sqlx::create_repos(config.database_url, 10).await;
+    let (transaction_repo, user_repo) =
+        ledger_repo::sqlx_repo::create_repos(config.database_url, 10).await;
 
     let secret = get_secret()?;
     let jwt_auth = JWTAuth::from_secret(secret);

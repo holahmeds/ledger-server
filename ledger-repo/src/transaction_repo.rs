@@ -1,4 +1,4 @@
-use crate::user::UserId;
+use crate::UserId;
 use async_trait::async_trait;
 use chrono::NaiveDate;
 use rust_decimal::Decimal;

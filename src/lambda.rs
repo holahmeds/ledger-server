@@ -6,8 +6,8 @@ use actix_web::{web, App, HttpResponse};
 use actix_web_httpauth::middleware::HttpAuthentication;
 use lambda_web::{run_actix_on_lambda, LambdaError};
 use ledger::auth::jwt::JWTAuth;
-use ledger::repo::sqlx::create_repos;
 use ledger::{auth, transaction, user};
+use ledger_repo::sqlx_repo::create_repos;
 use std::env;
 use tracing::{error, info, Level};
 

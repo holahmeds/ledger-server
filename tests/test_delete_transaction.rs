@@ -11,7 +11,7 @@ use rust_decimal::Decimal;
 use tracing::instrument;
 
 use crate::utils::mock::MockAuthentication;
-use ledger::repo::transaction_repo::{NewTransaction, Transaction};
+use ledger_repo::transaction_repo::{NewTransaction, Transaction};
 use utils::tracing_setup;
 use utils::TestUser;
 use utils::{build_repos, RepoType};

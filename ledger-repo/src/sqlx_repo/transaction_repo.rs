@@ -1,8 +1,6 @@
-use crate::repo::transaction_repo::TransactionRepoError::TransactionNotFound;
-use crate::repo::transaction_repo::{
-    NewTransaction, Transaction, TransactionRepo, TransactionRepoError,
-};
-use crate::user::UserId;
+use crate::transaction_repo::TransactionRepoError::TransactionNotFound;
+use crate::transaction_repo::{NewTransaction, Transaction, TransactionRepo, TransactionRepoError};
+use crate::UserId;
 use anyhow::Context;
 use async_trait::async_trait;
 use chrono::NaiveDate;

@@ -5,7 +5,7 @@ use std::sync::Arc;
 use super::UserId;
 use crate::auth;
 use crate::error::HandlerError;
-use crate::repo::user_repo::UserRepo;
+use ledger_repo::user_repo::UserRepo;
 
 #[derive(Deserialize)]
 pub struct NewPassword {

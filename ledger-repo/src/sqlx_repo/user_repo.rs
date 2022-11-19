@@ -1,4 +1,4 @@
-use crate::repo::user_repo::{User, UserRepo, UserRepoError};
+use crate::user_repo::{User, UserRepo, UserRepoError};
 use anyhow::Context;
 use async_trait::async_trait;
 use sqlx::{query, query_as, Pool, Postgres};

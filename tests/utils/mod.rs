@@ -7,11 +7,10 @@ use tracing::info;
 use tracing::Level;
 use uuid::Uuid;
 
-use ledger::repo;
-use ledger::repo::transaction_repo::TransactionRepo;
-use ledger::repo::user_repo::User;
-use ledger::repo::user_repo::UserRepo;
-use ledger::user::UserId;
+use ledger_repo::transaction_repo::TransactionRepo;
+use ledger_repo::user_repo::User;
+use ledger_repo::user_repo::UserRepo;
+use ledger_repo::UserId;
 
 pub mod mock;
 
@@ -96,7 +95,7 @@ pub async fn build_repos(repo_type: RepoType) -> (Arc<dyn TransactionRepo>, Arc<
     let config: TestConfig = toml::from_str(config.as_str()).unwrap();
 
     match repo_type {
-        RepoType::Diesel => repo::diesel::create_repos(config.database_url, 1, false),
-        RepoType::SQLx => repo::sqlx::create_repos(config.database_url, 1).await,
+        RepoType::Diesel => ledger_repo::diesel_repo::create_repos(config.database_url, 1, false),
+        RepoType::SQLx => ledger_repo::sqlx_repo::create_repos(config.database_url, 1).await,
     }
 }
