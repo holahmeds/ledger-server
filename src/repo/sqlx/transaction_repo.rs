@@ -122,20 +122,20 @@ impl TransactionRepo for SQLxTransactionRepo {
         let mut query_builder = QueryBuilder::new("SELECT * FROM transactions WHERE user_id = ");
         query_builder.push_bind(&user);
         if let Some(from) = from {
-            query_builder.push("AND date >= ").push_bind(from);
+            query_builder.push(" AND date >= ").push_bind(from);
         }
         if let Some(until) = until {
-            query_builder.push("AND date <= ").push_bind(until);
+            query_builder.push(" AND date <= ").push_bind(until);
         }
         if let Some(category) = category {
-            query_builder.push("AND category = ").push_bind(category);
+            query_builder.push(" AND category = ").push_bind(category);
         }
         if let Some(transactee) = transactee {
             query_builder
-                .push("AND transactee = ")
+                .push(" AND transactee = ")
                 .push_bind(transactee);
         }
-        query_builder.push("ORDER BY date DESC");
+        query_builder.push(" ORDER BY date DESC");
         let query = query_builder.build_query_as();
         let transaction_entries: Vec<TransactionEntry> = query
             .fetch_all(&self.pool)
