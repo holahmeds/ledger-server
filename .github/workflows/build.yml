@@ -8,9 +8,9 @@ env:
 
 jobs:
   lambda:
+    name: Build lambda
 
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v3
       - uses: actions-rs/toolchain@v1
@@ -33,3 +33,19 @@ jobs:
         with:
           name: lambda-zip
           path: ledger-lambda.zip
+
+  release:
+    name: Create release
+
+    if: startsWith(github.event.ref, 'refs/tags/v') # if commit has tag that starts with 'v'
+    needs: lambda
+
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v3
+        with:
+          name: lambda-zip
+      - name: Create release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: ledger-lambda.zip
