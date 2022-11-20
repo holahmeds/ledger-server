@@ -1,7 +1,6 @@
 use super::schema::{transaction_tags, transactions};
 use super::DbPool;
 use crate::transaction_repo::{NewTransaction, Transaction, TransactionRepo, TransactionRepoError};
-use crate::UserId;
 use actix_web::web;
 use anyhow::Context;
 use async_trait::async_trait;
@@ -21,7 +20,7 @@ struct TransactionEntry {
     note: Option<String>,
     date: NaiveDate,
     amount: Decimal,
-    user_id: UserId,
+    user_id: String,
 }
 
 #[derive(Insertable, AsChangeset)]
@@ -32,7 +31,7 @@ struct NewTransactionEntry {
     note: Option<String>,
     date: NaiveDate,
     amount: Decimal,
-    user_id: UserId,
+    user_id: String,
 }
 
 impl Transaction {
@@ -50,7 +49,7 @@ impl Transaction {
 }
 
 impl NewTransaction {
-    fn split_tags(self, user_id: UserId) -> (NewTransactionEntry, Vec<String>) {
+    fn split_tags(self, user_id: String) -> (NewTransactionEntry, Vec<String>) {
         let new_transaction_entry = NewTransactionEntry {
             category: self.category,
             transactee: self.transactee,
@@ -103,7 +102,7 @@ impl DieselTransactionRepo {
 impl TransactionRepo for DieselTransactionRepo {
     async fn get_transaction(
         &self,
-        user: UserId,
+        user: String,
         transaction_id: i32,
     ) -> Result<Transaction, TransactionRepoError> {
         self.block(move |db_conn| {
@@ -137,7 +136,7 @@ impl TransactionRepo for DieselTransactionRepo {
 
     async fn get_all_transactions(
         &self,
-        user: UserId,
+        user: String,
         from: Option<NaiveDate>,
         until: Option<NaiveDate>,
         category: Option<String>,
@@ -184,7 +183,7 @@ impl TransactionRepo for DieselTransactionRepo {
 
     async fn create_new_transaction(
         &self,
-        user: UserId,
+        user: String,
         new_transaction: NewTransaction,
     ) -> Result<Transaction, TransactionRepoError> {
         let (new_transaction_entry, tags) = new_transaction.split_tags(user);
@@ -208,7 +207,7 @@ impl TransactionRepo for DieselTransactionRepo {
 
     async fn update_transaction(
         &self,
-        user: UserId,
+        user: String,
         transaction_id: i32,
         updated_transaction: NewTransaction,
     ) -> Result<Transaction, TransactionRepoError> {
@@ -267,7 +266,7 @@ impl TransactionRepo for DieselTransactionRepo {
 
     async fn delete_transaction(
         &self,
-        user: UserId,
+        user: String,
         transaction_id: i32,
     ) -> Result<Transaction, TransactionRepoError> {
         self.block(move |db_conn| {
@@ -299,7 +298,7 @@ impl TransactionRepo for DieselTransactionRepo {
         .await
     }
 
-    async fn get_all_categories(&self, user: UserId) -> Result<Vec<String>, TransactionRepoError> {
+    async fn get_all_categories(&self, user: String) -> Result<Vec<String>, TransactionRepoError> {
         self.block(move |db_conn| {
             use crate::diesel_repo::schema::transactions::dsl::*;
 
@@ -314,7 +313,7 @@ impl TransactionRepo for DieselTransactionRepo {
         .await
     }
 
-    async fn get_all_tags(&self, user: UserId) -> Result<Vec<String>, TransactionRepoError> {
+    async fn get_all_tags(&self, user: String) -> Result<Vec<String>, TransactionRepoError> {
         self.block(move |db_conn| {
             use crate::diesel_repo::schema::transaction_tags::dsl::*;
 
@@ -330,7 +329,7 @@ impl TransactionRepo for DieselTransactionRepo {
         .await
     }
 
-    async fn get_all_transactees(&self, user: UserId) -> Result<Vec<String>, TransactionRepoError> {
+    async fn get_all_transactees(&self, user: String) -> Result<Vec<String>, TransactionRepoError> {
         self.block(move |db_conn| {
             use crate::diesel_repo::schema::transactions::dsl::*;
 

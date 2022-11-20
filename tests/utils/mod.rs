@@ -1,6 +1,7 @@
 use std::fs;
 use std::sync::Arc;
 
+use ledger::user::UserId;
 use rstest::*;
 use serde::Deserialize;
 use tracing::info;
@@ -10,7 +11,6 @@ use uuid::Uuid;
 use ledger_repo::transaction_repo::TransactionRepo;
 use ledger_repo::user_repo::User;
 use ledger_repo::user_repo::UserRepo;
-use ledger_repo::UserId;
 
 pub mod mock;
 

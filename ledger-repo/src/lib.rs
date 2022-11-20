@@ -12,5 +12,3 @@ pub mod user_repo;
 #[cfg(feature = "diesel-repo")]
 pub mod diesel_repo;
 pub mod sqlx_repo;
-
-pub type UserId = String;
