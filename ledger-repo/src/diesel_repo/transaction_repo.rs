@@ -1,6 +1,8 @@
 use super::schema::{transaction_tags, transactions};
 use super::DbPool;
-use crate::transaction_repo::{NewTransaction, Transaction, TransactionRepo, TransactionRepoError};
+use crate::transaction_repo::{
+    NewTransaction, PageOptions, Transaction, TransactionRepo, TransactionRepoError,
+};
 use actix_web::web;
 use anyhow::Context;
 use async_trait::async_trait;
@@ -141,6 +143,7 @@ impl TransactionRepo for DieselTransactionRepo {
         until: Option<NaiveDate>,
         category: Option<String>,
         transactee: Option<String>,
+        page_options: Option<PageOptions>,
     ) -> Result<Vec<Transaction>, TransactionRepoError> {
         self.block(move |db_conn| {
             let mut query = transactions::table
@@ -157,6 +160,11 @@ impl TransactionRepo for DieselTransactionRepo {
             }
             if let Some(transactee) = transactee {
                 query = query.filter(transactions::transactee.eq(transactee))
+            }
+            if let Some(po) = page_options {
+                query = query
+                    .limit(po.page_size)
+                    .offset(po.page_number * po.page_size)
             }
 
             let transactions_entries = query

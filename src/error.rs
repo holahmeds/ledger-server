@@ -17,6 +17,8 @@ pub enum HandlerError {
     UserNotFoundError(UserRepoError),
     #[error(transparent)]
     UserAlreadyExists(UserRepoError),
+    #[error("{0}")]
+    BadRequest(String),
 }
 
 impl From<TransactionRepoError> for HandlerError {
@@ -47,6 +49,7 @@ impl ResponseError for HandlerError {
                 StatusCode::NOT_FOUND
             }
             HandlerError::UserAlreadyExists(_) => StatusCode::CONFLICT,
+            HandlerError::BadRequest(_) => StatusCode::BAD_REQUEST,
             _ => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }

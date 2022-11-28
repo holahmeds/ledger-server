@@ -1,3 +1,4 @@
+use crate::transaction_repo::PageOptions;
 use crate::transaction_repo::TransactionRepoError::TransactionNotFound;
 use crate::transaction_repo::{NewTransaction, Transaction, TransactionRepo, TransactionRepoError};
 use anyhow::Context;
@@ -115,6 +116,7 @@ impl TransactionRepo for SQLxTransactionRepo {
         until: Option<NaiveDate>,
         category: Option<String>,
         transactee: Option<String>,
+        page_options: Option<PageOptions>,
     ) -> Result<Vec<Transaction>, TransactionRepoError> {
         let mut query_builder = QueryBuilder::new("SELECT * FROM transactions WHERE user_id = ");
         query_builder.push_bind(&user);
@@ -133,6 +135,13 @@ impl TransactionRepo for SQLxTransactionRepo {
                 .push_bind(transactee);
         }
         query_builder.push(" ORDER BY date DESC");
+        if let Some(po) = page_options {
+            query_builder
+                .push(" LIMIT ")
+                .push_bind(po.page_size)
+                .push(" OFFSET ")
+                .push_bind(po.page_size * po.page_number);
+        }
         let query = query_builder.build_query_as();
         let transaction_entries: Vec<TransactionEntry> = query
             .fetch_all(&self.pool)

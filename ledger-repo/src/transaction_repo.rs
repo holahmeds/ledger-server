@@ -6,6 +6,11 @@ use std::cmp::Ordering;
 use std::cmp::Ordering::Equal;
 use thiserror::Error;
 
+pub struct PageOptions {
+    pub page_number: i64,
+    pub page_size: i64,
+}
+
 #[async_trait]
 pub trait TransactionRepo: Sync + Send {
     async fn get_transaction(
@@ -20,6 +25,7 @@ pub trait TransactionRepo: Sync + Send {
         until: Option<NaiveDate>,
         category: Option<String>,
         transactee: Option<String>,
+        page_options: Option<PageOptions>,
     ) -> Result<Vec<Transaction>, TransactionRepoError>;
     async fn create_new_transaction(
         &self,
