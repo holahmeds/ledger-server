@@ -21,8 +21,8 @@ pub struct Filter {
 
 #[derive(Deserialize)]
 pub struct PageQueryParameters {
-    page_number: Option<i64>,
-    page_size: Option<i64>,
+    offset: Option<i64>,
+    limit: Option<i64>,
 }
 
 #[get("/{transaction_id}")]
@@ -44,17 +44,17 @@ pub async fn get_transactions(
     filter: web::Query<Filter>,
     page: web::Query<PageQueryParameters>,
 ) -> Result<impl Responder, HandlerError> {
-    if page.page_number.is_some() ^ page.page_size.is_some() {
+    if page.offset.is_some() ^ page.limit.is_some() {
         return Err(HandlerError::BadRequest(
-            "Both 'page_number' and 'page_size' is required for paging".to_string(),
+            "Both 'offset' and 'limit' is required for paging".to_string(),
         ));
     }
 
     let filter = filter.into_inner();
-    let page_options = if page.page_size.is_some() && page.page_number.is_some() {
+    let page_options = if page.offset.is_some() && page.limit.is_some() {
         Some(PageOptions {
-            page_number: page.page_number.unwrap(),
-            page_size: page.page_size.unwrap(),
+            offset: page.offset.unwrap(),
+            limit: page.limit.unwrap(),
         })
     } else {
         None

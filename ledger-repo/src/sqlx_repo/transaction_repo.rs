@@ -137,10 +137,10 @@ impl TransactionRepo for SQLxTransactionRepo {
         query_builder.push(" ORDER BY date DESC");
         if let Some(po) = page_options {
             query_builder
-                .push(" LIMIT ")
-                .push_bind(po.page_size)
                 .push(" OFFSET ")
-                .push_bind(po.page_size * po.page_number);
+                .push_bind(po.offset)
+                .push(" LIMIT ")
+                .push_bind(po.limit);
         }
         let query = query_builder.build_query_as();
         let transaction_entries: Vec<TransactionEntry> = query

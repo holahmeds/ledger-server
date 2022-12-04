@@ -162,9 +162,7 @@ impl TransactionRepo for DieselTransactionRepo {
                 query = query.filter(transactions::transactee.eq(transactee))
             }
             if let Some(po) = page_options {
-                query = query
-                    .limit(po.page_size)
-                    .offset(po.page_number * po.page_size)
+                query = query.offset(po.offset).limit(po.limit)
             }
 
             let transactions_entries = query

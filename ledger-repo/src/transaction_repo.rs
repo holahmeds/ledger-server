@@ -7,8 +7,8 @@ use std::cmp::Ordering::Equal;
 use thiserror::Error;
 
 pub struct PageOptions {
-    pub page_number: i64,
-    pub page_size: i64,
+    pub offset: i64,
+    pub limit: i64,
 }
 
 #[async_trait]
