@@ -7,6 +7,7 @@ use actix_web::web;
 use anyhow::Context;
 use async_trait::async_trait;
 use chrono::NaiveDate;
+use diesel::dsl::sum;
 use diesel::prelude::*;
 use diesel::r2d2::ConnectionManager;
 use diesel::{Connection, PgConnection, QueryDsl, RunQueryDsl};
@@ -349,6 +350,20 @@ impl TransactionRepo for DieselTransactionRepo {
             // remove null entry if there is one
             let transactees = results.into_iter().filter_map(|i| i).collect();
             Ok(transactees)
+        })
+        .await
+    }
+
+    async fn get_balance(&self, user: String) -> Result<Decimal, TransactionRepoError> {
+        self.block(move |db_conn| {
+            use crate::diesel_repo::schema::transactions::dsl::*;
+
+            let balance: Option<Decimal> = transactions
+                .filter(user_id.eq(&user))
+                .select(sum(amount))
+                .first(&db_conn)
+                .with_context(|| format!("Unable to get balance for user {}", user))?;
+            Ok(balance.unwrap_or(Decimal::ZERO))
         })
         .await
     }

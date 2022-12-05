@@ -2,7 +2,8 @@ use actix_web::web;
 use actix_web::HttpResponse;
 use actix_web::Responder;
 use chrono::NaiveDate;
-use serde::Deserialize;
+use rust_decimal::Decimal;
+use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 
 use crate::error::HandlerError;
@@ -23,6 +24,11 @@ pub struct Filter {
 pub struct PageQueryParameters {
     offset: Option<i64>,
     limit: Option<i64>,
+}
+
+#[derive(Serialize)]
+pub struct BalanceResponse {
+    balance: Decimal,
 }
 
 #[get("/{transaction_id}")]
@@ -143,4 +149,13 @@ pub async fn get_all_transactees(
         .get_all_transactees(user_id.into_inner())
         .await?;
     Ok(HttpResponse::Ok().json(transactees))
+}
+
+#[get("/balance")]
+pub async fn get_balance(
+    transaction_repo: web::Data<Arc<dyn TransactionRepo>>,
+    user_id: web::ReqData<UserId>,
+) -> Result<impl Responder, HandlerError> {
+    let balance = transaction_repo.get_balance(user_id.into_inner()).await?;
+    Ok(HttpResponse::Ok().json(BalanceResponse { balance }))
 }

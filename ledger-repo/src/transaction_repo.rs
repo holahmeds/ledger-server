@@ -18,6 +18,7 @@ pub trait TransactionRepo: Sync + Send {
         user: String,
         transaction_id: i32,
     ) -> Result<Transaction, TransactionRepoError>;
+
     async fn get_all_transactions(
         &self,
         user: String,
@@ -27,25 +28,33 @@ pub trait TransactionRepo: Sync + Send {
         transactee: Option<String>,
         page_options: Option<PageOptions>,
     ) -> Result<Vec<Transaction>, TransactionRepoError>;
+
     async fn create_new_transaction(
         &self,
         user: String,
         new_transaction: NewTransaction,
     ) -> Result<Transaction, TransactionRepoError>;
+
     async fn update_transaction(
         &self,
         user: String,
         transaction_id: i32,
         updated_transaction: NewTransaction,
     ) -> Result<Transaction, TransactionRepoError>;
+
     async fn delete_transaction(
         &self,
         user: String,
         transaction_id: i32,
     ) -> Result<Transaction, TransactionRepoError>;
+
     async fn get_all_categories(&self, user: String) -> Result<Vec<String>, TransactionRepoError>;
+
     async fn get_all_tags(&self, user: String) -> Result<Vec<String>, TransactionRepoError>;
+
     async fn get_all_transactees(&self, user: String) -> Result<Vec<String>, TransactionRepoError>;
+
+    async fn get_balance(&self, user: String) -> Result<Decimal, TransactionRepoError>;
 }
 
 #[derive(Error, Debug)]

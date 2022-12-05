@@ -332,4 +332,15 @@ impl TransactionRepo for SQLxTransactionRepo {
             .with_context(|| format!("Unable to get transactees for user {}", user))?;
         Ok(transactees)
     }
+
+    async fn get_balance(&self, user: String) -> Result<Decimal, TransactionRepoError> {
+        let balance = query_scalar!(
+            "SELECT SUM(amount) FROM transactions WHERE user_id = $1",
+            user
+        )
+        .fetch_one(&self.pool)
+        .await
+        .with_context(|| format!("Unable to get balance for user {}", user))?;
+        Ok(balance.unwrap_or(Decimal::ZERO))
+    }
 }
