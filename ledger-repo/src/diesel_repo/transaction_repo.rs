@@ -15,7 +15,7 @@ use r2d2::PooledConnection;
 use rust_decimal::Decimal;
 
 #[derive(Queryable, Identifiable)]
-#[table_name = "transactions"]
+#[diesel(table_name = transactions)]
 struct TransactionEntry {
     id: i32,
     category: String,
@@ -27,7 +27,7 @@ struct TransactionEntry {
 }
 
 #[derive(Insertable, AsChangeset)]
-#[table_name = "transactions"]
+#[diesel(table_name = transactions)]
 struct NewTransactionEntry {
     category: String,
     transactee: Option<String>,
@@ -66,8 +66,8 @@ impl NewTransaction {
 }
 
 #[derive(Associations, Identifiable, Queryable, Insertable)]
-#[primary_key(transaction_id, tag)]
-#[belongs_to(TransactionEntry, foreign_key = "transaction_id")]
+#[diesel(primary_key(transaction_id, tag))]
+#[diesel(belongs_to(TransactionEntry, foreign_key = transaction_id))]
 struct TransactionTag {
     transaction_id: i32,
     tag: String,
@@ -85,7 +85,7 @@ impl DieselTransactionRepo {
     async fn block<F, R>(&self, f: F) -> Result<R, TransactionRepoError>
     where
         F: FnOnce(
-                PooledConnection<ConnectionManager<PgConnection>>,
+                &mut PooledConnection<ConnectionManager<PgConnection>>,
             ) -> Result<R, TransactionRepoError>
             + Send
             + 'static,
@@ -93,8 +93,8 @@ impl DieselTransactionRepo {
     {
         let pool = self.db_pool.clone();
         web::block(move || {
-            let db_conn = pool.get().context("Unable to get connection from pool")?;
-            f(db_conn)
+            let mut db_conn = pool.get().context("Unable to get connection from pool")?;
+            f(&mut db_conn)
         })
         .await
         .context("Blocking error")?
@@ -115,7 +115,7 @@ impl TransactionRepo for DieselTransactionRepo {
             let transaction_entry = transactions
                 .find(transaction_id)
                 .filter(user_id.eq(user))
-                .get_result(&db_conn)
+                .get_result(db_conn)
                 .map_err(|e| match e {
                     diesel::result::Error::NotFound => {
                         TransactionRepoError::TransactionNotFound(transaction_id)
@@ -125,7 +125,7 @@ impl TransactionRepo for DieselTransactionRepo {
                         transaction_id
                     ))),
                 })?;
-            let transaction_tags = get_tags(&db_conn, transaction_id).with_context(|| {
+            let transaction_tags = get_tags(db_conn, transaction_id).with_context(|| {
                 format!("Unable to get tags for transaction {}", transaction_id)
             })?;
 
@@ -168,10 +168,10 @@ impl TransactionRepo for DieselTransactionRepo {
 
             let transactions_entries = query
                 .order((transactions::date.desc(), transactions::id.desc()))
-                .load(&db_conn)
+                .load(db_conn)
                 .context("Unable to retrieve transactions")?;
             let transaction_tags = TransactionTag::belonging_to(&transactions_entries)
-                .load::<TransactionTag>(&db_conn)
+                .load::<TransactionTag>(db_conn)
                 .context("Unable to retrieve tags for transactions")?
                 .grouped_by(&transactions_entries);
 
@@ -197,13 +197,13 @@ impl TransactionRepo for DieselTransactionRepo {
 
         self.block(move |db_conn| {
             let transaction_entry = db_conn
-                .transaction::<_, diesel::result::Error, _>(|| {
+                .transaction::<_, diesel::result::Error, _>(|db_conn| {
                     let transaction_entry: TransactionEntry =
                         diesel::insert_into(transactions::table)
                             .values(new_transaction_entry)
-                            .get_result(&db_conn)?;
+                            .get_result(db_conn)?;
 
-                    add_tags(&db_conn, transaction_entry.id, tags.clone())?;
+                    add_tags(db_conn, transaction_entry.id, tags.clone())?;
                     Ok(transaction_entry)
                 })
                 .context("Unable to insert transaction")?;
@@ -222,23 +222,23 @@ impl TransactionRepo for DieselTransactionRepo {
 
         self.block(move |db_conn| {
             let transaction_entry = db_conn
-                .transaction(|| {
+                .transaction(|db_conn| {
                     let transaction_entry = diesel::update(
                         transactions::table
                             .find(transaction_id)
                             .filter(transactions::user_id.eq(user)),
                     )
                     .set(new_transaction_entry)
-                    .get_result(&db_conn)?;
+                    .get_result(db_conn)?;
 
-                    let existing_tags: Vec<String> = get_tags(&db_conn, transaction_id)?;
+                    let existing_tags: Vec<String> = get_tags(db_conn, transaction_id)?;
 
                     let new_tags: Vec<String> = updated_tags
                         .clone()
                         .into_iter()
                         .filter(|t| !existing_tags.contains(t))
                         .collect();
-                    add_tags(&db_conn, transaction_id, new_tags)?;
+                    add_tags(db_conn, transaction_id, new_tags)?;
 
                     let removed_tags: Vec<&String> = existing_tags
                         .iter()
@@ -249,7 +249,7 @@ impl TransactionRepo for DieselTransactionRepo {
                             .filter(transaction_tags::transaction_id.eq(transaction_id))
                             .filter(transaction_tags::tag.eq_any(removed_tags)),
                     )
-                    .execute(&db_conn)?;
+                    .execute(db_conn)?;
 
                     Ok(transaction_entry)
                 })
@@ -277,7 +277,7 @@ impl TransactionRepo for DieselTransactionRepo {
         transaction_id: i32,
     ) -> Result<Transaction, TransactionRepoError> {
         self.block(move |db_conn| {
-            let tag_list = get_tags(&db_conn, transaction_id).with_context(|| {
+            let tag_list = get_tags(db_conn, transaction_id).with_context(|| {
                 format!("Unable to get tags for transaction {}", transaction_id)
             })?;
 
@@ -286,7 +286,7 @@ impl TransactionRepo for DieselTransactionRepo {
                     .find(transaction_id)
                     .filter(transactions::user_id.eq(user)),
             )
-            .get_result(&db_conn)
+            .get_result(db_conn)
             .map_err(|e| match e {
                 diesel::result::Error::NotFound => {
                     TransactionRepoError::TransactionNotFound(transaction_id)
@@ -313,7 +313,7 @@ impl TransactionRepo for DieselTransactionRepo {
                 .filter(user_id.eq(&user))
                 .select(category)
                 .distinct()
-                .load::<String>(&db_conn)
+                .load::<String>(db_conn)
                 .with_context(|| format!("Unable to get all categories for user {}", user))?;
             Ok(categories)
         })
@@ -329,7 +329,7 @@ impl TransactionRepo for DieselTransactionRepo {
                 .filter(transactions::user_id.eq(&user))
                 .select(tag)
                 .distinct()
-                .load::<String>(&db_conn)
+                .load::<String>(db_conn)
                 .with_context(|| format!("Unable to get all tags for user {}", user))?;
             Ok(tags)
         })
@@ -344,7 +344,7 @@ impl TransactionRepo for DieselTransactionRepo {
                 .filter(user_id.eq(&user))
                 .select(transactee)
                 .distinct()
-                .load::<Option<String>>(&db_conn)
+                .load::<Option<String>>(db_conn)
                 .with_context(|| format!("Unable to get all transactees for user {}", user))?;
 
             // remove null entry if there is one
@@ -361,7 +361,7 @@ impl TransactionRepo for DieselTransactionRepo {
             let balance: Option<Decimal> = transactions
                 .filter(user_id.eq(&user))
                 .select(sum(amount))
-                .first(&db_conn)
+                .first(db_conn)
                 .with_context(|| format!("Unable to get balance for user {}", user))?;
             Ok(balance.unwrap_or(Decimal::ZERO))
         })
@@ -370,7 +370,7 @@ impl TransactionRepo for DieselTransactionRepo {
 }
 
 fn get_tags(
-    db_conn: &PgConnection,
+    db_conn: &mut PgConnection,
     transaction_id: i32,
 ) -> Result<Vec<String>, diesel::result::Error> {
     let tags = transaction_tags::table
@@ -381,7 +381,7 @@ fn get_tags(
 }
 
 fn add_tags(
-    db_conn: &PgConnection,
+    db_conn: &mut PgConnection,
     transaction_id: i32,
     tags: Vec<String>,
 ) -> Result<(), diesel::result::Error> {
