@@ -1,8 +1,5 @@
 #[cfg(feature = "diesel-repo")]
 #[macro_use]
-extern crate diesel;
-#[cfg(feature = "diesel-repo")]
-#[macro_use]
 extern crate diesel_migrations;
 
 pub mod transaction_repo;

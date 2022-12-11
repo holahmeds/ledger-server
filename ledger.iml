@@ -9,6 +9,7 @@
       <excludeFolder url="file://$MODULE_DIR$/target" />
       <excludeFolder url="file://$MODULE_DIR$/package/pkg" />
       <excludeFolder url="file://$MODULE_DIR$/package/src" />
+      <excludeFolder url="file://$MODULE_DIR$/ledger-repo/target" />
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />

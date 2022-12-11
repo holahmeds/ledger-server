@@ -1,9 +1,9 @@
-use crate::transaction_repo::PageOptions;
 use crate::transaction_repo::TransactionRepoError::TransactionNotFound;
+use crate::transaction_repo::{MonthlyTotal, PageOptions};
 use crate::transaction_repo::{NewTransaction, Transaction, TransactionRepo, TransactionRepoError};
 use anyhow::Context;
 use async_trait::async_trait;
-use chrono::NaiveDate;
+use chrono::{DateTime, NaiveDate, Utc};
 use rust_decimal::Decimal;
 use sqlx::{query, query_as, query_scalar, PgExecutor, Pool, Postgres, QueryBuilder};
 use std::collections::HashMap;
@@ -22,6 +22,12 @@ struct TransactionEntry {
 struct TagEntry {
     transaction_id: i32,
     tag: String,
+}
+
+struct MonthlyTotalResult {
+    month: Option<DateTime<Utc>>,
+    income: Option<Decimal>,
+    expense: Option<Decimal>,
 }
 
 pub struct SQLxTransactionRepo {
@@ -301,6 +307,38 @@ impl TransactionRepo for SQLxTransactionRepo {
             transaction_entry.amount,
             tags,
         ))
+    }
+
+    async fn get_monthly_totals(
+        &self,
+        user: String,
+    ) -> Result<Vec<MonthlyTotal>, TransactionRepoError> {
+        let monthly_totals = query_as!(
+            MonthlyTotalResult,
+            r#"
+            SELECT DATE_TRUNC('month', date)             as month,
+                   SUM(amount) FILTER (WHERE amount > 0) as income,
+                   SUM(amount) FILTER (WHERE amount < 0) as expense
+            FROM transactions
+            WHERE user_id = $1
+            GROUP BY month
+            "#,
+            user
+        )
+        .fetch_all(&self.pool)
+        .await
+        .with_context(|| format!("Unable to get monthly totals for {}", user))?;
+
+        let monthly_totals = monthly_totals
+            .into_iter()
+            .map(|result| MonthlyTotal {
+                month: result.month.unwrap().naive_utc().date(),
+                income: result.income.unwrap_or(Decimal::ZERO),
+                expense: result.expense.unwrap_or(Decimal::ZERO),
+            })
+            .collect();
+
+        Ok(monthly_totals)
     }
 
     async fn get_all_categories(&self, user: String) -> Result<Vec<String>, TransactionRepoError> {

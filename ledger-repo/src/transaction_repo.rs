@@ -48,6 +48,11 @@ pub trait TransactionRepo: Sync + Send {
         transaction_id: i32,
     ) -> Result<Transaction, TransactionRepoError>;
 
+    async fn get_monthly_totals(
+        &self,
+        user: String,
+    ) -> Result<Vec<MonthlyTotal>, TransactionRepoError>;
+
     async fn get_all_categories(&self, user: String) -> Result<Vec<String>, TransactionRepoError>;
 
     async fn get_all_tags(&self, user: String) -> Result<Vec<String>, TransactionRepoError>;
@@ -137,4 +142,10 @@ impl NewTransaction {
             tags,
         }
     }
+}
+
+pub struct MonthlyTotal {
+    pub month: NaiveDate,
+    pub income: Decimal,
+    pub expense: Decimal,
 }

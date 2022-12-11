@@ -27,6 +27,13 @@ pub struct PageQueryParameters {
 }
 
 #[derive(Serialize)]
+pub struct MonthlyTotalResponse {
+    month: NaiveDate,
+    income: Decimal,
+    expense: Decimal,
+}
+
+#[derive(Serialize)]
 pub struct BalanceResponse {
     balance: Decimal,
 }
@@ -118,6 +125,25 @@ pub async fn delete_transaction(
         .delete_transaction(user_id.into_inner(), transaction_id.into_inner())
         .await?;
     Ok(HttpResponse::Ok().json(transaction))
+}
+
+#[get("/monthly")]
+pub async fn get_monthly_totals(
+    transaction_repo: web::Data<Arc<dyn TransactionRepo>>,
+    user_id: web::ReqData<UserId>,
+) -> Result<impl Responder, HandlerError> {
+    let monthly_totals = transaction_repo
+        .get_monthly_totals(user_id.into_inner())
+        .await?;
+    let monthly_totals: Vec<MonthlyTotalResponse> = monthly_totals
+        .into_iter()
+        .map(|mt| MonthlyTotalResponse {
+            month: mt.month,
+            income: mt.income,
+            expense: mt.expense,
+        })
+        .collect();
+    Ok(HttpResponse::Ok().json(monthly_totals))
 }
 
 #[get("/categories")]

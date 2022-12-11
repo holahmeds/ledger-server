@@ -1,12 +1,12 @@
 use super::schema::{transaction_tags, transactions};
 use super::DbPool;
 use crate::transaction_repo::{
-    NewTransaction, PageOptions, Transaction, TransactionRepo, TransactionRepoError,
+    MonthlyTotal, NewTransaction, PageOptions, Transaction, TransactionRepo, TransactionRepoError,
 };
 use actix_web::web;
 use anyhow::Context;
 use async_trait::async_trait;
-use chrono::NaiveDate;
+use chrono::{Datelike, NaiveDate};
 use diesel::dsl::sum;
 use diesel::prelude::*;
 use diesel::r2d2::ConnectionManager;
@@ -301,6 +301,69 @@ impl TransactionRepo for DieselTransactionRepo {
                 transaction_entry,
                 tag_list,
             ))
+        })
+        .await
+    }
+
+    async fn get_monthly_totals(
+        &self,
+        user: String,
+    ) -> Result<Vec<MonthlyTotal>, TransactionRepoError> {
+        self.block(move |db_conn| {
+            #[derive(Queryable)]
+            struct Entry {
+                date: NaiveDate,
+                amount: Decimal,
+            }
+
+            let entries: Vec<Entry> = transactions::table
+                .filter(transactions::user_id.eq(&user))
+                .select((transactions::date, transactions::amount))
+                .order(transactions::date.desc())
+                .load(db_conn)
+                .with_context(|| format!("Unable to get income for {}", user))?;
+
+            let mut monthly_totals = vec![];
+            if !entries.is_empty() {
+                let first_entry = entries.first().unwrap();
+                let mut current_total = MonthlyTotal {
+                    month: NaiveDate::from_ymd_opt(
+                        first_entry.date.year(),
+                        first_entry.date.month(),
+                        1,
+                    )
+                    .unwrap(),
+                    income: Decimal::ZERO,
+                    expense: Decimal::ZERO,
+                };
+
+                for entry in entries.into_iter() {
+                    if entry.date.month() != current_total.month.month()
+                        || entry.date.year() != current_total.month.year()
+                    {
+                        monthly_totals.push(current_total);
+                        current_total = MonthlyTotal {
+                            month: NaiveDate::from_ymd_opt(
+                                entry.date.year(),
+                                entry.date.month(),
+                                1,
+                            )
+                            .unwrap(),
+                            income: Decimal::ZERO,
+                            expense: Decimal::ZERO,
+                        }
+                    }
+
+                    if entry.amount > Decimal::ZERO {
+                        current_total.income += entry.amount;
+                    } else {
+                        current_total.expense += entry.amount;
+                    }
+                }
+                monthly_totals.push(current_total);
+            }
+
+            Ok(monthly_totals)
         })
         .await
     }
