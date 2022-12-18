@@ -322,6 +322,7 @@ impl TransactionRepo for SQLxTransactionRepo {
             FROM transactions
             WHERE user_id = $1
             GROUP BY month
+            ORDER BY month DESC
             "#,
             user
         )
