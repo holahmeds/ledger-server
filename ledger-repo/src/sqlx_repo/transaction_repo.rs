@@ -318,7 +318,7 @@ impl TransactionRepo for SQLxTransactionRepo {
             r#"
             SELECT DATE_TRUNC('month', date)             as month,
                    SUM(amount) FILTER (WHERE amount > 0) as income,
-                   SUM(amount) FILTER (WHERE amount < 0) as expense
+                   SUM(amount * -1) FILTER (WHERE amount < 0) as expense
             FROM transactions
             WHERE user_id = $1
             GROUP BY month

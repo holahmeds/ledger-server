@@ -357,7 +357,7 @@ impl TransactionRepo for DieselTransactionRepo {
                     if entry.amount > Decimal::ZERO {
                         current_total.income += entry.amount;
                     } else {
-                        current_total.expense += entry.amount;
+                        current_total.expense -= entry.amount;
                     }
                 }
                 monthly_totals.push(current_total);
