@@ -57,10 +57,10 @@ pub struct TestUser {
 impl TestUser {
     pub async fn new(user_repo: Arc<dyn UserRepo>) -> TestUser {
         let user_id = "test-user-".to_owned() + &Uuid::new_v4().to_string();
-        let user = User {
-            id: user_id.to_string(),
-            password_hash: ledger::auth::password::encode_password("pass".to_string()).unwrap(),
-        };
+        let user = User::new(
+            user_id.to_string(),
+            ledger::auth::password::encode_password("pass".to_string()).unwrap(),
+        );
         user_repo.create_user(user).await.unwrap();
         info!(%user_id, "Created user");
         TestUser {

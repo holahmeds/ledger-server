@@ -38,7 +38,7 @@ async fn test_get_transaction(_tracing_setup: &(), #[case] repo_type: RepoType) 
         Some("Bob".to_string()),
         None,
         NaiveDate::from_str("2021-06-09").unwrap(),
-        Decimal::from_str("100").unwrap(),
+        Decimal::from(100),
         vec![],
     );
     let transaction: Transaction = create_transaction!(&service, new_transaction);

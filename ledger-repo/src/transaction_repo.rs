@@ -11,6 +11,12 @@ pub struct PageOptions {
     pub limit: i64,
 }
 
+impl PageOptions {
+    pub fn new(offset: i64, limit: i64) -> PageOptions {
+        PageOptions { offset, limit }
+    }
+}
+
 #[async_trait]
 pub trait TransactionRepo: Sync + Send {
     async fn get_transaction(
@@ -70,7 +76,7 @@ pub enum TransactionRepoError {
     Other(#[from] anyhow::Error),
 }
 
-#[derive(Serialize, Deserialize, Clone, PartialEq, Debug)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Hash, Debug)]
 pub struct Transaction {
     pub id: i32,
     pub category: String,
@@ -114,7 +120,7 @@ impl PartialOrd for Transaction {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct NewTransaction {
     pub category: String,
     pub transactee: Option<String>,
@@ -144,8 +150,19 @@ impl NewTransaction {
     }
 }
 
+#[derive(PartialEq, Debug)]
 pub struct MonthlyTotal {
     pub month: NaiveDate,
     pub income: Decimal,
     pub expense: Decimal,
+}
+
+impl MonthlyTotal {
+    pub fn new(month: NaiveDate, income: Decimal, expense: Decimal) -> MonthlyTotal {
+        MonthlyTotal {
+            month,
+            income,
+            expense,
+        }
+    }
 }

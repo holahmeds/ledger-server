@@ -24,10 +24,7 @@ pub async fn signup(
     let password_hash = password::encode_password(credentials.password)?;
 
     user_repo
-        .create_user(User {
-            id: credentials.id,
-            password_hash,
-        })
+        .create_user(User::new(credentials.id, password_hash))
         .await?;
 
     Ok(HttpResponse::Ok())

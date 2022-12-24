@@ -38,7 +38,7 @@ async fn test_get_all_transactions(_tracing_setup: &(), #[case] repo_type: RepoT
             Some("Alice".to_string()),
             None,
             NaiveDate::from_str("2021-10-11").unwrap(),
-            Decimal::from_str("10").unwrap(),
+            Decimal::from(10),
             vec![],
         ),
         NewTransaction::new(
@@ -46,7 +46,7 @@ async fn test_get_all_transactions(_tracing_setup: &(), #[case] repo_type: RepoT
             Some("Bob".to_string()),
             None,
             NaiveDate::from_str("1900-10-11").unwrap(),
-            Decimal::from_str("15").unwrap(),
+            Decimal::from(15),
             vec!["loan".to_string()],
         ),
     ];
@@ -84,7 +84,7 @@ async fn test_transactions_sorted(_tracing_setup: &(), #[case] repo_type: RepoTy
             Some("Alice".to_string()),
             None,
             NaiveDate::from_str("2021-10-11").unwrap(),
-            Decimal::from_str("10").unwrap(),
+            Decimal::from(10),
             vec![],
         ),
         NewTransaction::new(
@@ -92,7 +92,7 @@ async fn test_transactions_sorted(_tracing_setup: &(), #[case] repo_type: RepoTy
             Some("Bob".to_string()),
             None,
             NaiveDate::from_str("1900-10-11").unwrap(),
-            Decimal::from_str("15").unwrap(),
+            Decimal::from(15),
             vec!["loan".to_string()],
         ),
         NewTransaction::new(
@@ -100,7 +100,7 @@ async fn test_transactions_sorted(_tracing_setup: &(), #[case] repo_type: RepoTy
             Some("Bob".to_string()),
             None,
             NaiveDate::from_str("2022-08-02").unwrap(),
-            Decimal::from_str("20").unwrap(),
+            Decimal::from(20),
             vec![],
         ),
     ];
@@ -139,7 +139,7 @@ async fn test_get_transactions_filter_category(_tracing_setup: &(), #[case] repo
             Some("Alice".to_string()),
             None,
             NaiveDate::from_str("2021-10-11").unwrap(),
-            Decimal::from_str("10").unwrap(),
+            Decimal::from(10),
             vec![],
         ),
         NewTransaction::new(
@@ -147,7 +147,7 @@ async fn test_get_transactions_filter_category(_tracing_setup: &(), #[case] repo
             Some("Bob".to_string()),
             None,
             NaiveDate::from_str("1900-10-11").unwrap(),
-            Decimal::from_str("15").unwrap(),
+            Decimal::from(15),
             vec!["loan".to_string()],
         ),
     ];
@@ -187,7 +187,7 @@ async fn test_get_transactions_filter_transactee(_tracing_setup: &(), #[case] re
             Some("Alice".to_string()),
             None,
             NaiveDate::from_str("2021-10-11").unwrap(),
-            Decimal::from_str("10").unwrap(),
+            Decimal::from(10),
             vec![],
         ),
         NewTransaction::new(
@@ -195,7 +195,7 @@ async fn test_get_transactions_filter_transactee(_tracing_setup: &(), #[case] re
             Some("Bob".to_string()),
             None,
             NaiveDate::from_str("1900-10-11").unwrap(),
-            Decimal::from_str("15").unwrap(),
+            Decimal::from(15),
             vec!["loan".to_string()],
         ),
     ];
@@ -237,7 +237,7 @@ async fn test_get_transactions_filter_from(_tracing_setup: &(), #[case] repo_typ
             Some("Alice".to_string()),
             None,
             NaiveDate::from_str("2021-10-11").unwrap(),
-            Decimal::from_str("10").unwrap(),
+            Decimal::from(10),
             vec![],
         ),
         NewTransaction::new(
@@ -245,7 +245,7 @@ async fn test_get_transactions_filter_from(_tracing_setup: &(), #[case] repo_typ
             Some("Bob".to_string()),
             None,
             NaiveDate::from_str("1900-10-11").unwrap(),
-            Decimal::from_str("15").unwrap(),
+            Decimal::from(15),
             vec!["loan".to_string()],
         ),
     ];
@@ -287,7 +287,7 @@ async fn test_get_transactions_filter_until(_tracing_setup: &(), #[case] repo_ty
             Some("Alice".to_string()),
             None,
             NaiveDate::from_str("2021-10-11").unwrap(),
-            Decimal::from_str("10").unwrap(),
+            Decimal::from(10),
             vec![],
         ),
         NewTransaction::new(
@@ -295,7 +295,7 @@ async fn test_get_transactions_filter_until(_tracing_setup: &(), #[case] repo_ty
             Some("Bob".to_string()),
             None,
             NaiveDate::from_str("1900-10-11").unwrap(),
-            Decimal::from_str("15").unwrap(),
+            Decimal::from(15),
             vec!["loan".to_string()],
         ),
     ];

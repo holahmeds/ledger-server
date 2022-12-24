@@ -332,10 +332,12 @@ impl TransactionRepo for SQLxTransactionRepo {
 
         let monthly_totals = monthly_totals
             .into_iter()
-            .map(|result| MonthlyTotal {
-                month: result.month.unwrap().naive_utc().date(),
-                income: result.income.unwrap_or(Decimal::ZERO),
-                expense: result.expense.unwrap_or(Decimal::ZERO),
+            .map(|result| {
+                MonthlyTotal::new(
+                    result.month.unwrap().naive_utc().date(),
+                    result.income.unwrap_or(Decimal::ZERO),
+                    result.expense.unwrap_or(Decimal::ZERO),
+                )
             })
             .collect();
 

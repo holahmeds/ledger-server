@@ -19,10 +19,7 @@ pub struct UserEntry {
 
 impl From<UserEntry> for User {
     fn from(u: UserEntry) -> Self {
-        User {
-            id: u.id,
-            password_hash: u.password_hash,
-        }
+        User::new(u.id, u.password_hash)
     }
 }
 

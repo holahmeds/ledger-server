@@ -13,9 +13,16 @@ pub trait UserRepo: Sync + Send {
     async fn delete_user(&self, user_id: &str) -> Result<(), UserRepoError>;
 }
 
+#[derive(Clone, Debug, PartialEq)]
 pub struct User {
     pub id: String,
     pub password_hash: String,
+}
+
+impl User {
+    pub fn new(id: String, password_hash: String) -> User {
+        User { id, password_hash }
+    }
 }
 
 #[derive(Error, Debug)]

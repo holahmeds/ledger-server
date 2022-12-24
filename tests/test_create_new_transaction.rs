@@ -38,7 +38,7 @@ async fn test_create_api_response(_tracing_setup: &(), #[case] repo_type: RepoTy
         Some("Alice".to_string()),
         None,
         NaiveDate::from_str("2021-07-01").unwrap(),
-        Decimal::from_str("20").unwrap(),
+        Decimal::from(20),
         vec![],
     );
     let response_transaction: Transaction = create_transaction!(&service, new_transaction);

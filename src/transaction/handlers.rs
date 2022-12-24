@@ -65,10 +65,7 @@ pub async fn get_transactions(
 
     let filter = filter.into_inner();
     let page_options = if page.offset.is_some() && page.limit.is_some() {
-        Some(PageOptions {
-            offset: page.offset.unwrap(),
-            limit: page.limit.unwrap(),
-        })
+        Some(PageOptions::new(page.offset.unwrap(), page.limit.unwrap()))
     } else {
         None
     };

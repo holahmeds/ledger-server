@@ -756,6 +756,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0206175f82b8d6bf6652ff7d71a1e27fd2e4efde587fd368662814d6ec1d9ce0"
 
 [[package]]
+name = "fake"
+version = "2.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4d68f517805463f3a896a9d29c1d6ff09d3579ded64a7201b4069f8f9c0d52fd"
+dependencies = [
+ "chrono",
+ "rand",
+ "rust_decimal",
+]
+
+[[package]]
 name = "firestorm"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1278,18 +1289,24 @@ dependencies = [
 name = "ledger-repo"
 version = "0.1.0"
 dependencies = [
+ "actix-rt",
  "actix-web",
  "anyhow",
  "async-trait",
  "chrono",
  "diesel",
  "diesel_migrations",
+ "fake",
  "r2d2",
+ "rand",
+ "rstest",
  "rust_decimal",
  "serde",
  "sqlx",
  "thiserror",
+ "toml",
  "tracing",
+ "uuid",
 ]
 
 [[package]]

@@ -65,7 +65,7 @@ impl NewTransaction {
     }
 }
 
-#[derive(Associations, Identifiable, Queryable, Insertable)]
+#[derive(Associations, Identifiable, Queryable, Insertable, PartialEq, Eq, Hash)]
 #[diesel(primary_key(transaction_id, tag))]
 #[diesel(belongs_to(TransactionEntry, foreign_key = transaction_id))]
 struct TransactionTag {
@@ -342,16 +342,12 @@ impl TransactionRepo for DieselTransactionRepo {
                         || entry.date.year() != current_total.month.year()
                     {
                         monthly_totals.push(current_total);
-                        current_total = MonthlyTotal {
-                            month: NaiveDate::from_ymd_opt(
-                                entry.date.year(),
-                                entry.date.month(),
-                                1,
-                            )
-                            .unwrap(),
-                            income: Decimal::ZERO,
-                            expense: Decimal::ZERO,
-                        }
+                        current_total = MonthlyTotal::new(
+                            NaiveDate::from_ymd_opt(entry.date.year(), entry.date.month(), 1)
+                                .unwrap(),
+                            Decimal::ZERO,
+                            Decimal::ZERO,
+                        )
                     }
 
                     if entry.amount > Decimal::ZERO {

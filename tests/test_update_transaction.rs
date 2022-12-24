@@ -52,7 +52,7 @@ async fn test_update_transaction(_tracing_setup: &(), #[case] repo_type: RepoTyp
         Some("Alice".to_string()),
         new_transaction.note,
         new_transaction.date,
-        Decimal::from_str("105").unwrap(),
+        Decimal::from(105),
         vec![],
     );
     let request = TestRequest::put()
@@ -96,7 +96,7 @@ async fn test_update_tags(_tracing_setup: &(), #[case] repo_type: RepoType) {
         Some("Alice".to_string()),
         new_transaction.note,
         new_transaction.date,
-        Decimal::from_str("105").unwrap(),
+        Decimal::from(105),
         vec!["tag2".to_string(), "tag3".to_string()],
     );
     let request = TestRequest::put()
@@ -130,7 +130,7 @@ async fn test_update_invalid_transaction(_tracing_setup: &(), #[case] repo_type:
         Some("Bob".to_string()),
         None,
         NaiveDate::from_str("2021-06-09").unwrap(),
-        Decimal::from_str("321").unwrap(),
+        Decimal::from(321),
         vec![],
     );
     let request = TestRequest::put()
