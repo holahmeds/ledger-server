@@ -12,6 +12,7 @@ use ledger_repo::transaction_repo::{MonthlyTotal, NewTransaction, PageOptions, T
 use ledger_repo::user_repo::{User, UserRepo};
 use rstest::rstest;
 use rust_decimal::Decimal;
+use std::collections::btree_set::BTreeSet;
 use std::collections::HashSet;
 use std::str::FromStr;
 use std::sync::Arc;
@@ -66,25 +67,6 @@ async fn test_create_and_get_transactions(#[case] repo_type: RepoType) {
     assert_eq!(stored_transaction.date, new_transaction.date);
     assert_eq!(stored_transaction.amount, new_transaction.amount);
     assert_eq!(stored_transaction.tags, new_transaction.tags);
-
-    user.delete().await;
-}
-
-#[rstest]
-#[case::diesel(RepoType::Diesel)]
-#[case::sqlx(RepoType::SQLx)]
-#[actix_rt::test]
-async fn test_create_transaction_with_duplicate_tags(#[case] repo_type: RepoType) {
-    let (transaction_repo, user_repo) = utils::build_repos(repo_type).await;
-    let user = TestUser::new(user_repo).await;
-
-    let new_transaction =
-        generate_new_transaction_with_tags(vec!["tag1".to_owned(), "tag1".to_owned()]);
-    let inserted_transaction = transaction_repo
-        .create_new_transaction(user.id.clone(), new_transaction.clone())
-        .await
-        .unwrap();
-    assert_eq!(vec!["tag1".to_owned()], inserted_transaction.tags);
 
     user.delete().await;
 }
@@ -174,7 +156,7 @@ async fn test_get_all_transactions(#[case] repo_type: RepoType) {
 
     let new_transactions = vec![generate_new_transaction(), generate_new_transaction()];
 
-    let mut inserted_transactions: HashSet<Transaction> = HashSet::new();
+    let mut inserted_transactions: BTreeSet<Transaction> = BTreeSet::new();
     for t in new_transactions {
         let transaction = transaction_repo
             .create_new_transaction(test_user.id.clone(), t)
@@ -187,7 +169,7 @@ async fn test_get_all_transactions(#[case] repo_type: RepoType) {
         .get_all_transactions(test_user.id.clone(), None, None, None, None, None)
         .await
         .unwrap();
-    let transactions = HashSet::from_iter(transactions.into_iter());
+    let transactions = BTreeSet::from_iter(transactions);
     assert_eq!(inserted_transactions, transactions);
 
     test_user.delete().await
@@ -437,7 +419,7 @@ async fn test_update_transaction(#[case] repo_type: RepoType) {
         new_transaction.note,
         new_transaction.date,
         Decimal::from(105),
-        vec![],
+        HashSet::new(),
     );
 
     let updated_transaction: Transaction = transaction_repo
@@ -471,7 +453,7 @@ async fn test_update_tags(#[case] repo_type: RepoType) {
         new_transaction.note,
         new_transaction.date,
         Decimal::from(105),
-        vec!["tag2".to_string(), "tag3".to_string()],
+        HashSet::from(["tag2".to_string(), "tag3".to_string()]),
     );
     let updated_transaction: Transaction = transaction_repo
         .update_transaction(test_user.id.clone(), transaction.id, update.clone())
@@ -605,8 +587,8 @@ async fn test_get_tags(#[case] repo_type: RepoType) {
     let test_user = TestUser::new(user_repo).await;
 
     let new_transactions = vec![
-        generate_new_transaction_with_tags(vec!["tag1".to_string(), "tag2".to_string()]),
-        generate_new_transaction_with_tags(vec!["tag2".to_string(), "tag3".to_string()]),
+        generate_new_transaction_with_tags(HashSet::from(["tag1".to_string(), "tag2".to_string()])),
+        generate_new_transaction_with_tags(HashSet::from(["tag2".to_string(), "tag3".to_string()])),
     ];
 
     for t in new_transactions {

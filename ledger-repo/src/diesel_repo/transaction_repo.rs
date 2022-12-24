@@ -13,6 +13,7 @@ use diesel::r2d2::ConnectionManager;
 use diesel::{Connection, PgConnection, QueryDsl, RunQueryDsl};
 use r2d2::PooledConnection;
 use rust_decimal::Decimal;
+use std::collections::HashSet;
 
 #[derive(Queryable, Identifiable)]
 #[diesel(table_name = transactions)]
@@ -38,7 +39,10 @@ struct NewTransactionEntry {
 }
 
 impl Transaction {
-    fn from_entry_and_tags(transaction_entry: TransactionEntry, tags: Vec<String>) -> Transaction {
+    fn from_entry_and_tags(
+        transaction_entry: TransactionEntry,
+        tags: HashSet<String>,
+    ) -> Transaction {
         Transaction {
             id: transaction_entry.id,
             category: transaction_entry.category,
@@ -52,7 +56,7 @@ impl Transaction {
 }
 
 impl NewTransaction {
-    fn split_tags(self, user_id: String) -> (NewTransactionEntry, Vec<String>) {
+    fn split_tags(self, user_id: String) -> (NewTransactionEntry, HashSet<String>) {
         let new_transaction_entry = NewTransactionEntry {
             category: self.category,
             transactee: self.transactee,
@@ -231,19 +235,17 @@ impl TransactionRepo for DieselTransactionRepo {
                     .set(new_transaction_entry)
                     .get_result(db_conn)?;
 
-                    let existing_tags: Vec<String> = get_tags(db_conn, transaction_id)?;
+                    let existing_tags: HashSet<String> = get_tags(db_conn, transaction_id)?;
 
-                    let new_tags: Vec<String> = updated_tags
+                    let new_tags: HashSet<String> = updated_tags
                         .clone()
                         .into_iter()
                         .filter(|t| !existing_tags.contains(t))
                         .collect();
                     add_tags(db_conn, transaction_id, new_tags)?;
 
-                    let removed_tags: Vec<&String> = existing_tags
-                        .iter()
-                        .filter(|t| !updated_tags.contains(t))
-                        .collect();
+                    let removed_tags: Vec<&String> =
+                        existing_tags.difference(&updated_tags).collect();
                     diesel::delete(
                         transaction_tags::table
                             .filter(transaction_tags::transaction_id.eq(transaction_id))
@@ -431,18 +433,18 @@ impl TransactionRepo for DieselTransactionRepo {
 fn get_tags(
     db_conn: &mut PgConnection,
     transaction_id: i32,
-) -> Result<Vec<String>, diesel::result::Error> {
+) -> Result<HashSet<String>, diesel::result::Error> {
     let tags = transaction_tags::table
         .filter(transaction_tags::transaction_id.eq(transaction_id))
         .select(transaction_tags::tag)
         .load::<String>(db_conn)?;
-    Ok(tags)
+    Ok(HashSet::from_iter(tags))
 }
 
 fn add_tags(
     db_conn: &mut PgConnection,
     transaction_id: i32,
-    tags: Vec<String>,
+    tags: HashSet<String>,
 ) -> Result<(), diesel::result::Error> {
     let transaction_tag_list: Vec<TransactionTag> = tags
         .into_iter()

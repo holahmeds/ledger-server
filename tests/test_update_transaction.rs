@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::str::FromStr;
 
 use actix_web::http::StatusCode;
@@ -36,7 +37,7 @@ async fn test_update_transaction(_tracing_setup: &(), #[case] repo_type: RepoTyp
         None,
         NaiveDate::from_str("2021-06-09").unwrap(),
         Decimal::from_str("11.12").unwrap(),
-        vec![],
+        HashSet::new(),
     );
     let transaction: Transaction = {
         let request = TestRequest::post()
@@ -53,7 +54,7 @@ async fn test_update_transaction(_tracing_setup: &(), #[case] repo_type: RepoTyp
         new_transaction.note,
         new_transaction.date,
         Decimal::from(105),
-        vec![],
+        HashSet::new(),
     );
     let request = TestRequest::put()
         .uri(format!("/transactions/{}", transaction.id).as_str())
@@ -87,7 +88,7 @@ async fn test_update_tags(_tracing_setup: &(), #[case] repo_type: RepoType) {
         None,
         NaiveDate::from_str("2021-06-09").unwrap(),
         Decimal::from_str("11.12").unwrap(),
-        vec!["tag1".to_string(), "tag2".to_string()],
+        HashSet::from(["tag1".to_string(), "tag2".to_string()]),
     );
     let transaction: Transaction = create_transaction!(&service, new_transaction);
 
@@ -97,7 +98,7 @@ async fn test_update_tags(_tracing_setup: &(), #[case] repo_type: RepoType) {
         new_transaction.note,
         new_transaction.date,
         Decimal::from(105),
-        vec!["tag2".to_string(), "tag3".to_string()],
+        HashSet::from(["tag2".to_string(), "tag3".to_string()]),
     );
     let request = TestRequest::put()
         .uri(format!("/transactions/{}", transaction.id).as_str())
@@ -131,7 +132,7 @@ async fn test_update_invalid_transaction(_tracing_setup: &(), #[case] repo_type:
         None,
         NaiveDate::from_str("2021-06-09").unwrap(),
         Decimal::from(321),
-        vec![],
+        HashSet::new(),
     );
     let request = TestRequest::put()
         .uri(format!("/transactions/{}", 0).as_str()) // non-existent transaction ID

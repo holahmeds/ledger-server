@@ -4,6 +4,7 @@ use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 use std::cmp::Ordering::Equal;
+use std::collections::HashSet;
 use thiserror::Error;
 
 pub struct PageOptions {
@@ -76,7 +77,7 @@ pub enum TransactionRepoError {
     Other(#[from] anyhow::Error),
 }
 
-#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Hash, Debug)]
+#[derive(Serialize, Deserialize, Clone, PartialEq, Eq, Debug)]
 pub struct Transaction {
     pub id: i32,
     pub category: String,
@@ -84,7 +85,7 @@ pub struct Transaction {
     pub note: Option<String>,
     pub date: NaiveDate,
     pub amount: Decimal,
-    pub tags: Vec<String>,
+    pub tags: HashSet<String>,
 }
 
 impl Transaction {
@@ -95,7 +96,7 @@ impl Transaction {
         note: Option<String>,
         date: NaiveDate,
         amount: Decimal,
-        tags: Vec<String>,
+        tags: HashSet<String>,
     ) -> Transaction {
         Transaction {
             id,
@@ -120,6 +121,17 @@ impl PartialOrd for Transaction {
     }
 }
 
+impl Ord for Transaction {
+    fn cmp(&self, other: &Self) -> Ordering {
+        let date_ordering = self.date.cmp(&other.date);
+        if date_ordering == Equal {
+            self.id.cmp(&other.id)
+        } else {
+            date_ordering
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct NewTransaction {
     pub category: String,
@@ -127,7 +139,7 @@ pub struct NewTransaction {
     pub note: Option<String>,
     pub date: NaiveDate,
     pub amount: Decimal,
-    pub tags: Vec<String>,
+    pub tags: HashSet<String>,
 }
 
 impl NewTransaction {
@@ -137,7 +149,7 @@ impl NewTransaction {
         note: Option<String>,
         date: NaiveDate,
         amount: Decimal,
-        tags: Vec<String>,
+        tags: HashSet<String>,
     ) -> NewTransaction {
         NewTransaction {
             category,

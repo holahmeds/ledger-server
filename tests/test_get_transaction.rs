@@ -1,6 +1,7 @@
 extern crate futures_util;
 extern crate serde_json;
 
+use std::collections::HashSet;
 use std::str::FromStr;
 
 use actix_web::http::StatusCode;
@@ -39,7 +40,7 @@ async fn test_get_transaction(_tracing_setup: &(), #[case] repo_type: RepoType) 
         None,
         NaiveDate::from_str("2021-06-09").unwrap(),
         Decimal::from(100),
-        vec![],
+        HashSet::new(),
     );
     let transaction: Transaction = create_transaction!(&service, new_transaction);
 

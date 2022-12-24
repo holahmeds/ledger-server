@@ -5,6 +5,7 @@ use fake::{Fake, Faker};
 use ledger_repo::transaction_repo::NewTransaction;
 use rand::seq::SliceRandom;
 use rust_decimal::Decimal;
+use std::collections::HashSet;
 use std::default::Default;
 use std::ops::Deref;
 
@@ -16,7 +17,7 @@ struct NewTransactionGenerator {
     note_gen: Box<dyn FnOnce() -> Option<String>>,
     date_gen: Box<dyn FnOnce() -> NaiveDate>,
     amnt_gen: Box<dyn FnOnce() -> Decimal>,
-    tag_gen: Box<dyn FnOnce() -> Vec<String>>,
+    tag_gen: Box<dyn FnOnce() -> HashSet<String>>,
 }
 
 impl NewTransactionGenerator {
@@ -48,7 +49,10 @@ impl Default for NewTransactionGenerator {
             note_gen: Box::new(|| Sentence(5..10).fake()),
             date_gen: Box::new(|| Faker.fake()),
             amnt_gen: Box::new(|| Decimal::from(Faker.fake::<i32>())),
-            tag_gen: Box::new(|| Words(1..3).fake()),
+            tag_gen: Box::new(|| {
+                let tags: Vec<String> = Words(1..3).fake();
+                HashSet::from_iter(tags)
+            }),
         }
     }
 }
@@ -58,7 +62,7 @@ pub fn generate_new_transaction() -> NewTransaction {
     generator.generate()
 }
 
-pub fn generate_new_transaction_with_tags(tags: Vec<String>) -> NewTransaction {
+pub fn generate_new_transaction_with_tags(tags: HashSet<String>) -> NewTransaction {
     let generator = NewTransactionGenerator {
         tag_gen: Box::new(|| tags),
         ..Default::default()

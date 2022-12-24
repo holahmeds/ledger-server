@@ -6,7 +6,7 @@ use async_trait::async_trait;
 use chrono::{DateTime, NaiveDate, Utc};
 use rust_decimal::Decimal;
 use sqlx::{query, query_as, query_scalar, PgExecutor, Pool, Postgres, QueryBuilder};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 #[derive(sqlx::FromRow)]
 struct TransactionEntry {
@@ -42,7 +42,7 @@ impl SQLxTransactionRepo {
     async fn get_tags<'a, E>(
         executor: E,
         transaction_id: i32,
-    ) -> Result<Vec<String>, TransactionRepoError>
+    ) -> Result<HashSet<String>, TransactionRepoError>
     where
         E: PgExecutor<'a>,
     {
@@ -53,7 +53,7 @@ impl SQLxTransactionRepo {
         .fetch_all(executor)
         .await
         .with_context(|| format!("Unable to get tags for transaction {}", transaction_id))?;
-        Ok(tags)
+        Ok(HashSet::from_iter(tags))
     }
 
     async fn insert_tags<'a, I>(
@@ -174,7 +174,7 @@ impl TransactionRepo for SQLxTransactionRepo {
                 te.note,
                 te.date,
                 te.amount,
-                vec![],
+                HashSet::new(),
             );
             transactions.push(transaction);
             transaction_index.insert(te.id, transactions.len() - 1);
@@ -183,7 +183,7 @@ impl TransactionRepo for SQLxTransactionRepo {
             let index = transaction_index
                 .get(&te.transaction_id)
                 .context("Tag's transaction ID does not match fetched transaction")?;
-            transactions[*index].tags.push(te.tag)
+            transactions[*index].tags.insert(te.tag);
         }
 
         Ok(transactions)
@@ -250,15 +250,11 @@ impl TransactionRepo for SQLxTransactionRepo {
 
         let existing_tags = SQLxTransactionRepo::get_tags(&mut transaction, transaction_id).await?;
 
-        let new_tags = updated_transaction
-            .tags
-            .iter()
-            .filter(|t| !existing_tags.contains(t));
+        let new_tags = updated_transaction.tags.difference(&existing_tags);
         SQLxTransactionRepo::insert_tags(&mut transaction, transaction_id, new_tags).await?;
 
         let removed_tags: Vec<&str> = existing_tags
-            .iter()
-            .filter(|t| !updated_transaction.tags.contains(t))
+            .difference(&updated_transaction.tags)
             .map(|t| t.as_str())
             .collect();
         query!(

@@ -2,6 +2,7 @@ extern crate futures_util;
 extern crate rstest;
 extern crate serde_json;
 
+use std::collections::HashSet;
 use std::str::FromStr;
 
 use actix_web::test;
@@ -39,7 +40,7 @@ async fn test_create_api_response(_tracing_setup: &(), #[case] repo_type: RepoTy
         None,
         NaiveDate::from_str("2021-07-01").unwrap(),
         Decimal::from(20),
-        vec![],
+        HashSet::new(),
     );
     let response_transaction: Transaction = create_transaction!(&service, new_transaction);
     assert_eq!(new_transaction.category, response_transaction.category);

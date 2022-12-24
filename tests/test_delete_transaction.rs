@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::str::FromStr;
 
 use actix_web::http::StatusCode;
@@ -36,7 +37,7 @@ async fn test_delete_transaction(_tracing_setup: &(), #[case] repo_type: RepoTyp
         None,
         NaiveDate::from_str("2021-06-09").unwrap(),
         Decimal::from_str("5.10").unwrap(),
-        vec!["Monthly".to_string()],
+        HashSet::from(["Monthly".to_string()]),
     );
     let transaction: Transaction = create_transaction!(&service, new_transaction);
 
