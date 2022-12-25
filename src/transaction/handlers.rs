@@ -45,7 +45,7 @@ pub async fn get_transaction(
     transaction_id: web::Path<i32>,
 ) -> Result<impl Responder, HandlerError> {
     let transaction = transaction_repo
-        .get_transaction(user_id.into_inner(), transaction_id.into_inner())
+        .get_transaction(&user_id.into_inner(), transaction_id.into_inner())
         .await?;
     Ok(HttpResponse::Ok().json(transaction))
 }
@@ -72,7 +72,7 @@ pub async fn get_transactions(
 
     let transaction = transaction_repo
         .get_all_transactions(
-            user_id.into_inner(),
+            &user_id.into_inner(),
             filter.from,
             filter.until,
             filter.category,
@@ -90,7 +90,7 @@ pub async fn create_new_transaction(
     new_transaction: web::Json<NewTransaction>,
 ) -> Result<impl Responder, HandlerError> {
     let transaction = transaction_repo
-        .create_new_transaction(user_id.into_inner(), new_transaction.into_inner())
+        .create_new_transaction(&user_id.into_inner(), new_transaction.into_inner())
         .await?;
     Ok(HttpResponse::Ok().json(transaction))
 }
@@ -104,7 +104,7 @@ pub async fn update_transaction(
 ) -> Result<impl Responder, HandlerError> {
     let transaction = transaction_repo
         .update_transaction(
-            user_id.into_inner(),
+            &user_id.into_inner(),
             transaction_id.into_inner(),
             updated_transaction.into_inner(),
         )
@@ -119,7 +119,7 @@ pub async fn delete_transaction(
     transaction_id: web::Path<i32>,
 ) -> Result<impl Responder, HandlerError> {
     let transaction = transaction_repo
-        .delete_transaction(user_id.into_inner(), transaction_id.into_inner())
+        .delete_transaction(&user_id.into_inner(), transaction_id.into_inner())
         .await?;
     Ok(HttpResponse::Ok().json(transaction))
 }
@@ -130,7 +130,7 @@ pub async fn get_monthly_totals(
     user_id: web::ReqData<UserId>,
 ) -> Result<impl Responder, HandlerError> {
     let monthly_totals = transaction_repo
-        .get_monthly_totals(user_id.into_inner())
+        .get_monthly_totals(&user_id.into_inner())
         .await?;
     let monthly_totals: Vec<MonthlyTotalResponse> = monthly_totals
         .into_iter()
@@ -149,7 +149,7 @@ pub async fn get_all_categories(
     user_id: web::ReqData<UserId>,
 ) -> Result<impl Responder, HandlerError> {
     let categories = transaction_repo
-        .get_all_categories(user_id.into_inner())
+        .get_all_categories(&user_id.into_inner())
         .await?;
     Ok(HttpResponse::Ok().json(categories))
 }
@@ -159,7 +159,7 @@ pub async fn get_all_tags(
     transaction_repo: web::Data<Arc<dyn TransactionRepo>>,
     user_id: web::ReqData<UserId>,
 ) -> Result<impl Responder, HandlerError> {
-    let tags = transaction_repo.get_all_tags(user_id.into_inner()).await?;
+    let tags = transaction_repo.get_all_tags(&user_id.into_inner()).await?;
     Ok(HttpResponse::Ok().json(tags))
 }
 
@@ -169,7 +169,7 @@ pub async fn get_all_transactees(
     user_id: web::ReqData<UserId>,
 ) -> Result<impl Responder, HandlerError> {
     let transactees = transaction_repo
-        .get_all_transactees(user_id.into_inner())
+        .get_all_transactees(&user_id.into_inner())
         .await?;
     Ok(HttpResponse::Ok().json(transactees))
 }
@@ -179,6 +179,6 @@ pub async fn get_balance(
     transaction_repo: web::Data<Arc<dyn TransactionRepo>>,
     user_id: web::ReqData<UserId>,
 ) -> Result<impl Responder, HandlerError> {
-    let balance = transaction_repo.get_balance(user_id.into_inner()).await?;
+    let balance = transaction_repo.get_balance(&user_id.into_inner()).await?;
     Ok(HttpResponse::Ok().json(BalanceResponse { balance }))
 }

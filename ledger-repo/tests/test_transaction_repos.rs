@@ -52,13 +52,13 @@ async fn test_create_and_get_transactions(#[case] repo_type: RepoType) {
 
     let new_transaction = generate_new_transaction();
     let transaction_id = transaction_repo
-        .create_new_transaction(user.id.clone(), new_transaction.clone())
+        .create_new_transaction(&user.id, new_transaction.clone())
         .await
         .unwrap()
         .id;
 
     let stored_transaction = transaction_repo
-        .get_transaction(user.id.clone(), transaction_id)
+        .get_transaction(&user.id, transaction_id)
         .await
         .unwrap();
     assert_eq!(stored_transaction.category, new_transaction.category);
@@ -79,9 +79,7 @@ async fn test_get_invalid_transactions(#[case] repo_type: RepoType) {
     let (transaction_repo, user_repo) = utils::build_repos(repo_type).await;
     let user = TestUser::new(user_repo).await;
 
-    let get_result = transaction_repo
-        .get_transaction(user.id.clone(), 1234)
-        .await;
+    let get_result = transaction_repo.get_transaction(&user.id, 1234).await;
     assert!(get_result.is_err());
     // TODO
     // assert_eq!(
@@ -102,18 +100,18 @@ async fn test_delete_transaction(#[case] repo_type: RepoType) {
 
     let new_transaction = generate_new_transaction();
     let transaction_id = transaction_repo
-        .create_new_transaction(user.id.clone(), new_transaction.clone())
+        .create_new_transaction(&user.id, new_transaction.clone())
         .await
         .unwrap()
         .id;
 
     let delete_result = transaction_repo
-        .delete_transaction(user.id.clone(), transaction_id)
+        .delete_transaction(&user.id, transaction_id)
         .await;
     assert!(delete_result.is_ok());
 
     let result = transaction_repo
-        .get_transaction(user.id.clone(), transaction_id)
+        .get_transaction(&user.id, transaction_id)
         .await;
     assert!(result.is_err());
     // TODO
@@ -133,9 +131,7 @@ async fn test_delete_invalid_transaction(#[case] repo_type: RepoType) {
     let (transaction_repo, user_repo) = utils::build_repos(repo_type).await;
     let user = TestUser::new(user_repo).await;
 
-    let delete_result = transaction_repo
-        .delete_transaction(user.id.clone(), 1234)
-        .await;
+    let delete_result = transaction_repo.delete_transaction(&user.id, 1234).await;
     assert!(delete_result.is_err());
     // TODO
     // assert_eq!(
@@ -159,14 +155,14 @@ async fn test_get_all_transactions(#[case] repo_type: RepoType) {
     let mut inserted_transactions: BTreeSet<Transaction> = BTreeSet::new();
     for t in new_transactions {
         let transaction = transaction_repo
-            .create_new_transaction(test_user.id.clone(), t)
+            .create_new_transaction(&test_user.id, t)
             .await
             .unwrap();
         inserted_transactions.insert(transaction);
     }
 
     let transactions: Vec<Transaction> = transaction_repo
-        .get_all_transactions(test_user.id.clone(), None, None, None, None, None)
+        .get_all_transactions(&test_user.id, None, None, None, None, None)
         .await
         .unwrap();
     let transactions = BTreeSet::from_iter(transactions);
@@ -191,13 +187,13 @@ async fn test_transactions_sorted(#[case] repo_type: RepoType) {
 
     for t in new_transactions {
         let _transaction: Transaction = transaction_repo
-            .create_new_transaction(test_user.id.clone(), t)
+            .create_new_transaction(&test_user.id, t)
             .await
             .unwrap();
     }
 
     let transactions: Vec<Transaction> = transaction_repo
-        .get_all_transactions(test_user.id.clone(), None, None, None, None, None)
+        .get_all_transactions(&test_user.id, None, None, None, None, None)
         .await
         .unwrap();
     assert!(
@@ -223,14 +219,14 @@ async fn test_get_transactions_filter_category(#[case] repo_type: RepoType) {
 
     for t in new_transactions {
         let _transaction = transaction_repo
-            .create_new_transaction(test_user.id.clone(), t)
+            .create_new_transaction(&test_user.id, t)
             .await
             .unwrap();
     }
 
     let transactions: Vec<Transaction> = transaction_repo
         .get_all_transactions(
-            test_user.id.clone(),
+            &test_user.id,
             None,
             None,
             Some("Loan".to_owned()),
@@ -259,14 +255,14 @@ async fn test_get_transactions_filter_transactee(#[case] repo_type: RepoType) {
 
     for t in new_transactions {
         let _transaction = transaction_repo
-            .create_new_transaction(test_user.id.clone(), t)
+            .create_new_transaction(&test_user.id, t)
             .await
             .unwrap();
     }
 
     let transactions: Vec<Transaction> = transaction_repo
         .get_all_transactions(
-            test_user.id.clone(),
+            &test_user.id,
             None,
             None,
             None,
@@ -297,14 +293,14 @@ async fn test_get_transactions_filter_from(#[case] repo_type: RepoType) {
 
     for t in new_transactions {
         let _transaction = transaction_repo
-            .create_new_transaction(test_user.id.clone(), t)
+            .create_new_transaction(&test_user.id, t)
             .await
             .unwrap();
     }
 
     let transactions: Vec<Transaction> = transaction_repo
         .get_all_transactions(
-            test_user.id.clone(),
+            &test_user.id,
             Some(NaiveDate::from_str("2021-01-01").unwrap()),
             None,
             None,
@@ -335,14 +331,14 @@ async fn test_get_transactions_filter_until(#[case] repo_type: RepoType) {
 
     for t in new_transactions {
         let _transaction = transaction_repo
-            .create_new_transaction(test_user.id.clone(), t)
+            .create_new_transaction(&test_user.id, t)
             .await
             .unwrap();
     }
 
     let transactions: Vec<Transaction> = transaction_repo
         .get_all_transactions(
-            test_user.id.clone(),
+            &test_user.id,
             None,
             Some(NaiveDate::from_str("2021-01-01").unwrap()),
             None,
@@ -375,7 +371,7 @@ async fn test_transactions_pagination(#[case] repo_type: RepoType) {
     let mut inserted_transactions = vec![];
     for t in new_transactions {
         let transaction: Transaction = transaction_repo
-            .create_new_transaction(test_user.id.clone(), t)
+            .create_new_transaction(&test_user.id, t)
             .await
             .unwrap();
         inserted_transactions.push(transaction);
@@ -383,7 +379,7 @@ async fn test_transactions_pagination(#[case] repo_type: RepoType) {
 
     let transactions: Vec<Transaction> = transaction_repo
         .get_all_transactions(
-            test_user.id.clone(),
+            &test_user.id,
             None,
             None,
             None,
@@ -409,7 +405,7 @@ async fn test_update_transaction(#[case] repo_type: RepoType) {
 
     let new_transaction = generate_new_transaction();
     let transaction: Transaction = transaction_repo
-        .create_new_transaction(test_user.id.clone(), new_transaction.clone())
+        .create_new_transaction(&test_user.id, new_transaction.clone())
         .await
         .unwrap();
 
@@ -423,7 +419,7 @@ async fn test_update_transaction(#[case] repo_type: RepoType) {
     );
 
     let updated_transaction: Transaction = transaction_repo
-        .update_transaction(test_user.id.clone(), transaction.id, update.clone())
+        .update_transaction(&test_user.id, transaction.id, update.clone())
         .await
         .unwrap();
     assert_eq!(transaction.id, updated_transaction.id);
@@ -443,7 +439,7 @@ async fn test_update_tags(#[case] repo_type: RepoType) {
 
     let new_transaction = generate_new_transaction();
     let transaction: Transaction = transaction_repo
-        .create_new_transaction(test_user.id.clone(), new_transaction.clone())
+        .create_new_transaction(&test_user.id, new_transaction.clone())
         .await
         .unwrap();
 
@@ -456,7 +452,7 @@ async fn test_update_tags(#[case] repo_type: RepoType) {
         HashSet::from(["tag2".to_string(), "tag3".to_string()]),
     );
     let updated_transaction: Transaction = transaction_repo
-        .update_transaction(test_user.id.clone(), transaction.id, update.clone())
+        .update_transaction(&test_user.id, transaction.id, update.clone())
         .await
         .unwrap();
 
@@ -479,7 +475,7 @@ async fn test_update_invalid_transaction(#[case] repo_type: RepoType) {
     let update = generate_new_transaction();
 
     let result = transaction_repo
-        .update_transaction(test_user.id.clone(), 1234, update)
+        .update_transaction(&test_user.id, 1234, update)
         .await;
     assert!(result.is_err());
     // TODO
@@ -520,13 +516,13 @@ async fn test_monthly_totals(#[case] repo_type: RepoType) {
 
     for t in new_transactions {
         let _transaction = transaction_repo
-            .create_new_transaction(test_user.id.clone(), t)
+            .create_new_transaction(&test_user.id, t)
             .await
             .unwrap();
     }
 
     let monthly_totals = transaction_repo
-        .get_monthly_totals(test_user.id.clone())
+        .get_monthly_totals(&test_user.id)
         .await
         .unwrap();
     assert_eq!(
@@ -564,13 +560,13 @@ async fn test_get_categories(#[case] repo_type: RepoType) {
 
     for t in new_transactions {
         let _transaction: Transaction = transaction_repo
-            .create_new_transaction(test_user.id.clone(), t)
+            .create_new_transaction(&test_user.id, t)
             .await
             .unwrap();
     }
 
     let categories = transaction_repo
-        .get_all_categories(test_user.id.clone())
+        .get_all_categories(&test_user.id)
         .await
         .unwrap();
     assert_eq!(vec!["Loan".to_owned(), "Misc".to_owned()], categories);
@@ -593,15 +589,12 @@ async fn test_get_tags(#[case] repo_type: RepoType) {
 
     for t in new_transactions {
         let _transaction: Transaction = transaction_repo
-            .create_new_transaction(test_user.id.clone(), t)
+            .create_new_transaction(&test_user.id, t)
             .await
             .unwrap();
     }
 
-    let tags = transaction_repo
-        .get_all_tags(test_user.id.clone())
-        .await
-        .unwrap();
+    let tags = transaction_repo.get_all_tags(&test_user.id).await.unwrap();
     assert_eq!(
         vec!["tag1".to_string(), "tag2".to_string(), "tag3".to_string()],
         tags
@@ -626,13 +619,13 @@ async fn test_get_transactees(#[case] repo_type: RepoType) {
 
     for t in new_transactions {
         let _transaction: Transaction = transaction_repo
-            .create_new_transaction(test_user.id.clone(), t)
+            .create_new_transaction(&test_user.id, t)
             .await
             .unwrap();
     }
 
     let transactees = transaction_repo
-        .get_all_transactees(test_user.id.clone())
+        .get_all_transactees(&test_user.id)
         .await
         .unwrap();
     assert_eq!(vec!["Alice".to_owned(), "Bob".to_owned()], transactees);
@@ -656,15 +649,12 @@ async fn test_get_balance(#[case] repo_type: RepoType) {
 
     for t in new_transactions {
         let _transaction: Transaction = transaction_repo
-            .create_new_transaction(test_user.id.clone(), t)
+            .create_new_transaction(&test_user.id, t)
             .await
             .unwrap();
     }
 
-    let balance = transaction_repo
-        .get_balance(test_user.id.clone())
-        .await
-        .unwrap();
+    let balance = transaction_repo.get_balance(&test_user.id).await.unwrap();
     assert_eq!(Decimal::from(25), balance);
 
     test_user.delete().await

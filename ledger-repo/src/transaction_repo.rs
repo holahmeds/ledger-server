@@ -22,13 +22,13 @@ impl PageOptions {
 pub trait TransactionRepo: Sync + Send {
     async fn get_transaction(
         &self,
-        user: String,
+        user: &str,
         transaction_id: i32,
     ) -> Result<Transaction, TransactionRepoError>;
 
     async fn get_all_transactions(
         &self,
-        user: String,
+        user: &str,
         from: Option<NaiveDate>,
         until: Option<NaiveDate>,
         category: Option<String>,
@@ -38,35 +38,35 @@ pub trait TransactionRepo: Sync + Send {
 
     async fn create_new_transaction(
         &self,
-        user: String,
+        user: &str,
         new_transaction: NewTransaction,
     ) -> Result<Transaction, TransactionRepoError>;
 
     async fn update_transaction(
         &self,
-        user: String,
+        user: &str,
         transaction_id: i32,
         updated_transaction: NewTransaction,
     ) -> Result<Transaction, TransactionRepoError>;
 
     async fn delete_transaction(
         &self,
-        user: String,
+        user: &str,
         transaction_id: i32,
     ) -> Result<Transaction, TransactionRepoError>;
 
     async fn get_monthly_totals(
         &self,
-        user: String,
+        user: &str,
     ) -> Result<Vec<MonthlyTotal>, TransactionRepoError>;
 
-    async fn get_all_categories(&self, user: String) -> Result<Vec<String>, TransactionRepoError>;
+    async fn get_all_categories(&self, user: &str) -> Result<Vec<String>, TransactionRepoError>;
 
-    async fn get_all_tags(&self, user: String) -> Result<Vec<String>, TransactionRepoError>;
+    async fn get_all_tags(&self, user: &str) -> Result<Vec<String>, TransactionRepoError>;
 
-    async fn get_all_transactees(&self, user: String) -> Result<Vec<String>, TransactionRepoError>;
+    async fn get_all_transactees(&self, user: &str) -> Result<Vec<String>, TransactionRepoError>;
 
-    async fn get_balance(&self, user: String) -> Result<Decimal, TransactionRepoError>;
+    async fn get_balance(&self, user: &str) -> Result<Decimal, TransactionRepoError>;
 }
 
 #[derive(Error, Debug)]

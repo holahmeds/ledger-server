@@ -88,7 +88,7 @@ impl SQLxTransactionRepo {
 impl TransactionRepo for SQLxTransactionRepo {
     async fn get_transaction(
         &self,
-        user: String,
+        user: &str,
         transaction_id: i32,
     ) -> Result<Transaction, TransactionRepoError> {
         let transaction_entry: Option<TransactionEntry> = query_as!(
@@ -117,7 +117,7 @@ impl TransactionRepo for SQLxTransactionRepo {
 
     async fn get_all_transactions(
         &self,
-        user: String,
+        user: &str,
         from: Option<NaiveDate>,
         until: Option<NaiveDate>,
         category: Option<String>,
@@ -191,7 +191,7 @@ impl TransactionRepo for SQLxTransactionRepo {
 
     async fn create_new_transaction(
         &self,
-        user: String,
+        user: &str,
         new_transaction: NewTransaction,
     ) -> Result<Transaction, TransactionRepoError> {
         let mut transaction = self
@@ -224,7 +224,7 @@ impl TransactionRepo for SQLxTransactionRepo {
 
     async fn update_transaction(
         &self,
-        user: String,
+        user: &str,
         transaction_id: i32,
         updated_transaction: NewTransaction,
     ) -> Result<Transaction, TransactionRepoError> {
@@ -284,7 +284,7 @@ impl TransactionRepo for SQLxTransactionRepo {
 
     async fn delete_transaction(
         &self,
-        user: String,
+        user: &str,
         transaction_id: i32,
     ) -> Result<Transaction, TransactionRepoError> {
         let tags = SQLxTransactionRepo::get_tags(&self.pool, transaction_id).await?;
@@ -307,7 +307,7 @@ impl TransactionRepo for SQLxTransactionRepo {
 
     async fn get_monthly_totals(
         &self,
-        user: String,
+        user: &str,
     ) -> Result<Vec<MonthlyTotal>, TransactionRepoError> {
         let monthly_totals = query_as!(
             MonthlyTotalResult,
@@ -340,7 +340,7 @@ impl TransactionRepo for SQLxTransactionRepo {
         Ok(monthly_totals)
     }
 
-    async fn get_all_categories(&self, user: String) -> Result<Vec<String>, TransactionRepoError> {
+    async fn get_all_categories(&self, user: &str) -> Result<Vec<String>, TransactionRepoError> {
         let categories = query_scalar!(
             "SELECT DISTINCT category FROM transactions WHERE user_id = $1",
             user
@@ -351,7 +351,7 @@ impl TransactionRepo for SQLxTransactionRepo {
         Ok(categories)
     }
 
-    async fn get_all_tags(&self, user: String) -> Result<Vec<String>, TransactionRepoError> {
+    async fn get_all_tags(&self, user: &str) -> Result<Vec<String>, TransactionRepoError> {
         let tags = query_scalar!("SELECT DISTINCT tag FROM transaction_tags WHERE transaction_id IN (SELECT id FROM transactions WHERE user_id = $1)", user)
             .fetch_all(&self.pool)
             .await
@@ -359,7 +359,7 @@ impl TransactionRepo for SQLxTransactionRepo {
         Ok(tags)
     }
 
-    async fn get_all_transactees(&self, user: String) -> Result<Vec<String>, TransactionRepoError> {
+    async fn get_all_transactees(&self, user: &str) -> Result<Vec<String>, TransactionRepoError> {
         let transactees = query_scalar!(
             "SELECT DISTINCT transactee as \"transactee!\" FROM transactions WHERE user_id = $1 AND transactee IS NOT NULL",
             user
@@ -370,7 +370,7 @@ impl TransactionRepo for SQLxTransactionRepo {
         Ok(transactees)
     }
 
-    async fn get_balance(&self, user: String) -> Result<Decimal, TransactionRepoError> {
+    async fn get_balance(&self, user: &str) -> Result<Decimal, TransactionRepoError> {
         let balance = query_scalar!(
             "SELECT SUM(amount) FROM transactions WHERE user_id = $1",
             user

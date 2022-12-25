@@ -109,9 +109,10 @@ impl DieselTransactionRepo {
 impl TransactionRepo for DieselTransactionRepo {
     async fn get_transaction(
         &self,
-        user: String,
+        user: &str,
         transaction_id: i32,
     ) -> Result<Transaction, TransactionRepoError> {
+        let user = user.to_owned();
         self.block(move |db_conn| {
             use crate::diesel_repo::schema::transactions::dsl::*;
             use diesel::QueryDsl;
@@ -143,13 +144,14 @@ impl TransactionRepo for DieselTransactionRepo {
 
     async fn get_all_transactions(
         &self,
-        user: String,
+        user: &str,
         from: Option<NaiveDate>,
         until: Option<NaiveDate>,
         category: Option<String>,
         transactee: Option<String>,
         page_options: Option<PageOptions>,
     ) -> Result<Vec<Transaction>, TransactionRepoError> {
+        let user = user.to_owned();
         self.block(move |db_conn| {
             let mut query = transactions::table
                 .filter(transactions::user_id.eq(user))
@@ -194,10 +196,10 @@ impl TransactionRepo for DieselTransactionRepo {
 
     async fn create_new_transaction(
         &self,
-        user: String,
+        user: &str,
         new_transaction: NewTransaction,
     ) -> Result<Transaction, TransactionRepoError> {
-        let (new_transaction_entry, tags) = new_transaction.split_tags(user);
+        let (new_transaction_entry, tags) = new_transaction.split_tags(user.to_owned());
 
         self.block(move |db_conn| {
             let transaction_entry = db_conn
@@ -218,11 +220,11 @@ impl TransactionRepo for DieselTransactionRepo {
 
     async fn update_transaction(
         &self,
-        user: String,
+        user: &str,
         transaction_id: i32,
         updated_transaction: NewTransaction,
     ) -> Result<Transaction, TransactionRepoError> {
-        let (new_transaction_entry, updated_tags) = updated_transaction.split_tags(user.clone());
+        let (new_transaction_entry, updated_tags) = updated_transaction.split_tags(user.to_owned());
 
         self.block(move |db_conn| {
             let transaction_entry = db_conn
@@ -230,9 +232,9 @@ impl TransactionRepo for DieselTransactionRepo {
                     let transaction_entry = diesel::update(
                         transactions::table
                             .find(transaction_id)
-                            .filter(transactions::user_id.eq(user)),
+                            .filter(transactions::user_id.eq(&new_transaction_entry.user_id)),
                     )
-                    .set(new_transaction_entry)
+                    .set(&new_transaction_entry)
                     .get_result(db_conn)?;
 
                     let existing_tags: HashSet<String> = get_tags(db_conn, transaction_id)?;
@@ -275,9 +277,10 @@ impl TransactionRepo for DieselTransactionRepo {
 
     async fn delete_transaction(
         &self,
-        user: String,
+        user: &str,
         transaction_id: i32,
     ) -> Result<Transaction, TransactionRepoError> {
+        let user = user.to_owned();
         self.block(move |db_conn| {
             let tag_list = get_tags(db_conn, transaction_id).with_context(|| {
                 format!("Unable to get tags for transaction {}", transaction_id)
@@ -309,8 +312,9 @@ impl TransactionRepo for DieselTransactionRepo {
 
     async fn get_monthly_totals(
         &self,
-        user: String,
+        user: &str,
     ) -> Result<Vec<MonthlyTotal>, TransactionRepoError> {
+        let user = user.to_owned();
         self.block(move |db_conn| {
             #[derive(Queryable)]
             struct Entry {
@@ -366,7 +370,8 @@ impl TransactionRepo for DieselTransactionRepo {
         .await
     }
 
-    async fn get_all_categories(&self, user: String) -> Result<Vec<String>, TransactionRepoError> {
+    async fn get_all_categories(&self, user: &str) -> Result<Vec<String>, TransactionRepoError> {
+        let user = user.to_owned();
         self.block(move |db_conn| {
             use crate::diesel_repo::schema::transactions::dsl::*;
 
@@ -381,7 +386,8 @@ impl TransactionRepo for DieselTransactionRepo {
         .await
     }
 
-    async fn get_all_tags(&self, user: String) -> Result<Vec<String>, TransactionRepoError> {
+    async fn get_all_tags(&self, user: &str) -> Result<Vec<String>, TransactionRepoError> {
+        let user = user.to_owned();
         self.block(move |db_conn| {
             use crate::diesel_repo::schema::transaction_tags::dsl::*;
 
@@ -397,7 +403,8 @@ impl TransactionRepo for DieselTransactionRepo {
         .await
     }
 
-    async fn get_all_transactees(&self, user: String) -> Result<Vec<String>, TransactionRepoError> {
+    async fn get_all_transactees(&self, user: &str) -> Result<Vec<String>, TransactionRepoError> {
+        let user = user.to_owned();
         self.block(move |db_conn| {
             use crate::diesel_repo::schema::transactions::dsl::*;
 
@@ -415,7 +422,8 @@ impl TransactionRepo for DieselTransactionRepo {
         .await
     }
 
-    async fn get_balance(&self, user: String) -> Result<Decimal, TransactionRepoError> {
+    async fn get_balance(&self, user: &str) -> Result<Decimal, TransactionRepoError> {
+        let user = user.to_owned();
         self.block(move |db_conn| {
             use crate::diesel_repo::schema::transactions::dsl::*;
 
