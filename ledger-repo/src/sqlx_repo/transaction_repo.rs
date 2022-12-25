@@ -16,6 +16,7 @@ struct TransactionEntry {
     note: Option<String>,
     date: NaiveDate,
     amount: Decimal,
+    #[allow(dead_code)]
     user_id: String,
 }
 
@@ -125,7 +126,7 @@ impl TransactionRepo for SQLxTransactionRepo {
         page_options: Option<PageOptions>,
     ) -> Result<Vec<Transaction>, TransactionRepoError> {
         let mut query_builder = QueryBuilder::new("SELECT * FROM transactions WHERE user_id = ");
-        query_builder.push_bind(&user);
+        query_builder.push_bind(user);
         if let Some(from) = from {
             query_builder.push(" AND date >= ").push_bind(from);
         }

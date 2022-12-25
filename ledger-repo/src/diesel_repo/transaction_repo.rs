@@ -24,6 +24,7 @@ struct TransactionEntry {
     note: Option<String>,
     date: NaiveDate,
     amount: Decimal,
+    #[allow(dead_code)]
     user_id: String,
 }
 
