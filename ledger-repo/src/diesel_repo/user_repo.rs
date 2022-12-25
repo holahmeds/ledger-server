@@ -1,6 +1,6 @@
 use super::schema::users;
 use super::DbPool;
-use crate::repo::user_repo::{User, UserRepo, UserRepoError};
+use crate::user_repo::{User, UserRepo, UserRepoError};
 use actix_web::web;
 use anyhow::Context;
 use async_trait::async_trait;
@@ -11,7 +11,7 @@ use diesel::{PgConnection, QueryDsl, RunQueryDsl};
 use r2d2::PooledConnection;
 
 #[derive(Insertable, Queryable, Identifiable, Clone)]
-#[table_name = "users"]
+#[diesel(table_name = users)]
 pub struct UserEntry {
     pub id: String,
     pub password_hash: String,
@@ -19,10 +19,7 @@ pub struct UserEntry {
 
 impl From<UserEntry> for User {
     fn from(u: UserEntry) -> Self {
-        User {
-            id: u.id,
-            password_hash: u.password_hash,
-        }
+        User::new(u.id, u.password_hash)
     }
 }
 
@@ -46,15 +43,17 @@ impl DieselUserRepo {
 
     async fn block<F, R>(&self, f: F) -> Result<R, UserRepoError>
     where
-        F: FnOnce(PooledConnection<ConnectionManager<PgConnection>>) -> Result<R, UserRepoError>
+        F: FnOnce(
+                &mut PooledConnection<ConnectionManager<PgConnection>>,
+            ) -> Result<R, UserRepoError>
             + Send
             + 'static,
         R: Send + 'static,
     {
         let pool = self.db_pool.clone();
         web::block(move || {
-            let db_conn = pool.get().context("Unable to get connection from pool")?;
-            f(db_conn)
+            let mut db_conn = pool.get().context("Unable to get connection from pool")?;
+            f(&mut db_conn)
         })
         .await
         .context("Blocking error")?
@@ -66,10 +65,10 @@ impl UserRepo for DieselUserRepo {
     async fn get_user(&self, user_id: &str) -> Result<User, UserRepoError> {
         let user_id = user_id.to_owned();
         self.block(move |db_conn| {
-            use crate::repo::diesel::schema::users::dsl::users;
+            use crate::diesel_repo::schema::users::dsl::users;
             use diesel::{QueryDsl, RunQueryDsl};
 
-            let user: UserEntry = users.find(&user_id).first(&db_conn).map_err(|e| match e {
+            let user: UserEntry = users.find(&user_id).first(db_conn).map_err(|e| match e {
                 diesel::result::Error::NotFound => UserRepoError::UserNotFound(user_id),
                 _ => UserRepoError::Other(e.into()),
             })?;
@@ -83,13 +82,14 @@ impl UserRepo for DieselUserRepo {
         self.block(move |db_conn| {
             diesel::insert_into(users::table)
                 .values(&user_entry)
-                .execute(&db_conn)
+                .execute(db_conn)
                 .map_err(|e| match e {
                     diesel::result::Error::DatabaseError(DatabaseErrorKind::UniqueViolation, _) => {
                         UserRepoError::UserAlreadyExists(user_entry.id.to_owned())
                     }
                     _ => UserRepoError::Other(e.into()),
                 })?;
+
             Ok(())
         })
         .await
@@ -106,7 +106,7 @@ impl UserRepo for DieselUserRepo {
             // using get_result() so that we get NotFound if the user doesn't exist
             let _: UserEntry = diesel::update(users::table.find(&user_id))
                 .set(users::password_hash.eq(password_hash))
-                .get_result(&db_conn)
+                .get_result(db_conn)
                 .map_err(|e| match e {
                     diesel::result::Error::NotFound => UserRepoError::UserNotFound(user_id),
                     _ => UserRepoError::Other(e.into()),
@@ -121,7 +121,7 @@ impl UserRepo for DieselUserRepo {
         self.block(move |db_conn| {
             // using get_result() so that we get NotFound if the user doesn't exist
             let _: UserEntry = diesel::delete(users::table.find(&user_id))
-                .get_result(&db_conn)
+                .get_result(db_conn)
                 .map_err(|e| match e {
                     diesel::result::Error::NotFound => UserRepoError::UserNotFound(user_id),
                     _ => UserRepoError::Other(e.into()),

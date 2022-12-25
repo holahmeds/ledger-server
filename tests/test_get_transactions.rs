@@ -1,6 +1,7 @@
 extern crate futures_util;
 extern crate serde_json;
 
+use std::collections::HashSet;
 use std::str::FromStr;
 
 use actix_web::test;
@@ -13,21 +14,19 @@ use rust_decimal::Decimal;
 use tracing::instrument;
 
 use crate::utils::mock::MockAuthentication;
-use ledger::repo::transaction_repo::{NewTransaction, Transaction};
+use ledger_repo::transaction_repo::{NewTransaction, Transaction};
+use utils::build_repos;
 use utils::tracing_setup;
 use utils::TestUser;
-use utils::{build_repos, RepoType};
 
 #[macro_use]
 mod utils;
 
 #[instrument]
 #[rstest]
-#[case::diesel(RepoType::Diesel)]
-#[case::sqlx(RepoType::SQLx)]
 #[actix_rt::test]
-async fn test_get_all_transactions(_tracing_setup: &(), #[case] repo_type: RepoType) {
-    let (transaction_repo, user_repo) = build_repos(repo_type).await;
+async fn test_get_all_transactions(_tracing_setup: &()) {
+    let (transaction_repo, user_repo) = build_repos().await;
     let test_user = TestUser::new(user_repo).await;
     let app = build_app!(transaction_repo, test_user.user_id.clone());
     let service = test::init_service(app).await;
@@ -38,16 +37,16 @@ async fn test_get_all_transactions(_tracing_setup: &(), #[case] repo_type: RepoT
             Some("Alice".to_string()),
             None,
             NaiveDate::from_str("2021-10-11").unwrap(),
-            Decimal::from_str("10").unwrap(),
-            vec![],
+            Decimal::from(10),
+            HashSet::new(),
         ),
         NewTransaction::new(
             "Misc".to_string(),
             Some("Bob".to_string()),
             None,
             NaiveDate::from_str("1900-10-11").unwrap(),
-            Decimal::from_str("15").unwrap(),
-            vec!["loan".to_string()],
+            Decimal::from(15),
+            HashSet::new(),
         ),
     ];
 
@@ -69,11 +68,9 @@ async fn test_get_all_transactions(_tracing_setup: &(), #[case] repo_type: RepoT
 
 #[instrument]
 #[rstest]
-#[case::diesel(RepoType::Diesel)]
-#[case::sqlx(RepoType::SQLx)]
 #[actix_rt::test]
-async fn test_transactions_sorted(_tracing_setup: &(), #[case] repo_type: RepoType) {
-    let (transaction_repo, user_repo) = build_repos(repo_type).await;
+async fn test_transactions_sorted(_tracing_setup: &()) {
+    let (transaction_repo, user_repo) = build_repos().await;
     let test_user = TestUser::new(user_repo).await;
     let app = build_app!(transaction_repo, test_user.user_id.clone());
     let service = test::init_service(app).await;
@@ -84,24 +81,24 @@ async fn test_transactions_sorted(_tracing_setup: &(), #[case] repo_type: RepoTy
             Some("Alice".to_string()),
             None,
             NaiveDate::from_str("2021-10-11").unwrap(),
-            Decimal::from_str("10").unwrap(),
-            vec![],
+            Decimal::from(10),
+            HashSet::new(),
         ),
         NewTransaction::new(
             "Misc".to_string(),
             Some("Bob".to_string()),
             None,
             NaiveDate::from_str("1900-10-11").unwrap(),
-            Decimal::from_str("15").unwrap(),
-            vec!["loan".to_string()],
+            Decimal::from(15),
+            HashSet::from(["loan".to_string()]),
         ),
         NewTransaction::new(
             "Misc".to_string(),
             Some("Bob".to_string()),
             None,
             NaiveDate::from_str("2022-08-02").unwrap(),
-            Decimal::from_str("20").unwrap(),
-            vec![],
+            Decimal::from(20),
+            HashSet::new(),
         ),
     ];
 
@@ -124,11 +121,9 @@ async fn test_transactions_sorted(_tracing_setup: &(), #[case] repo_type: RepoTy
 
 #[instrument]
 #[rstest]
-#[case::diesel(RepoType::Diesel)]
-#[case::sqlx(RepoType::SQLx)]
 #[actix_rt::test]
-async fn test_get_transactions_filter_category(_tracing_setup: &(), #[case] repo_type: RepoType) {
-    let (transaction_repo, user_repo) = build_repos(repo_type).await;
+async fn test_get_transactions_filter_category(_tracing_setup: &()) {
+    let (transaction_repo, user_repo) = build_repos().await;
     let test_user = TestUser::new(user_repo).await;
     let app = build_app!(transaction_repo, test_user.user_id.clone());
     let service = test::init_service(app).await;
@@ -139,16 +134,16 @@ async fn test_get_transactions_filter_category(_tracing_setup: &(), #[case] repo
             Some("Alice".to_string()),
             None,
             NaiveDate::from_str("2021-10-11").unwrap(),
-            Decimal::from_str("10").unwrap(),
-            vec![],
+            Decimal::from(10),
+            HashSet::new(),
         ),
         NewTransaction::new(
             "Misc".to_string(),
             Some("Bob".to_string()),
             None,
             NaiveDate::from_str("1900-10-11").unwrap(),
-            Decimal::from_str("15").unwrap(),
-            vec!["loan".to_string()],
+            Decimal::from(15),
+            HashSet::from(["loan".to_string()]),
         ),
     ];
 
@@ -172,11 +167,9 @@ async fn test_get_transactions_filter_category(_tracing_setup: &(), #[case] repo
 
 #[instrument]
 #[rstest]
-#[case::diesel(RepoType::Diesel)]
-#[case::sqlx(RepoType::SQLx)]
 #[actix_rt::test]
-async fn test_get_transactions_filter_transactee(_tracing_setup: &(), #[case] repo_type: RepoType) {
-    let (transaction_repo, user_repo) = build_repos(repo_type).await;
+async fn test_get_transactions_filter_transactee(_tracing_setup: &()) {
+    let (transaction_repo, user_repo) = build_repos().await;
     let test_user = TestUser::new(user_repo).await;
     let app = build_app!(transaction_repo, test_user.user_id.clone());
     let service = test::init_service(app).await;
@@ -187,16 +180,16 @@ async fn test_get_transactions_filter_transactee(_tracing_setup: &(), #[case] re
             Some("Alice".to_string()),
             None,
             NaiveDate::from_str("2021-10-11").unwrap(),
-            Decimal::from_str("10").unwrap(),
-            vec![],
+            Decimal::from(10),
+            HashSet::new(),
         ),
         NewTransaction::new(
             "Misc".to_string(),
             Some("Bob".to_string()),
             None,
             NaiveDate::from_str("1900-10-11").unwrap(),
-            Decimal::from_str("15").unwrap(),
-            vec!["loan".to_string()],
+            Decimal::from(15),
+            HashSet::from(["loan".to_string()]),
         ),
     ];
 
@@ -222,11 +215,9 @@ async fn test_get_transactions_filter_transactee(_tracing_setup: &(), #[case] re
 
 #[instrument]
 #[rstest]
-#[case::diesel(RepoType::Diesel)]
-#[case::sqlx(RepoType::SQLx)]
 #[actix_rt::test]
-async fn test_get_transactions_filter_from(_tracing_setup: &(), #[case] repo_type: RepoType) {
-    let (transaction_repo, user_repo) = build_repos(repo_type).await;
+async fn test_get_transactions_filter_from(_tracing_setup: &()) {
+    let (transaction_repo, user_repo) = build_repos().await;
     let test_user = TestUser::new(user_repo).await;
     let app = build_app!(transaction_repo, test_user.user_id.clone());
     let service = test::init_service(app).await;
@@ -237,16 +228,16 @@ async fn test_get_transactions_filter_from(_tracing_setup: &(), #[case] repo_typ
             Some("Alice".to_string()),
             None,
             NaiveDate::from_str("2021-10-11").unwrap(),
-            Decimal::from_str("10").unwrap(),
-            vec![],
+            Decimal::from(10),
+            HashSet::new(),
         ),
         NewTransaction::new(
             "Misc".to_string(),
             Some("Bob".to_string()),
             None,
             NaiveDate::from_str("1900-10-11").unwrap(),
-            Decimal::from_str("15").unwrap(),
-            vec!["loan".to_string()],
+            Decimal::from(15),
+            HashSet::from(["loan".to_string()]),
         ),
     ];
 
@@ -272,11 +263,9 @@ async fn test_get_transactions_filter_from(_tracing_setup: &(), #[case] repo_typ
 
 #[instrument]
 #[rstest]
-#[case::diesel(RepoType::Diesel)]
-#[case::sqlx(RepoType::SQLx)]
 #[actix_rt::test]
-async fn test_get_transactions_filter_until(_tracing_setup: &(), #[case] repo_type: RepoType) {
-    let (transaction_repo, user_repo) = build_repos(repo_type).await;
+async fn test_get_transactions_filter_until(_tracing_setup: &()) {
+    let (transaction_repo, user_repo) = build_repos().await;
     let test_user = TestUser::new(user_repo).await;
     let app = build_app!(transaction_repo, test_user.user_id.clone());
     let service = test::init_service(app).await;
@@ -287,16 +276,16 @@ async fn test_get_transactions_filter_until(_tracing_setup: &(), #[case] repo_ty
             Some("Alice".to_string()),
             None,
             NaiveDate::from_str("2021-10-11").unwrap(),
-            Decimal::from_str("10").unwrap(),
-            vec![],
+            Decimal::from(10),
+            HashSet::new(),
         ),
         NewTransaction::new(
             "Misc".to_string(),
             Some("Bob".to_string()),
             None,
             NaiveDate::from_str("1900-10-11").unwrap(),
-            Decimal::from_str("15").unwrap(),
-            vec!["loan".to_string()],
+            Decimal::from(15),
+            HashSet::from(["loan".to_string()]),
         ),
     ];
 

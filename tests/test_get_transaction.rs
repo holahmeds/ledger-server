@@ -1,6 +1,7 @@
 extern crate futures_util;
 extern crate serde_json;
 
+use std::collections::HashSet;
 use std::str::FromStr;
 
 use actix_web::http::StatusCode;
@@ -14,21 +15,19 @@ use rust_decimal::Decimal;
 use tracing::instrument;
 
 use crate::utils::mock::MockAuthentication;
-use ledger::repo::transaction_repo::{NewTransaction, Transaction};
+use ledger_repo::transaction_repo::{NewTransaction, Transaction};
+use utils::build_repos;
 use utils::tracing_setup;
 use utils::TestUser;
-use utils::{build_repos, RepoType};
 
 #[macro_use]
 mod utils;
 
 #[instrument]
 #[rstest]
-#[case::diesel(RepoType::Diesel)]
-#[case::sqlx(RepoType::SQLx)]
 #[actix_rt::test]
-async fn test_get_transaction(_tracing_setup: &(), #[case] repo_type: RepoType) {
-    let (transaction_repo, user_repo) = build_repos(repo_type).await;
+async fn test_get_transaction(_tracing_setup: &()) {
+    let (transaction_repo, user_repo) = build_repos().await;
     let test_user = TestUser::new(user_repo).await;
     let app = build_app!(transaction_repo, test_user.user_id.clone());
     let service = test::init_service(app).await;
@@ -38,8 +37,8 @@ async fn test_get_transaction(_tracing_setup: &(), #[case] repo_type: RepoType) 
         Some("Bob".to_string()),
         None,
         NaiveDate::from_str("2021-06-09").unwrap(),
-        Decimal::from_str("100").unwrap(),
-        vec![],
+        Decimal::from(100),
+        HashSet::new(),
     );
     let transaction: Transaction = create_transaction!(&service, new_transaction);
 
@@ -57,11 +56,9 @@ async fn test_get_transaction(_tracing_setup: &(), #[case] repo_type: RepoType) 
 
 #[instrument]
 #[rstest]
-#[case::diesel(RepoType::Diesel)]
-#[case::sqlx(RepoType::SQLx)]
 #[actix_rt::test]
-async fn test_get_invalid_transaction(_tracing_setup: &(), #[case] repo_type: RepoType) {
-    let (transaction_repo, user_repo) = build_repos(repo_type).await;
+async fn test_get_invalid_transaction(_tracing_setup: &()) {
+    let (transaction_repo, user_repo) = build_repos().await;
     let test_user = TestUser::new(user_repo).await;
     let app = build_app!(transaction_repo, test_user.user_id.clone());
     let service = test::init_service(app).await;

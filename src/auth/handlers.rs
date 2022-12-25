@@ -1,10 +1,10 @@
 use crate::auth::jwt::JWTAuth;
 use crate::auth::password;
 use crate::error::HandlerError;
-use crate::repo::user_repo::User;
-use crate::repo::user_repo::UserRepo;
 use crate::user::UserId;
 use actix_web::{web, HttpRequest, HttpResponse, Responder};
+use ledger_repo::user_repo::User;
+use ledger_repo::user_repo::UserRepo;
 use serde::Deserialize;
 use serde::Serialize;
 use std::sync::Arc;
@@ -24,10 +24,7 @@ pub async fn signup(
     let password_hash = password::encode_password(credentials.password)?;
 
     user_repo
-        .create_user(User {
-            id: credentials.id,
-            password_hash,
-        })
+        .create_user(User::new(credentials.id, password_hash))
         .await?;
 
     Ok(HttpResponse::Ok())

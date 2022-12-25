@@ -1,6 +1,7 @@
 mod schema;
 mod transaction_repo;
 mod user_repo;
+use diesel_migrations::{EmbeddedMigrations, MigrationHarness};
 
 use super::transaction_repo::TransactionRepo;
 use super::user_repo::UserRepo;
@@ -11,7 +12,7 @@ use tracing::info;
 use transaction_repo::DieselTransactionRepo;
 use user_repo::DieselUserRepo;
 
-embed_migrations!();
+pub const MIGRATIONS: EmbeddedMigrations = embed_migrations!();
 
 type DbPool = r2d2::Pool<ConnectionManager<PgConnection>>;
 
@@ -34,8 +35,8 @@ pub fn create_repos(
 
     if run_migrations {
         info!("Running migrations");
-        let connection = pool.get().unwrap();
-        embedded_migrations::run_with_output(&connection, &mut std::io::stdout()).unwrap();
+        let mut connection = pool.get().unwrap();
+        connection.run_pending_migrations(MIGRATIONS).unwrap();
     }
 
     let transaction_repo = DieselTransactionRepo::new(pool.clone());

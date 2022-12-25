@@ -1,10 +1,10 @@
 mod transaction_repo;
 mod user_repo;
 
-use crate::repo::sqlx::transaction_repo::SQLxTransactionRepo;
-use crate::repo::sqlx::user_repo::SQLxUserRepo;
-use crate::repo::transaction_repo::TransactionRepo;
-use crate::repo::user_repo::UserRepo;
+use crate::sqlx_repo::transaction_repo::SQLxTransactionRepo;
+use crate::sqlx_repo::user_repo::SQLxUserRepo;
+use crate::transaction_repo::TransactionRepo;
+use crate::user_repo::UserRepo;
 use sqlx::postgres::PgPoolOptions;
 use std::sync::Arc;
 

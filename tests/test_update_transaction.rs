@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::str::FromStr;
 
 use actix_web::http::StatusCode;
@@ -11,21 +12,19 @@ use rust_decimal::Decimal;
 use tracing::instrument;
 
 use crate::utils::mock::MockAuthentication;
-use ledger::repo::transaction_repo::{NewTransaction, Transaction};
+use ledger_repo::transaction_repo::{NewTransaction, Transaction};
+use utils::build_repos;
 use utils::tracing_setup;
 use utils::TestUser;
-use utils::{build_repos, RepoType};
 
 #[macro_use]
 mod utils;
 
 #[instrument]
 #[rstest]
-#[case::diesel(RepoType::Diesel)]
-#[case::sqlx(RepoType::SQLx)]
 #[actix_rt::test]
-async fn test_update_transaction(_tracing_setup: &(), #[case] repo_type: RepoType) {
-    let (transaction_repo, user_repo) = build_repos(repo_type).await;
+async fn test_update_transaction(_tracing_setup: &()) {
+    let (transaction_repo, user_repo) = build_repos().await;
     let test_user = TestUser::new(user_repo).await;
     let app = build_app!(transaction_repo, test_user.user_id.clone());
     let service = test::init_service(app).await;
@@ -36,7 +35,7 @@ async fn test_update_transaction(_tracing_setup: &(), #[case] repo_type: RepoTyp
         None,
         NaiveDate::from_str("2021-06-09").unwrap(),
         Decimal::from_str("11.12").unwrap(),
-        vec![],
+        HashSet::new(),
     );
     let transaction: Transaction = {
         let request = TestRequest::post()
@@ -52,8 +51,8 @@ async fn test_update_transaction(_tracing_setup: &(), #[case] repo_type: RepoTyp
         Some("Alice".to_string()),
         new_transaction.note,
         new_transaction.date,
-        Decimal::from_str("105").unwrap(),
-        vec![],
+        Decimal::from(105),
+        HashSet::new(),
     );
     let request = TestRequest::put()
         .uri(format!("/transactions/{}", transaction.id).as_str())
@@ -72,11 +71,9 @@ async fn test_update_transaction(_tracing_setup: &(), #[case] repo_type: RepoTyp
 
 #[instrument]
 #[rstest]
-#[case::diesel(RepoType::Diesel)]
-#[case::sqlx(RepoType::SQLx)]
 #[actix_rt::test]
-async fn test_update_tags(_tracing_setup: &(), #[case] repo_type: RepoType) {
-    let (transaction_repo, user_repo) = build_repos(repo_type).await;
+async fn test_update_tags(_tracing_setup: &()) {
+    let (transaction_repo, user_repo) = build_repos().await;
     let test_user = TestUser::new(user_repo).await;
     let app = build_app!(transaction_repo, test_user.user_id.clone());
     let service = test::init_service(app).await;
@@ -87,7 +84,7 @@ async fn test_update_tags(_tracing_setup: &(), #[case] repo_type: RepoType) {
         None,
         NaiveDate::from_str("2021-06-09").unwrap(),
         Decimal::from_str("11.12").unwrap(),
-        vec!["tag1".to_string(), "tag2".to_string()],
+        HashSet::from(["tag1".to_string(), "tag2".to_string()]),
     );
     let transaction: Transaction = create_transaction!(&service, new_transaction);
 
@@ -96,8 +93,8 @@ async fn test_update_tags(_tracing_setup: &(), #[case] repo_type: RepoType) {
         Some("Alice".to_string()),
         new_transaction.note,
         new_transaction.date,
-        Decimal::from_str("105").unwrap(),
-        vec!["tag2".to_string(), "tag3".to_string()],
+        Decimal::from(105),
+        HashSet::from(["tag2".to_string(), "tag3".to_string()]),
     );
     let request = TestRequest::put()
         .uri(format!("/transactions/{}", transaction.id).as_str())
@@ -116,11 +113,9 @@ async fn test_update_tags(_tracing_setup: &(), #[case] repo_type: RepoType) {
 
 #[instrument]
 #[rstest]
-#[case::diesel(RepoType::Diesel)]
-#[case::sqlx(RepoType::SQLx)]
 #[actix_rt::test]
-async fn test_update_invalid_transaction(_tracing_setup: &(), #[case] repo_type: RepoType) {
-    let (transaction_repo, user_repo) = build_repos(repo_type).await;
+async fn test_update_invalid_transaction(_tracing_setup: &()) {
+    let (transaction_repo, user_repo) = build_repos().await;
     let test_user = TestUser::new(user_repo).await;
     let app = build_app!(transaction_repo, test_user.user_id.clone());
     let service = test::init_service(app).await;
@@ -130,8 +125,8 @@ async fn test_update_invalid_transaction(_tracing_setup: &(), #[case] repo_type:
         Some("Bob".to_string()),
         None,
         NaiveDate::from_str("2021-06-09").unwrap(),
-        Decimal::from_str("321").unwrap(),
-        vec![],
+        Decimal::from(321),
+        HashSet::new(),
     );
     let request = TestRequest::put()
         .uri(format!("/transactions/{}", 0).as_str()) // non-existent transaction ID

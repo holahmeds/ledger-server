@@ -1,6 +1,6 @@
 pkgname='ledger-server'
 pkgdesc='Server to sync transaction data'
-pkgver='0.6.1'
+pkgver='0.7.0'
 pkgrel='1'
 arch=('x86_64')
 depends=('cargo')
@@ -19,7 +19,7 @@ prepare() {
 build() {
     export RUSTUP_TOOLCHAIN=stable
     export CARGO_TARGET_DIR=target
-    cargo build --frozen --release --all-features
+    cargo build --frozen --release
 }
 
 package() {

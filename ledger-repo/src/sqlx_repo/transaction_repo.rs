@@ -1,14 +1,12 @@
-use crate::repo::transaction_repo::TransactionRepoError::TransactionNotFound;
-use crate::repo::transaction_repo::{
-    NewTransaction, Transaction, TransactionRepo, TransactionRepoError,
-};
-use crate::user::UserId;
+use crate::transaction_repo::TransactionRepoError::TransactionNotFound;
+use crate::transaction_repo::{MonthlyTotal, PageOptions};
+use crate::transaction_repo::{NewTransaction, Transaction, TransactionRepo, TransactionRepoError};
 use anyhow::Context;
 use async_trait::async_trait;
-use chrono::NaiveDate;
+use chrono::{DateTime, NaiveDate, Utc};
 use rust_decimal::Decimal;
 use sqlx::{query, query_as, query_scalar, PgExecutor, Pool, Postgres, QueryBuilder};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 #[derive(sqlx::FromRow)]
 struct TransactionEntry {
@@ -18,12 +16,19 @@ struct TransactionEntry {
     note: Option<String>,
     date: NaiveDate,
     amount: Decimal,
-    user_id: UserId,
+    #[allow(dead_code)]
+    user_id: String,
 }
 
 struct TagEntry {
     transaction_id: i32,
     tag: String,
+}
+
+struct MonthlyTotalResult {
+    month: Option<DateTime<Utc>>,
+    income: Option<Decimal>,
+    expense: Option<Decimal>,
 }
 
 pub struct SQLxTransactionRepo {
@@ -38,7 +43,7 @@ impl SQLxTransactionRepo {
     async fn get_tags<'a, E>(
         executor: E,
         transaction_id: i32,
-    ) -> Result<Vec<String>, TransactionRepoError>
+    ) -> Result<HashSet<String>, TransactionRepoError>
     where
         E: PgExecutor<'a>,
     {
@@ -49,7 +54,7 @@ impl SQLxTransactionRepo {
         .fetch_all(executor)
         .await
         .with_context(|| format!("Unable to get tags for transaction {}", transaction_id))?;
-        Ok(tags)
+        Ok(HashSet::from_iter(tags))
     }
 
     async fn insert_tags<'a, I>(
@@ -84,7 +89,7 @@ impl SQLxTransactionRepo {
 impl TransactionRepo for SQLxTransactionRepo {
     async fn get_transaction(
         &self,
-        user: UserId,
+        user: &str,
         transaction_id: i32,
     ) -> Result<Transaction, TransactionRepoError> {
         let transaction_entry: Option<TransactionEntry> = query_as!(
@@ -113,14 +118,15 @@ impl TransactionRepo for SQLxTransactionRepo {
 
     async fn get_all_transactions(
         &self,
-        user: UserId,
+        user: &str,
         from: Option<NaiveDate>,
         until: Option<NaiveDate>,
         category: Option<String>,
         transactee: Option<String>,
+        page_options: Option<PageOptions>,
     ) -> Result<Vec<Transaction>, TransactionRepoError> {
         let mut query_builder = QueryBuilder::new("SELECT * FROM transactions WHERE user_id = ");
-        query_builder.push_bind(&user);
+        query_builder.push_bind(user);
         if let Some(from) = from {
             query_builder.push(" AND date >= ").push_bind(from);
         }
@@ -136,6 +142,13 @@ impl TransactionRepo for SQLxTransactionRepo {
                 .push_bind(transactee);
         }
         query_builder.push(" ORDER BY date DESC");
+        if let Some(po) = page_options {
+            query_builder
+                .push(" OFFSET ")
+                .push_bind(po.offset)
+                .push(" LIMIT ")
+                .push_bind(po.limit);
+        }
         let query = query_builder.build_query_as();
         let transaction_entries: Vec<TransactionEntry> = query
             .fetch_all(&self.pool)
@@ -162,7 +175,7 @@ impl TransactionRepo for SQLxTransactionRepo {
                 te.note,
                 te.date,
                 te.amount,
-                vec![],
+                HashSet::new(),
             );
             transactions.push(transaction);
             transaction_index.insert(te.id, transactions.len() - 1);
@@ -171,7 +184,7 @@ impl TransactionRepo for SQLxTransactionRepo {
             let index = transaction_index
                 .get(&te.transaction_id)
                 .context("Tag's transaction ID does not match fetched transaction")?;
-            transactions[*index].tags.push(te.tag)
+            transactions[*index].tags.insert(te.tag);
         }
 
         Ok(transactions)
@@ -179,7 +192,7 @@ impl TransactionRepo for SQLxTransactionRepo {
 
     async fn create_new_transaction(
         &self,
-        user: UserId,
+        user: &str,
         new_transaction: NewTransaction,
     ) -> Result<Transaction, TransactionRepoError> {
         let mut transaction = self
@@ -212,7 +225,7 @@ impl TransactionRepo for SQLxTransactionRepo {
 
     async fn update_transaction(
         &self,
-        user: UserId,
+        user: &str,
         transaction_id: i32,
         updated_transaction: NewTransaction,
     ) -> Result<Transaction, TransactionRepoError> {
@@ -238,15 +251,11 @@ impl TransactionRepo for SQLxTransactionRepo {
 
         let existing_tags = SQLxTransactionRepo::get_tags(&mut transaction, transaction_id).await?;
 
-        let new_tags = updated_transaction
-            .tags
-            .iter()
-            .filter(|t| !existing_tags.contains(t));
+        let new_tags = updated_transaction.tags.difference(&existing_tags);
         SQLxTransactionRepo::insert_tags(&mut transaction, transaction_id, new_tags).await?;
 
         let removed_tags: Vec<&str> = existing_tags
-            .iter()
-            .filter(|t| !updated_transaction.tags.contains(t))
+            .difference(&updated_transaction.tags)
             .map(|t| t.as_str())
             .collect();
         query!(
@@ -276,7 +285,7 @@ impl TransactionRepo for SQLxTransactionRepo {
 
     async fn delete_transaction(
         &self,
-        user: UserId,
+        user: &str,
         transaction_id: i32,
     ) -> Result<Transaction, TransactionRepoError> {
         let tags = SQLxTransactionRepo::get_tags(&self.pool, transaction_id).await?;
@@ -297,7 +306,42 @@ impl TransactionRepo for SQLxTransactionRepo {
         ))
     }
 
-    async fn get_all_categories(&self, user: UserId) -> Result<Vec<String>, TransactionRepoError> {
+    async fn get_monthly_totals(
+        &self,
+        user: &str,
+    ) -> Result<Vec<MonthlyTotal>, TransactionRepoError> {
+        let monthly_totals = query_as!(
+            MonthlyTotalResult,
+            r#"
+            SELECT DATE_TRUNC('month', date)             as month,
+                   SUM(amount) FILTER (WHERE amount > 0) as income,
+                   SUM(amount * -1) FILTER (WHERE amount < 0) as expense
+            FROM transactions
+            WHERE user_id = $1
+            GROUP BY month
+            ORDER BY month DESC
+            "#,
+            user
+        )
+        .fetch_all(&self.pool)
+        .await
+        .with_context(|| format!("Unable to get monthly totals for {}", user))?;
+
+        let monthly_totals = monthly_totals
+            .into_iter()
+            .map(|result| {
+                MonthlyTotal::new(
+                    result.month.unwrap().naive_utc().date(),
+                    result.income.unwrap_or(Decimal::ZERO),
+                    result.expense.unwrap_or(Decimal::ZERO),
+                )
+            })
+            .collect();
+
+        Ok(monthly_totals)
+    }
+
+    async fn get_all_categories(&self, user: &str) -> Result<Vec<String>, TransactionRepoError> {
         let categories = query_scalar!(
             "SELECT DISTINCT category FROM transactions WHERE user_id = $1",
             user
@@ -308,7 +352,7 @@ impl TransactionRepo for SQLxTransactionRepo {
         Ok(categories)
     }
 
-    async fn get_all_tags(&self, user: UserId) -> Result<Vec<String>, TransactionRepoError> {
+    async fn get_all_tags(&self, user: &str) -> Result<Vec<String>, TransactionRepoError> {
         let tags = query_scalar!("SELECT DISTINCT tag FROM transaction_tags WHERE transaction_id IN (SELECT id FROM transactions WHERE user_id = $1)", user)
             .fetch_all(&self.pool)
             .await
@@ -316,7 +360,7 @@ impl TransactionRepo for SQLxTransactionRepo {
         Ok(tags)
     }
 
-    async fn get_all_transactees(&self, user: UserId) -> Result<Vec<String>, TransactionRepoError> {
+    async fn get_all_transactees(&self, user: &str) -> Result<Vec<String>, TransactionRepoError> {
         let transactees = query_scalar!(
             "SELECT DISTINCT transactee as \"transactee!\" FROM transactions WHERE user_id = $1 AND transactee IS NOT NULL",
             user
@@ -325,5 +369,16 @@ impl TransactionRepo for SQLxTransactionRepo {
             .await
             .with_context(|| format!("Unable to get transactees for user {}", user))?;
         Ok(transactees)
+    }
+
+    async fn get_balance(&self, user: &str) -> Result<Decimal, TransactionRepoError> {
+        let balance = query_scalar!(
+            "SELECT SUM(amount) FROM transactions WHERE user_id = $1",
+            user
+        )
+        .fetch_one(&self.pool)
+        .await
+        .with_context(|| format!("Unable to get balance for user {}", user))?;
+        Ok(balance.unwrap_or(Decimal::ZERO))
     }
 }

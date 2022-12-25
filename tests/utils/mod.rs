@@ -1,17 +1,16 @@
 use std::fs;
 use std::sync::Arc;
 
+use ledger::user::UserId;
 use rstest::*;
 use serde::Deserialize;
 use tracing::info;
 use tracing::Level;
 use uuid::Uuid;
 
-use ledger::repo;
-use ledger::repo::transaction_repo::TransactionRepo;
-use ledger::repo::user_repo::User;
-use ledger::repo::user_repo::UserRepo;
-use ledger::user::UserId;
+use ledger_repo::transaction_repo::TransactionRepo;
+use ledger_repo::user_repo::User;
+use ledger_repo::user_repo::UserRepo;
 
 pub mod mock;
 
@@ -58,10 +57,10 @@ pub struct TestUser {
 impl TestUser {
     pub async fn new(user_repo: Arc<dyn UserRepo>) -> TestUser {
         let user_id = "test-user-".to_owned() + &Uuid::new_v4().to_string();
-        let user = User {
-            id: user_id.to_string(),
-            password_hash: ledger::auth::password::encode_password("pass".to_string()).unwrap(),
-        };
+        let user = User::new(
+            user_id.to_string(),
+            ledger::auth::password::encode_password("pass".to_string()).unwrap(),
+        );
         user_repo.create_user(user).await.unwrap();
         info!(%user_id, "Created user");
         TestUser {
@@ -85,18 +84,9 @@ pub fn tracing_setup() -> () {
     info!("tracing initialized");
 }
 
-#[derive(Debug)]
-pub enum RepoType {
-    Diesel,
-    SQLx,
-}
-
-pub async fn build_repos(repo_type: RepoType) -> (Arc<dyn TransactionRepo>, Arc<dyn UserRepo>) {
+pub async fn build_repos() -> (Arc<dyn TransactionRepo>, Arc<dyn UserRepo>) {
     let config = fs::read_to_string("config_test.toml").unwrap();
     let config: TestConfig = toml::from_str(config.as_str()).unwrap();
 
-    match repo_type {
-        RepoType::Diesel => repo::diesel::create_repos(config.database_url, 1, false),
-        RepoType::SQLx => repo::sqlx::create_repos(config.database_url, 1).await,
-    }
+    ledger_repo::sqlx_repo::create_repos(config.database_url, 1).await
 }

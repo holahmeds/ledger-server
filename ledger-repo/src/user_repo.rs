@@ -1,4 +1,3 @@
-use crate::user::UserId;
 use async_trait::async_trait;
 use thiserror::Error;
 
@@ -14,17 +13,24 @@ pub trait UserRepo: Sync + Send {
     async fn delete_user(&self, user_id: &str) -> Result<(), UserRepoError>;
 }
 
+#[derive(Clone, Debug, PartialEq)]
 pub struct User {
-    pub id: UserId,
+    pub id: String,
     pub password_hash: String,
+}
+
+impl User {
+    pub fn new(id: String, password_hash: String) -> User {
+        User { id, password_hash }
+    }
 }
 
 #[derive(Error, Debug)]
 pub enum UserRepoError {
     #[error("User {0} not found")]
-    UserNotFound(UserId),
+    UserNotFound(String),
     #[error("User {0} already exists")]
-    UserAlreadyExists(UserId),
+    UserAlreadyExists(String),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
 }

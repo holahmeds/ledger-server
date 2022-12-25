@@ -1,7 +1,7 @@
-use crate::repo::transaction_repo::TransactionRepoError;
-use crate::repo::user_repo::UserRepoError;
 use actix_web::http::StatusCode;
 use actix_web::ResponseError;
+use ledger_repo::transaction_repo::TransactionRepoError;
+use ledger_repo::user_repo::UserRepoError;
 use std::fmt::Debug;
 use thiserror::Error;
 
@@ -17,6 +17,8 @@ pub enum HandlerError {
     UserNotFoundError(UserRepoError),
     #[error(transparent)]
     UserAlreadyExists(UserRepoError),
+    #[error("{0}")]
+    BadRequest(String),
 }
 
 impl From<TransactionRepoError> for HandlerError {
@@ -47,6 +49,7 @@ impl ResponseError for HandlerError {
                 StatusCode::NOT_FOUND
             }
             HandlerError::UserAlreadyExists(_) => StatusCode::CONFLICT,
+            HandlerError::BadRequest(_) => StatusCode::BAD_REQUEST,
             _ => StatusCode::INTERNAL_SERVER_ERROR,
         }
     }
