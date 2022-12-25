@@ -13,20 +13,18 @@ use tracing::instrument;
 
 use crate::utils::mock::MockAuthentication;
 use ledger_repo::transaction_repo::{NewTransaction, Transaction};
+use utils::build_repos;
 use utils::tracing_setup;
 use utils::TestUser;
-use utils::{build_repos, RepoType};
 
 #[macro_use]
 mod utils;
 
 #[instrument]
 #[rstest]
-#[case::diesel(RepoType::Diesel)]
-#[case::sqlx(RepoType::SQLx)]
 #[actix_rt::test]
-async fn test_update_transaction(_tracing_setup: &(), #[case] repo_type: RepoType) {
-    let (transaction_repo, user_repo) = build_repos(repo_type).await;
+async fn test_update_transaction(_tracing_setup: &()) {
+    let (transaction_repo, user_repo) = build_repos().await;
     let test_user = TestUser::new(user_repo).await;
     let app = build_app!(transaction_repo, test_user.user_id.clone());
     let service = test::init_service(app).await;
@@ -73,11 +71,9 @@ async fn test_update_transaction(_tracing_setup: &(), #[case] repo_type: RepoTyp
 
 #[instrument]
 #[rstest]
-#[case::diesel(RepoType::Diesel)]
-#[case::sqlx(RepoType::SQLx)]
 #[actix_rt::test]
-async fn test_update_tags(_tracing_setup: &(), #[case] repo_type: RepoType) {
-    let (transaction_repo, user_repo) = build_repos(repo_type).await;
+async fn test_update_tags(_tracing_setup: &()) {
+    let (transaction_repo, user_repo) = build_repos().await;
     let test_user = TestUser::new(user_repo).await;
     let app = build_app!(transaction_repo, test_user.user_id.clone());
     let service = test::init_service(app).await;
@@ -117,11 +113,9 @@ async fn test_update_tags(_tracing_setup: &(), #[case] repo_type: RepoType) {
 
 #[instrument]
 #[rstest]
-#[case::diesel(RepoType::Diesel)]
-#[case::sqlx(RepoType::SQLx)]
 #[actix_rt::test]
-async fn test_update_invalid_transaction(_tracing_setup: &(), #[case] repo_type: RepoType) {
-    let (transaction_repo, user_repo) = build_repos(repo_type).await;
+async fn test_update_invalid_transaction(_tracing_setup: &()) {
+    let (transaction_repo, user_repo) = build_repos().await;
     let test_user = TestUser::new(user_repo).await;
     let app = build_app!(transaction_repo, test_user.user_id.clone());
     let service = test::init_service(app).await;

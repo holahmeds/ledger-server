@@ -84,18 +84,9 @@ pub fn tracing_setup() -> () {
     info!("tracing initialized");
 }
 
-#[derive(Debug)]
-pub enum RepoType {
-    Diesel,
-    SQLx,
-}
-
-pub async fn build_repos(repo_type: RepoType) -> (Arc<dyn TransactionRepo>, Arc<dyn UserRepo>) {
+pub async fn build_repos() -> (Arc<dyn TransactionRepo>, Arc<dyn UserRepo>) {
     let config = fs::read_to_string("config_test.toml").unwrap();
     let config: TestConfig = toml::from_str(config.as_str()).unwrap();
 
-    match repo_type {
-        RepoType::Diesel => ledger_repo::diesel_repo::create_repos(config.database_url, 1, false),
-        RepoType::SQLx => ledger_repo::sqlx_repo::create_repos(config.database_url, 1).await,
-    }
+    ledger_repo::sqlx_repo::create_repos(config.database_url, 1).await
 }
