@@ -5,7 +5,7 @@ members = [
 
 [package]
 name = "ledger"
-version = "0.6.1"
+version = "0.7.0"
 authors = ["Ahmed Rafiq Ullah <ahmedrafiq47@gmail.com>"]
 license = "MIT"
 edition = "2021"
