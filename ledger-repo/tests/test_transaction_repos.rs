@@ -183,6 +183,8 @@ async fn test_transactions_sorted(#[case] repo_type: RepoType) {
         generate_new_transaction(),
         generate_new_transaction(),
         generate_new_transaction(),
+        generate_new_transaction_with_date(NaiveDate::from_str("2022-12-31").unwrap()),
+        generate_new_transaction_with_date(NaiveDate::from_str("2022-12-31").unwrap()),
     ];
 
     for t in new_transactions {
