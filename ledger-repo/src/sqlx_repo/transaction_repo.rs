@@ -141,7 +141,7 @@ impl TransactionRepo for SQLxTransactionRepo {
                 .push(" AND transactee = ")
                 .push_bind(transactee);
         }
-        query_builder.push(" ORDER BY date DESC");
+        query_builder.push(" ORDER BY date DESC, id DESC");
         if let Some(po) = page_options {
             query_builder
                 .push(" OFFSET ")
