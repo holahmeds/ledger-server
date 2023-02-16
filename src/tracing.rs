@@ -10,7 +10,10 @@ impl RootSpanBuilder for LedgerRootSpanBuilder {
         tracing_actix_web::root_span!(request, user_id = tracing::field::Empty)
     }
 
-    fn on_request_end<B>(span: Span, outcome: &Result<ServiceResponse<B>, Error>) {
+    fn on_request_end<B: actix_web::body::MessageBody>(
+        span: Span,
+        outcome: &Result<ServiceResponse<B>, Error>,
+    ) {
         DefaultRootSpanBuilder::on_request_end(span, outcome);
     }
 }

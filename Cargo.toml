@@ -3,12 +3,18 @@ members = [
     "ledger-repo"
 ]
 
-[package]
-name = "ledger"
+[workspace.package]
 version = "0.7.2"
 authors = ["Ahmed Rafiq Ullah <ahmedrafiq47@gmail.com>"]
 license = "MIT"
 edition = "2021"
+
+[package]
+name = "ledger"
+version.workspace = true
+authors.workspace = true
+license.workspace = true
+edition.workspace = true
 
 [[bin]]
 name = "ledger-server"
@@ -30,15 +36,15 @@ serde_json = "1.0.64"
 rust_decimal = { version = "1.26.1" }
 tracing = "0.1.26"
 tracing-subscriber = "0.3.11"
-tracing-actix-web = "0.6.0"
+tracing-actix-web = "0.7.2"
 jsonwebtoken = "8.1.1"
-toml = "0.5.8"
+toml = "0.7.2"
 rust-argon2 = "1.0.0"
 rand = "0.8.5"
 thiserror = "1.0.33"
 anyhow = "1.0.63"
 lambda-web = { version = "0.2.0", features = ["actix4"], optional = true }
-base64 = { version = "0.13.1", optional = true }
+base64 = { version = "0.21.0", optional = true }
 async-trait = "0.1.58"
 
 [features]
@@ -51,6 +57,6 @@ diesel-repo = ["ledger-repo/diesel-repo"]
 actix-rt = "2.2.0"
 futures-util = "0.3.15"
 futures = "0.3.15"
-rstest = "0.15.0"
-base64 = "0.13.0"
+rstest = "0.16.0"
+base64 = "0.21.0"
 uuid = "1.1.2"

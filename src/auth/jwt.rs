@@ -53,6 +53,7 @@ impl JWTAuth {
 #[cfg(test)]
 mod tests {
     use crate::auth::jwt::JWTAuth;
+    use base64::Engine;
 
     #[test]
     async fn valid_token() {
@@ -69,7 +70,8 @@ mod tests {
         let jwt_auth = JWTAuth::from_secret(secret.to_vec());
 
         let token_bytes: [u8; 32] = rand::random();
-        let token = base64::encode(token_bytes);
+        let base64_engine = base64::engine::general_purpose::STANDARD;
+        let token = base64_engine.encode(token_bytes);
         assert!(jwt_auth.validate_token(&token).is_err())
     }
 }
