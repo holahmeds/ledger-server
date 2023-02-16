@@ -3,12 +3,18 @@ members = [
     "ledger-repo"
 ]
 
-[package]
-name = "ledger"
+[workspace.package]
 version = "0.7.2"
 authors = ["Ahmed Rafiq Ullah <ahmedrafiq47@gmail.com>"]
 license = "MIT"
 edition = "2021"
+
+[package]
+name = "ledger"
+version.workspace = true
+authors.workspace = true
+license.workspace = true
+edition.workspace = true
 
 [[bin]]
 name = "ledger-server"
