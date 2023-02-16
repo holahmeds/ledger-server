@@ -22,8 +22,8 @@ diesel-repo = ["diesel", "diesel_migrations", "r2d2", "actix-web", "rust_decimal
 
 [dev-dependencies]
 actix-rt = "2.2.0"
-rstest = "0.15.0"
-toml = "0.5.8"
+rstest = "0.16.0"
+toml = "0.7.2"
 uuid = { version = "1.1.2", features = ["v4"] }
 fake = { version = "2.5.0", features = ["chrono", "rust_decimal"] }
 rand = "0.8.5"

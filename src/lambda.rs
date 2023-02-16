@@ -4,6 +4,7 @@ use actix_web::error::JsonPayloadError;
 use actix_web::web::Data;
 use actix_web::{web, App, HttpResponse};
 use actix_web_httpauth::middleware::HttpAuthentication;
+use base64::Engine;
 use lambda_web::{run_actix_on_lambda, LambdaError};
 use ledger::auth::jwt::JWTAuth;
 use ledger::{auth, transaction, user};
@@ -25,7 +26,8 @@ async fn main() -> Result<(), LambdaError> {
     let signups_enabled = env::var("SIGNUPS_ENABLED")
         .expect("SIGNUPS_ENABLED not set")
         .parse()?;
-    let secret = base64::decode(env::var("SECRET").expect("SECRET not set"))?;
+    let base64_engine = base64::engine::general_purpose::STANDARD;
+    let secret = base64_engine.decode(env::var("SECRET").expect("SECRET not set"))?;
     let database_url = env::var("DATABASE_URL").expect("DATABASE_URL not set");
 
     let (transaction_repo, user_repo) = create_repos(database_url, 1).await;
