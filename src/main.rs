@@ -22,7 +22,7 @@ use ledger::config::Config;
 use ledger::transaction;
 use ledger::{auth, user};
 
-const SERVICE_NAME: &'static str = "ledger-server";
+const SERVICE_NAME: &str = "ledger-server";
 
 #[actix_web::main]
 async fn main() -> Result<(), Box<dyn Error>> {
