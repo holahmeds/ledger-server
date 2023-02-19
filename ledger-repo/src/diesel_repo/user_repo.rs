@@ -9,6 +9,7 @@ use diesel::r2d2::ConnectionManager;
 use diesel::result::DatabaseErrorKind;
 use diesel::{PgConnection, QueryDsl, RunQueryDsl};
 use r2d2::PooledConnection;
+use tracing::instrument;
 
 #[derive(Insertable, Queryable, Identifiable, Clone)]
 #[diesel(table_name = users)]
@@ -62,6 +63,7 @@ impl DieselUserRepo {
 
 #[async_trait]
 impl UserRepo for DieselUserRepo {
+    #[instrument(skip(self))]
     async fn get_user(&self, user_id: &str) -> Result<User, UserRepoError> {
         let user_id = user_id.to_owned();
         self.block(move |db_conn| {
@@ -77,6 +79,7 @@ impl UserRepo for DieselUserRepo {
         .await
     }
 
+    #[instrument(skip(self))]
     async fn create_user(&self, user: User) -> Result<(), UserRepoError> {
         let user_entry: UserEntry = user.into();
         self.block(move |db_conn| {
@@ -95,6 +98,7 @@ impl UserRepo for DieselUserRepo {
         .await
     }
 
+    #[instrument(skip(self))]
     async fn update_password_hash(
         &self,
         user_id: &str,
@@ -116,6 +120,7 @@ impl UserRepo for DieselUserRepo {
         .await
     }
 
+    #[instrument(skip(self))]
     async fn delete_user(&self, user_id: &str) -> Result<(), UserRepoError> {
         let user_id = user_id.to_owned();
         self.block(move |db_conn| {

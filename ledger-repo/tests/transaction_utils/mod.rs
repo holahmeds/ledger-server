@@ -30,7 +30,6 @@ impl NewTransactionGenerator {
             (self.amnt_gen)(),
             (self.tag_gen)(),
         );
-        println!("{:?}", new_transaction);
         new_transaction
     }
 }

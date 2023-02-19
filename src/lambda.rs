@@ -7,30 +7,40 @@ use actix_web_httpauth::middleware::HttpAuthentication;
 use base64::Engine;
 use lambda_web::{run_actix_on_lambda, LambdaError};
 use ledger::auth::jwt::JWTAuth;
+use ledger::config::Config;
 use ledger::{auth, transaction, user};
 use ledger_repo::sqlx_repo::create_repos;
 use std::env;
-use tracing::{error, info, Level};
+use tracing::level_filters::LevelFilter;
+use tracing::{error, info};
+use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::registry;
+
+const SERVICE_NAME: &str = "ledger-lambda";
 
 #[actix_web::main]
 async fn main() -> Result<(), LambdaError> {
-    tracing_subscriber::fmt()
-        .with_max_level(Level::INFO)
-        // ansi escape codes messes up cloudwatch logs
-        .with_ansi(false)
-        // cloudwatch adds timestamps
-        .without_time()
-        .init();
+    let subscriber = registry::Registry::default()
+        .with(LevelFilter::INFO)
+        .with(tracing_subscriber::fmt::Layer::default());
+    let tracing_guard = tracing::subscriber::set_default(subscriber);
     info!("tracing initialized");
 
-    let signups_enabled = env::var("SIGNUPS_ENABLED")
-        .expect("SIGNUPS_ENABLED not set")
-        .parse()?;
+    let config = Config::from_env().expect("config set up");
+
+    let telemetry_layer = ledger::tracing::create_telemetry_layer(SERVICE_NAME, config.honeycomb);
+
+    let subscriber = registry::Registry::default()
+        .with(LevelFilter::INFO)
+        .with(tracing_subscriber::fmt::Layer::default())
+        .with(telemetry_layer);
+    tracing::subscriber::set_global_default(subscriber).expect("set up subscriber");
+    drop(tracing_guard);
+
     let base64_engine = base64::engine::general_purpose::STANDARD;
     let secret = base64_engine.decode(env::var("SECRET").expect("SECRET not set"))?;
-    let database_url = env::var("DATABASE_URL").expect("DATABASE_URL not set");
 
-    let (transaction_repo, user_repo) = create_repos(database_url, 1).await;
+    let (transaction_repo, user_repo) = create_repos(config.database_url, 1).await;
 
     let jwt_auth = JWTAuth::from_secret(secret);
     let bearer_auth_middleware = HttpAuthentication::bearer(auth::credentials_validator);
@@ -40,10 +50,11 @@ async fn main() -> Result<(), LambdaError> {
             .app_data(jwt_auth.clone())
             .app_data(Data::new(transaction_repo.clone()))
             .app_data(Data::new(user_repo.clone()))
+            .wrap(ledger::tracing::Telemetry)
             .wrap(ledger::tracing::create_middleware())
             .service(transaction::transaction_service().wrap(bearer_auth_middleware.clone()))
             .service(user::user_service().wrap(bearer_auth_middleware.clone()))
-            .service(auth::auth_service(signups_enabled))
+            .service(auth::auth_service(config.signups_enabled))
             .app_data(web::JsonConfig::default().error_handler(|err, req| {
                 error!(req_path = req.path(), %err);
                 match err {
