@@ -13,22 +13,23 @@ use actix_web::{web, App};
 use actix_web::{HttpResponse, HttpServer};
 use actix_web_httpauth::middleware::HttpAuthentication;
 use rand::Rng;
-use serde::Deserialize;
-use tracing::Level;
+use tracing::level_filters::LevelFilter;
+use tracing_subscriber::layer::SubscriberExt;
+use tracing_subscriber::registry;
 
 use ledger::auth::jwt::JWTAuth;
+use ledger::config::Config;
 use ledger::transaction;
 use ledger::{auth, user};
 
-#[derive(Deserialize)]
-struct Config {
-    database_url: String,
-    signups_enabled: bool,
-}
+const SERVICE_NAME: &'static str = "ledger-server";
 
 #[actix_web::main]
 async fn main() -> Result<(), Box<dyn Error>> {
-    tracing_subscriber::fmt().with_max_level(Level::INFO).init();
+    let subscriber = registry::Registry::default()
+        .with(LevelFilter::INFO)
+        .with(tracing_subscriber::fmt::Layer::default());
+    let tracing_guard = tracing::subscriber::set_default(subscriber);
     info!("tracing initialized");
 
     let config_path = get_config_file()?;
@@ -39,7 +40,32 @@ async fn main() -> Result<(), Box<dyn Error>> {
             return Err(e.into());
         }
     };
-    let config: Config = toml::from_str(config.as_str())?;
+    let config: Config = match toml::from_str(config.as_str()) {
+        Ok(s) => s,
+        Err(e) => {
+            error!("Unable to parse config: {}", e);
+            return Err(e.into());
+        }
+    };
+
+    let honeycomb_config = libhoney::Config {
+        options: libhoney::client::Options {
+            api_key: config.honeycomb.api_key,
+            dataset: config.honeycomb.dataset,
+            ..libhoney::client::Options::default()
+        },
+        transmission_options: libhoney::transmission::Options::default(),
+    };
+
+    let telemetry_layer =
+        tracing_honeycomb::new_honeycomb_telemetry_layer(SERVICE_NAME, honeycomb_config);
+
+    let subscriber = registry::Registry::default()
+        .with(LevelFilter::INFO)
+        .with(tracing_subscriber::fmt::Layer::default())
+        .with(telemetry_layer);
+    tracing::subscriber::set_global_default(subscriber).expect("set up subscriber");
+    drop(tracing_guard);
 
     let (transaction_repo, user_repo) =
         ledger_repo::sqlx_repo::create_repos(config.database_url, 10).await;
@@ -53,6 +79,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
             .app_data(jwt_auth.clone())
             .app_data(Data::new(transaction_repo.clone()))
             .app_data(Data::new(user_repo.clone()))
+            .wrap(ledger::tracing::Telemetry)
             .wrap(ledger::tracing::create_middleware())
             .service(transaction::transaction_service().wrap(bearer_auth_middleware.clone()))
             .service(user::user_service().wrap(bearer_auth_middleware.clone()))
