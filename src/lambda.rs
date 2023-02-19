@@ -28,17 +28,7 @@ async fn main() -> Result<(), LambdaError> {
 
     let config = Config::from_env().expect("config set up");
 
-    let honeycomb_config = libhoney::Config {
-        options: libhoney::client::Options {
-            api_key: config.honeycomb.api_key,
-            dataset: config.honeycomb.dataset,
-            ..libhoney::client::Options::default()
-        },
-        transmission_options: libhoney::transmission::Options::default(),
-    };
-
-    let telemetry_layer =
-        tracing_honeycomb::new_honeycomb_telemetry_layer(SERVICE_NAME, honeycomb_config);
+    let telemetry_layer = ledger::tracing::create_telemetry_layer(SERVICE_NAME, config.honeycomb);
 
     let subscriber = registry::Registry::default()
         .with(LevelFilter::INFO)

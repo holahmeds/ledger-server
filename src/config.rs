@@ -1,6 +1,7 @@
+use anyhow::Context;
 use serde::Deserialize;
-use std::env;
-use std::env::VarError;
+use std::path::PathBuf;
+use std::{env, fs};
 
 #[derive(Deserialize)]
 pub struct Config {
@@ -15,19 +16,19 @@ pub struct HoneycombConfig {
     pub dataset: String,
 }
 
-#[derive(Debug)]
-pub enum ConfigError {
-    ConfigNotFound,
-    Parse,
-}
-
 impl Config {
-    pub fn from_env() -> Result<Config, ConfigError> {
+    pub fn from_file(path: PathBuf) -> Result<Config, anyhow::Error> {
+        let config = fs::read_to_string(&path).context("Unable to read config file")?;
+        let config: Config =
+            toml::from_str(config.as_str()).with_context(|| "Unable to parse config")?;
+        Ok(config)
+    }
+
+    pub fn from_env() -> Result<Config, anyhow::Error> {
         let signups_enabled = read_env("SIGNUPS_ENABLED")?;
-        let signups_enabled = match signups_enabled.parse() {
-            Ok(s) => s,
-            Err(_) => return Err(ConfigError::Parse),
-        };
+        let signups_enabled = signups_enabled
+            .parse()
+            .context("Unable to parse SIGNUPS_ENABLED value")?;
         let database_url = read_env("DATABASE_URL")?;
         let api_key = read_env("HONEYCOMB_API_URL")?;
         let dataset = read_env("HONEYCOMB_DATASET")?;
@@ -41,10 +42,6 @@ impl Config {
     }
 }
 
-fn read_env(key: &str) -> Result<String, ConfigError> {
-    match env::var(key) {
-        Ok(s) => Ok(s),
-        Err(VarError::NotPresent) => Err(ConfigError::ConfigNotFound),
-        Err(VarError::NotUnicode(_)) => Err(ConfigError::Parse),
-    }
+fn read_env(key: &str) -> Result<String, anyhow::Error> {
+    env::var(key).with_context(|| format!("Unable to read env var: {}", key))
 }

@@ -33,32 +33,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
     info!("tracing initialized");
 
     let config_path = get_config_file()?;
-    let config = match fs::read_to_string(config_path) {
-        Ok(s) => s,
-        Err(e) => {
-            error!("Unable to read config file: {}", e);
-            return Err(e.into());
-        }
-    };
-    let config: Config = match toml::from_str(config.as_str()) {
-        Ok(s) => s,
-        Err(e) => {
-            error!("Unable to parse config: {}", e);
-            return Err(e.into());
-        }
-    };
+    let config: Config = Config::from_file(config_path)?;
 
-    let honeycomb_config = libhoney::Config {
-        options: libhoney::client::Options {
-            api_key: config.honeycomb.api_key,
-            dataset: config.honeycomb.dataset,
-            ..libhoney::client::Options::default()
-        },
-        transmission_options: libhoney::transmission::Options::default(),
-    };
-
-    let telemetry_layer =
-        tracing_honeycomb::new_honeycomb_telemetry_layer(SERVICE_NAME, honeycomb_config);
+    let telemetry_layer = ledger::tracing::create_telemetry_layer(SERVICE_NAME, config.honeycomb);
 
     let subscriber = registry::Registry::default()
         .with(LevelFilter::INFO)

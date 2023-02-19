@@ -1,10 +1,11 @@
+use crate::config::HoneycombConfig;
 use actix_web::dev::{forward_ready, Service, ServiceRequest, ServiceResponse, Transform};
 use actix_web::Error;
 use std::future::{ready, Future, Ready};
 use std::pin::Pin;
 use tracing::Span;
 use tracing_actix_web::{DefaultRootSpanBuilder, RootSpanBuilder, TracingLogger};
-use tracing_honeycomb::TraceId;
+use tracing_honeycomb::{HoneycombTelemetry, LibhoneyReporter, SpanId, TelemetryLayer, TraceId};
 
 pub struct LedgerRootSpanBuilder;
 
@@ -23,6 +24,21 @@ impl RootSpanBuilder for LedgerRootSpanBuilder {
 
 pub fn create_middleware() -> TracingLogger<LedgerRootSpanBuilder> {
     TracingLogger::<LedgerRootSpanBuilder>::new()
+}
+
+pub fn create_telemetry_layer(
+    service_name: &'static str,
+    config: HoneycombConfig,
+) -> TelemetryLayer<HoneycombTelemetry<LibhoneyReporter>, SpanId, TraceId> {
+    let honeycomb_config = libhoney::Config {
+        options: libhoney::client::Options {
+            api_key: config.api_key,
+            dataset: config.dataset,
+            ..libhoney::client::Options::default()
+        },
+        transmission_options: libhoney::transmission::Options::default(),
+    };
+    tracing_honeycomb::new_honeycomb_telemetry_layer(service_name, honeycomb_config)
 }
 
 pub struct TelemetryMiddleware<S> {
