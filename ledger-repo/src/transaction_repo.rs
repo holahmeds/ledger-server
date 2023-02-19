@@ -7,6 +7,7 @@ use std::cmp::Ordering::Equal;
 use std::collections::HashSet;
 use thiserror::Error;
 
+#[derive(Debug)]
 pub struct PageOptions {
     pub offset: i64,
     pub limit: i64,

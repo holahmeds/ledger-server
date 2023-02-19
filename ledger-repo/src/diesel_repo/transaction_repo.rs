@@ -14,6 +14,7 @@ use diesel::{Connection, PgConnection, QueryDsl, RunQueryDsl};
 use r2d2::PooledConnection;
 use rust_decimal::Decimal;
 use std::collections::HashSet;
+use tracing::instrument;
 
 #[derive(Queryable, Identifiable)]
 #[diesel(table_name = transactions)]
@@ -104,10 +105,37 @@ impl DieselTransactionRepo {
         .await
         .context("Blocking error")?
     }
+
+    #[instrument(skip(db_conn))]
+    fn delete_tags(
+        db_conn: &mut PooledConnection<ConnectionManager<PgConnection>>,
+        transaction_id: i32,
+        removed_tags: Vec<&String>,
+    ) -> Result<(), diesel::result::Error> {
+        diesel::delete(
+            transaction_tags::table
+                .filter(transaction_tags::transaction_id.eq(transaction_id))
+                .filter(transaction_tags::tag.eq_any(removed_tags)),
+        )
+        .execute(db_conn)?;
+        Ok(())
+    }
+
+    fn get_tags_multi(
+        db_conn: &mut PooledConnection<ConnectionManager<PgConnection>>,
+        transactions_entries: &Vec<TransactionEntry>,
+    ) -> Result<Vec<Vec<TransactionTag>>, TransactionRepoError> {
+        let tags = TransactionTag::belonging_to(transactions_entries)
+            .load::<TransactionTag>(db_conn)
+            .context("Unable to retrieve tags for transactions")?
+            .grouped_by(&transactions_entries);
+        Ok(tags)
+    }
 }
 
 #[async_trait]
 impl TransactionRepo for DieselTransactionRepo {
+    #[instrument(skip(self))]
     async fn get_transaction(
         &self,
         user: &str,
@@ -143,6 +171,7 @@ impl TransactionRepo for DieselTransactionRepo {
         .await
     }
 
+    #[instrument(skip(self))]
     async fn get_all_transactions(
         &self,
         user: &str,
@@ -177,10 +206,7 @@ impl TransactionRepo for DieselTransactionRepo {
                 .order((transactions::date.desc(), transactions::id.desc()))
                 .load(db_conn)
                 .context("Unable to retrieve transactions")?;
-            let transaction_tags = TransactionTag::belonging_to(&transactions_entries)
-                .load::<TransactionTag>(db_conn)
-                .context("Unable to retrieve tags for transactions")?
-                .grouped_by(&transactions_entries);
+            let transaction_tags = Self::get_tags_multi(db_conn, &transactions_entries)?;
 
             let transactions_list = transactions_entries
                 .into_iter()
@@ -195,6 +221,7 @@ impl TransactionRepo for DieselTransactionRepo {
         .await
     }
 
+    #[instrument(skip(self, new_transaction))]
     async fn create_new_transaction(
         &self,
         user: &str,
@@ -219,6 +246,7 @@ impl TransactionRepo for DieselTransactionRepo {
         .await
     }
 
+    #[instrument(skip(self, updated_transaction))]
     async fn update_transaction(
         &self,
         user: &str,
@@ -249,12 +277,7 @@ impl TransactionRepo for DieselTransactionRepo {
 
                     let removed_tags: Vec<&String> =
                         existing_tags.difference(&updated_tags).collect();
-                    diesel::delete(
-                        transaction_tags::table
-                            .filter(transaction_tags::transaction_id.eq(transaction_id))
-                            .filter(transaction_tags::tag.eq_any(removed_tags)),
-                    )
-                    .execute(db_conn)?;
+                    Self::delete_tags(db_conn, transaction_id, removed_tags)?;
 
                     Ok(transaction_entry)
                 })
@@ -276,6 +299,7 @@ impl TransactionRepo for DieselTransactionRepo {
         .await
     }
 
+    #[instrument(skip(self))]
     async fn delete_transaction(
         &self,
         user: &str,
@@ -311,6 +335,7 @@ impl TransactionRepo for DieselTransactionRepo {
         .await
     }
 
+    #[instrument(skip(self))]
     async fn get_monthly_totals(
         &self,
         user: &str,
@@ -371,6 +396,7 @@ impl TransactionRepo for DieselTransactionRepo {
         .await
     }
 
+    #[instrument(skip(self))]
     async fn get_all_categories(&self, user: &str) -> Result<Vec<String>, TransactionRepoError> {
         let user = user.to_owned();
         self.block(move |db_conn| {
@@ -387,6 +413,7 @@ impl TransactionRepo for DieselTransactionRepo {
         .await
     }
 
+    #[instrument(skip(self))]
     async fn get_all_tags(&self, user: &str) -> Result<Vec<String>, TransactionRepoError> {
         let user = user.to_owned();
         self.block(move |db_conn| {
@@ -404,6 +431,7 @@ impl TransactionRepo for DieselTransactionRepo {
         .await
     }
 
+    #[instrument(skip(self))]
     async fn get_all_transactees(&self, user: &str) -> Result<Vec<String>, TransactionRepoError> {
         let user = user.to_owned();
         self.block(move |db_conn| {
@@ -423,6 +451,7 @@ impl TransactionRepo for DieselTransactionRepo {
         .await
     }
 
+    #[instrument(skip(self))]
     async fn get_balance(&self, user: &str) -> Result<Decimal, TransactionRepoError> {
         let user = user.to_owned();
         self.block(move |db_conn| {
@@ -439,6 +468,7 @@ impl TransactionRepo for DieselTransactionRepo {
     }
 }
 
+#[instrument(skip(db_conn))]
 fn get_tags(
     db_conn: &mut PgConnection,
     transaction_id: i32,
@@ -450,6 +480,7 @@ fn get_tags(
     Ok(HashSet::from_iter(tags))
 }
 
+#[instrument(skip(db_conn))]
 fn add_tags(
     db_conn: &mut PgConnection,
     transaction_id: i32,

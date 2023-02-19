@@ -2,6 +2,7 @@ use crate::user_repo::{User, UserRepo, UserRepoError};
 use anyhow::Context;
 use async_trait::async_trait;
 use sqlx::{query, query_as, Pool, Postgres};
+use tracing::instrument;
 
 pub struct SQLxUserRepo {
     pool: Pool<Postgres>,
@@ -15,6 +16,7 @@ impl SQLxUserRepo {
 
 #[async_trait]
 impl UserRepo for SQLxUserRepo {
+    #[instrument(skip(self))]
     async fn get_user(&self, user_id: &str) -> Result<User, UserRepoError> {
         let user: Option<User> = query_as!(User, "SELECT * FROM users WHERE id = $1", user_id)
             .fetch_optional(&self.pool)
@@ -23,6 +25,7 @@ impl UserRepo for SQLxUserRepo {
         user.ok_or_else(|| UserRepoError::UserNotFound(user_id.to_owned()))
     }
 
+    #[instrument(skip(self, user))]
     async fn create_user(&self, user: User) -> Result<(), UserRepoError> {
         let result = query!(
             "INSERT INTO users(id, password_hash) VALUES($1, $2) ON CONFLICT DO NOTHING",
@@ -39,6 +42,7 @@ impl UserRepo for SQLxUserRepo {
         }
     }
 
+    #[instrument(skip(self, password_hash))]
     async fn update_password_hash(
         &self,
         user_id: &str,
@@ -59,6 +63,7 @@ impl UserRepo for SQLxUserRepo {
         }
     }
 
+    #[instrument(skip(self))]
     async fn delete_user(&self, user_id: &str) -> Result<(), UserRepoError> {
         let result = query!("DELETE FROM users WHERE id = $1", user_id)
             .execute(&self.pool)
