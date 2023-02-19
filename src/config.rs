@@ -30,7 +30,7 @@ impl Config {
             .parse()
             .context("Unable to parse SIGNUPS_ENABLED value")?;
         let database_url = read_env("DATABASE_URL")?;
-        let api_key = read_env("HONEYCOMB_API_URL")?;
+        let api_key = read_env("HONEYCOMB_API_KEY")?;
         let dataset = read_env("HONEYCOMB_DATASET")?;
 
         let config = Config {
