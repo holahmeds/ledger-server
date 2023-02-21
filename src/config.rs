@@ -7,13 +7,7 @@ use std::{env, fs};
 pub struct Config {
     pub database_url: String,
     pub signups_enabled: bool,
-    pub honeycomb: HoneycombConfig,
-}
-
-#[derive(Deserialize)]
-pub struct HoneycombConfig {
-    pub api_key: String,
-    pub dataset: String,
+    pub honeycomb_api_key: String,
 }
 
 impl Config {
@@ -30,13 +24,12 @@ impl Config {
             .parse()
             .context("Unable to parse SIGNUPS_ENABLED value")?;
         let database_url = read_env("DATABASE_URL")?;
-        let api_key = read_env("HONEYCOMB_API_KEY")?;
-        let dataset = read_env("HONEYCOMB_DATASET")?;
+        let honeycomb_api_key = read_env("HONEYCOMB_API_KEY")?;
 
         let config = Config {
             database_url,
             signups_enabled,
-            honeycomb: HoneycombConfig { api_key, dataset },
+            honeycomb_api_key,
         };
         Ok(config)
     }
