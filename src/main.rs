@@ -35,7 +35,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let config_path = get_config_file()?;
     let config: Config = Config::from_file(config_path)?;
 
-    let telemetry_layer = ledger::tracing::create_telemetry_layer(SERVICE_NAME, config.honeycomb);
+    let telemetry_layer = ledger::tracing::create_opentelemetry_layer(&config, SERVICE_NAME)?;
 
     let subscriber = registry::Registry::default()
         .with(LevelFilter::INFO)
@@ -56,7 +56,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
             .app_data(jwt_auth.clone())
             .app_data(Data::new(transaction_repo.clone()))
             .app_data(Data::new(user_repo.clone()))
-            .wrap(ledger::tracing::Telemetry)
             .wrap(ledger::tracing::create_middleware())
             .service(transaction::transaction_service().wrap(bearer_auth_middleware.clone()))
             .service(user::user_service().wrap(bearer_auth_middleware.clone()))

@@ -1,11 +1,19 @@
-use crate::config::HoneycombConfig;
+use crate::config::{Config, HoneycombConfig};
 use actix_web::dev::{forward_ready, Service, ServiceRequest, ServiceResponse, Transform};
 use actix_web::Error;
+use anyhow::Context;
+use opentelemetry::sdk::trace::Tracer;
+use opentelemetry::sdk::Resource;
+use opentelemetry::KeyValue;
+use opentelemetry_otlp::WithExportConfig;
 use std::future::{ready, Future, Ready};
 use std::pin::Pin;
+use tonic::metadata::MetadataMap;
 use tracing::Span;
 use tracing_actix_web::{DefaultRootSpanBuilder, RootSpanBuilder, TracingLogger};
 use tracing_honeycomb::{HoneycombTelemetry, LibhoneyReporter, SpanId, TelemetryLayer, TraceId};
+use tracing_opentelemetry::OpenTelemetryLayer;
+use tracing_subscriber::registry::LookupSpan;
 
 pub struct LedgerRootSpanBuilder;
 
@@ -81,4 +89,36 @@ where
     fn new_transform(&self, service: S) -> Self::Future {
         ready(Ok(TelemetryMiddleware { service }))
     }
+}
+
+pub fn create_opentelemetry_layer<S>(
+    config: &Config,
+    service_name: &'static str,
+) -> Result<OpenTelemetryLayer<S, Tracer>, anyhow::Error>
+where
+    S: tracing::Subscriber + for<'span> LookupSpan<'span>,
+{
+    let mut metadata_map = MetadataMap::with_capacity(1);
+    metadata_map.insert(
+        "x-honeycomb-team",
+        config.honeycomb.api_key.parse().unwrap(),
+    );
+    let exporter = opentelemetry_otlp::new_exporter()
+        .tonic()
+        .with_endpoint("https://api.honeycomb.io")
+        .with_metadata(metadata_map);
+
+    let tracer = opentelemetry_otlp::new_pipeline()
+        .tracing()
+        .with_trace_config(
+            opentelemetry::sdk::trace::config().with_resource(Resource::new(vec![KeyValue::new(
+                "service.name",
+                service_name,
+            )])),
+        )
+        .with_exporter(exporter)
+        .install_simple()
+        .context("Unable to create tracer")?;
+    let telemetry_layer = tracing_opentelemetry::layer().with_tracer(tracer);
+    Ok(telemetry_layer)
 }
