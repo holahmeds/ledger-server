@@ -36,7 +36,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let config: Config = Config::from_file(config_path)?;
 
     let telemetry_layer =
-        ledger::tracing::create_opentelemetry_layer(SERVICE_NAME, config.honeycomb)?;
+        ledger::tracing::create_opentelemetry_layer(SERVICE_NAME, &config.honeycomb_api_key)?;
 
     let subscriber = registry::Registry::default()
         .with(LevelFilter::INFO)

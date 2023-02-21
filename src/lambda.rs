@@ -29,7 +29,7 @@ async fn main() -> Result<(), LambdaError> {
     let config = Config::from_env().expect("config set up");
 
     let telemetry_layer =
-        ledger::tracing::create_opentelemetry_layer(SERVICE_NAME, config.honeycomb)?;
+        ledger::tracing::create_opentelemetry_layer(SERVICE_NAME, &config.honeycomb_api_key)?;
 
     let subscriber = registry::Registry::default()
         .with(LevelFilter::INFO)

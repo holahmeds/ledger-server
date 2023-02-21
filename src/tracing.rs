@@ -1,4 +1,3 @@
-use crate::config::HoneycombConfig;
 use actix_web::dev::{ServiceRequest, ServiceResponse};
 use actix_web::Error;
 use anyhow::Context;
@@ -33,16 +32,13 @@ pub fn create_middleware() -> TracingLogger<LedgerRootSpanBuilder> {
 
 pub fn create_opentelemetry_layer<S>(
     service_name: &'static str,
-    honeycomb_config: HoneycombConfig,
+    honeycomb_api_key: &str,
 ) -> Result<OpenTelemetryLayer<S, Tracer>, anyhow::Error>
 where
     S: tracing::Subscriber + for<'span> LookupSpan<'span>,
 {
     let mut metadata_map = MetadataMap::with_capacity(1);
-    metadata_map.insert(
-        "x-honeycomb-team",
-        honeycomb_config.api_key.parse().unwrap(),
-    );
+    metadata_map.insert("x-honeycomb-team", honeycomb_api_key.parse().unwrap());
     let exporter = opentelemetry_otlp::new_exporter()
         .tonic()
         .with_endpoint("https://api.honeycomb.io")
