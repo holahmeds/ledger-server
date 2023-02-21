@@ -53,7 +53,7 @@ where
             )])),
         )
         .with_exporter(exporter)
-        .install_simple()
+        .install_batch(opentelemetry::runtime::Tokio)
         .context("Unable to create tracer")?;
     let telemetry_layer = tracing_opentelemetry::layer().with_tracer(tracer);
     Ok(telemetry_layer)
