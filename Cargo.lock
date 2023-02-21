@@ -1355,7 +1355,7 @@ checksum = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
 
 [[package]]
 name = "ledger"
-version = "0.8.4"
+version = "0.8.5"
 dependencies = [
  "actix-rt",
  "actix-web",
@@ -1389,7 +1389,7 @@ dependencies = [
 
 [[package]]
 name = "ledger-repo"
-version = "0.8.4"
+version = "0.8.5"
 dependencies = [
  "actix-rt",
  "actix-web",
