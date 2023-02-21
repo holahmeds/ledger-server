@@ -26,7 +26,6 @@ jobs:
       - name: Build binary
         uses: actions-rs/cargo@v1
         with:
-          use-cross: true
           command: build
           args: --release --bin ledger-lambda --no-default-features --features=lambda --target x86_64-unknown-linux-musl
       - name: Create zip
