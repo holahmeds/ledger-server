@@ -3,13 +3,17 @@ RUN apt-get update \
     && apt-get install -y protobuf-compiler
 
 ADD . ./
-RUN cargo build --release --bin ledger-lambda --no-default-features --features="lambda"
+RUN cargo build --release
 
 FROM ubuntu:22.10
 RUN apt-get update \
     && apt-get install -y ca-certificates libpq5 \
     && rm -rf /var/lib/apt/lists/*
 
-COPY --from=builder /target/release/ledger-lambda /bin
+ENV CONFIGURATION_DIRECTORY=/config
 
-CMD ["/bin/ledger-lambda"]
+EXPOSE 8000
+
+COPY --from=builder /target/release/ledger-server /bin
+
+ENTRYPOINT ["/bin/ledger-server"]
