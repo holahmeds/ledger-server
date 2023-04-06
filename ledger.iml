@@ -7,10 +7,15 @@
       <sourceFolder url="file://$MODULE_DIR$/tests" isTestSource="true" />
       <sourceFolder url="file://$MODULE_DIR$/ledger-repo/src" isTestSource="false" />
       <sourceFolder url="file://$MODULE_DIR$/ledger-repo/tests" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/ledger-lambda/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/ledger-lambda/tests" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/ledger-lib/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/ledger-lib/tests" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/ledger-server/src" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/target" />
-      <excludeFolder url="file://$MODULE_DIR$/package/pkg" />
-      <excludeFolder url="file://$MODULE_DIR$/package/src" />
       <excludeFolder url="file://$MODULE_DIR$/ledger-repo/target" />
+      <excludeFolder url="file://$MODULE_DIR$/ledger-server/package/pkg" />
+      <excludeFolder url="file://$MODULE_DIR$/ledger-server/package/src" />
     </content>
     <orderEntry type="inheritedJdk" />
     <orderEntry type="sourceFolder" forTests="false" />

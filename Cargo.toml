@@ -1,7 +1,11 @@
 [workspace]
 members = [
-    "ledger-repo"
+    "ledger-repo",
+    "ledger-lib",
+    "ledger-lambda",
+    "ledger-server"
 ]
+default-members = ["ledger-server"]
 
 [workspace.package]
 version = "0.8.6"
@@ -9,31 +13,16 @@ authors = ["Ahmed Rafiq Ullah <ahmedrafiq47@gmail.com>"]
 license = "MIT"
 edition = "2021"
 
-[package]
-name = "ledger"
-version.workspace = true
-authors.workspace = true
-license.workspace = true
-edition.workspace = true
-
-[[bin]]
-name = "ledger-server"
-path = "src/main.rs"
-required-features = ["server"]
-
-[[bin]]
-name = "ledger-lambda"
-path = "src/lambda.rs"
-required-features = ["lambda"]
-
-[dependencies]
+[workspace.dependencies]
 ledger-repo = { path = "ledger-repo" }
+ledger-lib = { path = "ledger-lib" }
 actix-web = "4.0.1"
 actix-web-httpauth = "0.8.0"
+actix-rt = "2.2.0"
 chrono = { version = "0.4.19", features = ["serde"] }
 serde = { version = "1.0.125", features = ["derive"] }
 serde_json = "1.0.64"
-rust_decimal = { version = "1.26.1" }
+rust_decimal = "1.26.1"
 tracing = "0.1.26"
 tracing-subscriber = "0.3.11"
 tracing-actix-web = "0.7.2"
@@ -44,23 +33,18 @@ rust-argon2 = "1.0.0"
 rand = "0.8.5"
 thiserror = "1.0.33"
 anyhow = "1.0.63"
-lambda-web = { version = "0.2.0", features = ["actix4"], optional = true }
-base64 = { version = "0.21.0", optional = true }
 async-trait = "0.1.58"
 opentelemetry = { version = "0.18.0", features = ["rt-tokio"] }
 opentelemetry-otlp = "0.11.0"
 tonic = { version = "0.8.3", features = ["tls-roots"] }
-
-[features]
-default = ["server"]
-server = []
-lambda = ["lambda-web", "base64"]
-diesel-repo = ["ledger-repo/diesel-repo"]
-
-[dev-dependencies]
-actix-rt = "2.2.0"
+lambda-web = { version = "0.2.0", features = ["actix4"] }
+base64 = "0.21.0"
+diesel = { version = "2.0.2", features = ["chrono", "postgres", "r2d2"] }
+diesel_migrations = "2.0.0"
+r2d2 = "0.8.10"
+sqlx = { version = "0.6.2", features = ["runtime-actix-rustls", "postgres", "chrono", "decimal", "offline"] }
 futures-util = "0.3.15"
 futures = "0.3.15"
 rstest = "0.16.0"
-base64 = "0.21.0"
-uuid = "1.1.2"
+fake = { version = "2.5.0", features = ["chrono", "rust_decimal"] }
+uuid = { version = "1.1.2", features = ["v4"] }

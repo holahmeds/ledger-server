@@ -3,7 +3,7 @@ RUN apt-get update \
     && apt-get install -y protobuf-compiler
 
 ADD . ./
-RUN cargo build --release --bin ledger-lambda --no-default-features --features="lambda"
+RUN cargo build --release --package ledger-lambda
 
 FROM ubuntu:22.10
 RUN apt-get update \

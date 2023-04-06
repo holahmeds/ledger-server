@@ -1354,20 +1354,33 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
 
 [[package]]
-name = "ledger"
+name = "ledger-lambda"
+version = "0.8.6"
+dependencies = [
+ "actix-web",
+ "actix-web-httpauth",
+ "base64 0.21.0",
+ "lambda-web",
+ "ledger-lib",
+ "ledger-repo",
+ "serde_json",
+ "tracing",
+ "tracing-subscriber",
+]
+
+[[package]]
+name = "ledger-lib"
 version = "0.8.6"
 dependencies = [
  "actix-rt",
  "actix-web",
  "actix-web-httpauth",
  "anyhow",
- "async-trait",
  "base64 0.21.0",
  "chrono",
  "futures",
  "futures-util",
  "jsonwebtoken",
- "lambda-web",
  "ledger-repo",
  "opentelemetry",
  "opentelemetry-otlp",
@@ -1409,6 +1422,21 @@ dependencies = [
  "toml 0.7.2",
  "tracing",
  "uuid",
+]
+
+[[package]]
+name = "ledger-server"
+version = "0.8.6"
+dependencies = [
+ "actix-web",
+ "actix-web-httpauth",
+ "jsonwebtoken",
+ "ledger-lib",
+ "ledger-repo",
+ "rand",
+ "serde_json",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]

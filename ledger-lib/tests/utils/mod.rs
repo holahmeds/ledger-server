@@ -1,7 +1,7 @@
 use std::fs;
 use std::sync::Arc;
 
-use ledger::user::UserId;
+use ledger_lib::user::UserId;
 use rstest::*;
 use serde::Deserialize;
 use tracing::info;
@@ -18,9 +18,9 @@ macro_rules! build_app {
     ($transaction_repo:ident, $user_id:expr) => {{
         let app = App::new()
             .app_data(Data::new($transaction_repo))
-            .wrap(ledger::tracing::create_middleware())
+            .wrap(ledger_lib::tracing::create_middleware())
             .service(
-                ledger::transaction::transaction_service()
+                ledger_lib::transaction::transaction_service()
                     .wrap(MockAuthentication { user_id: $user_id }),
             );
         tracing::info!("Built app");
@@ -59,7 +59,7 @@ impl TestUser {
         let user_id = "test-user-".to_owned() + &Uuid::new_v4().to_string();
         let user = User::new(
             user_id.to_string(),
-            ledger::auth::password::encode_password("pass".to_string()).unwrap(),
+            ledger_lib::auth::password::encode_password("pass".to_string()).unwrap(),
         );
         user_repo.create_user(user).await.unwrap();
         info!(%user_id, "Created user");
@@ -85,7 +85,7 @@ pub fn tracing_setup() -> () {
 }
 
 pub async fn build_repos() -> (Arc<dyn TransactionRepo>, Arc<dyn UserRepo>) {
-    let config = fs::read_to_string("config_test.toml").unwrap();
+    let config = fs::read_to_string("../config_test.toml").unwrap();
     let config: TestConfig = toml::from_str(config.as_str()).unwrap();
 
     ledger_repo::sqlx_repo::create_repos(config.database_url, 1).await

@@ -30,7 +30,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: build
-          args: --release --bin ledger-lambda --no-default-features --features=lambda --target x86_64-unknown-linux-musl
+          args: --release --package ledger-lambda --target x86_64-unknown-linux-musl
       - name: Create zip
         run: |
           mv target/x86_64-unknown-linux-musl/release/ledger-lambda bootstrap
@@ -44,7 +44,7 @@ jobs:
   release:
     name: Create release
 
-    if: startsWith(github.event.ref, 'refs/tags/v') # if commit has tag that starts with 'v'
+    if: startsWith(github.event.ref, 'refs/tags/v') # if workflow is running on tag that starts with 'v'
     needs: lambda
 
     runs-on: ubuntu-latest
