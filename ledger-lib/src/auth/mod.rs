@@ -20,7 +20,7 @@ pub async fn credentials_validator(
     let jwt_auth = req.app_data::<JWTAuth>().unwrap();
     if let Ok(user) = jwt_auth.validate_token(credentials.token()) {
         if let Some(root_span) = req.extensions().get::<RootSpan>() {
-            root_span.record("user_id", &user.as_str());
+            root_span.record("user_id", user.as_str());
         }
         req.extensions_mut().insert::<UserId>(user);
         Ok(req)

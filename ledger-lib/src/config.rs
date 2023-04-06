@@ -12,7 +12,7 @@ pub struct Config {
 
 impl Config {
     pub fn from_file(path: PathBuf) -> Result<Config, anyhow::Error> {
-        let config = fs::read_to_string(&path).context("Unable to read config file")?;
+        let config = fs::read_to_string(path).context("Unable to read config file")?;
         let config: Config =
             toml::from_str(config.as_str()).with_context(|| "Unable to parse config")?;
         Ok(config)
