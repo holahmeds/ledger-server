@@ -12,6 +12,8 @@ use actix_web::web::Data;
 use actix_web::{web, App};
 use actix_web::{HttpResponse, HttpServer};
 use actix_web_httpauth::middleware::HttpAuthentication;
+use anyhow::Context;
+use openssl::ssl::{SslAcceptor, SslFiletype, SslMethod};
 use rand::Rng;
 use tracing::level_filters::LevelFilter;
 use tracing_subscriber::layer::SubscriberExt;
@@ -52,7 +54,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let jwt_auth = JWTAuth::from_secret(secret);
     let bearer_auth_middleware = HttpAuthentication::bearer(auth::credentials_validator);
 
-    HttpServer::new(move || {
+    let mut server = HttpServer::new(move || {
         App::new()
             .app_data(jwt_auth.clone())
             .app_data(Data::new(transaction_repo.clone()))
@@ -80,10 +82,27 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     _ => err.into(),
                 }
             }))
-    })
-    .bind("0.0.0.0:8000")?
-    .run()
-    .await?;
+    });
+    server = match config.ssl {
+        None => {
+            warn!("Using http");
+            server.bind("0.0.0.0:8000")?
+        }
+        Some(ssl_config) => {
+            info!("Using https");
+
+            let mut builder = SslAcceptor::mozilla_intermediate(SslMethod::tls()).unwrap();
+            builder
+                .set_private_key_file(ssl_config.private_key_file, SslFiletype::PEM)
+                .context("Unable to read private key file")?;
+            builder
+                .set_certificate_chain_file(ssl_config.certificate_chain_file)
+                .context("Unable to read certificate chain file")?;
+
+            server.bind_openssl("0.0.0.0:8000", builder)?
+        }
+    };
+    server.run().await?;
 
     Ok(())
 }
