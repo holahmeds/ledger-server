@@ -6,9 +6,9 @@ use actix_web::{web, App, HttpResponse};
 use actix_web_httpauth::middleware::HttpAuthentication;
 use base64::Engine;
 use lambda_web::{run_actix_on_lambda, LambdaError};
-use ledger::auth::jwt::JWTAuth;
-use ledger::config::Config;
-use ledger::{auth, transaction, user};
+use ledger_lib::auth::jwt::JWTAuth;
+use ledger_lib::config::Config;
+use ledger_lib::{auth, transaction, user};
 use ledger_repo::sqlx_repo::create_repos;
 use std::env;
 use tracing::level_filters::LevelFilter;
@@ -29,7 +29,7 @@ async fn main() -> Result<(), LambdaError> {
     let config = Config::from_env().expect("config set up");
 
     let telemetry_layer =
-        ledger::tracing::create_opentelemetry_layer(SERVICE_NAME, &config.honeycomb_api_key)?;
+        ledger_lib::tracing::create_opentelemetry_layer(SERVICE_NAME, &config.honeycomb_api_key)?;
 
     let subscriber = registry::Registry::default()
         .with(LevelFilter::INFO)
@@ -51,7 +51,7 @@ async fn main() -> Result<(), LambdaError> {
             .app_data(jwt_auth.clone())
             .app_data(Data::new(transaction_repo.clone()))
             .app_data(Data::new(user_repo.clone()))
-            .wrap(ledger::tracing::create_middleware())
+            .wrap(ledger_lib::tracing::create_middleware())
             .service(transaction::transaction_service().wrap(bearer_auth_middleware.clone()))
             .service(user::user_service().wrap(bearer_auth_middleware.clone()))
             .service(auth::auth_service(config.signups_enabled))

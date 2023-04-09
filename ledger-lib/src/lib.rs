@@ -1,6 +1,5 @@
 #[macro_use]
 extern crate actix_web;
-extern crate core;
 
 pub mod auth;
 pub mod config;

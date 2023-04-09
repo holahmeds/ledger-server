@@ -1,7 +1,7 @@
 use actix_web::dev::{forward_ready, Service, ServiceRequest, ServiceResponse, Transform};
 use actix_web::HttpMessage;
 use futures_util::future::{ready, LocalBoxFuture, Ready};
-use ledger::user::UserId;
+use ledger_lib::user::UserId;
 
 pub struct MockAuthentication {
     pub user_id: UserId,

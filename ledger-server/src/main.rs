@@ -5,6 +5,8 @@ extern crate serde_json;
 
 use std::error::Error;
 use std::fs;
+use std::fs::File;
+use std::io::BufReader;
 use std::path::PathBuf;
 
 use actix_web::error::JsonPayloadError;
@@ -12,15 +14,18 @@ use actix_web::web::Data;
 use actix_web::{web, App};
 use actix_web::{HttpResponse, HttpServer};
 use actix_web_httpauth::middleware::HttpAuthentication;
+use anyhow::Context;
 use rand::Rng;
+use rustls::{Certificate, PrivateKey, ServerConfig};
+use rustls_pemfile::{certs, pkcs8_private_keys};
 use tracing::level_filters::LevelFilter;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::registry;
 
-use ledger::auth::jwt::JWTAuth;
-use ledger::config::Config;
-use ledger::transaction;
-use ledger::{auth, user};
+use ledger_lib::auth::jwt::JWTAuth;
+use ledger_lib::config::Config;
+use ledger_lib::transaction;
+use ledger_lib::{auth, user};
 
 const SERVICE_NAME: &str = "ledger-server";
 
@@ -36,7 +41,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let config: Config = Config::from_file(config_path)?;
 
     let telemetry_layer =
-        ledger::tracing::create_opentelemetry_layer(SERVICE_NAME, &config.honeycomb_api_key)?;
+        ledger_lib::tracing::create_opentelemetry_layer(SERVICE_NAME, &config.honeycomb_api_key)?;
 
     let subscriber = registry::Registry::default()
         .with(LevelFilter::INFO)
@@ -52,12 +57,12 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let jwt_auth = JWTAuth::from_secret(secret);
     let bearer_auth_middleware = HttpAuthentication::bearer(auth::credentials_validator);
 
-    HttpServer::new(move || {
+    let mut server = HttpServer::new(move || {
         App::new()
             .app_data(jwt_auth.clone())
             .app_data(Data::new(transaction_repo.clone()))
             .app_data(Data::new(user_repo.clone()))
-            .wrap(ledger::tracing::create_middleware())
+            .wrap(ledger_lib::tracing::create_middleware())
             .service(transaction::transaction_service().wrap(bearer_auth_middleware.clone()))
             .service(user::user_service().wrap(bearer_auth_middleware.clone()))
             .service(auth::auth_service(config.signups_enabled))
@@ -80,10 +85,50 @@ async fn main() -> Result<(), Box<dyn Error>> {
                     _ => err.into(),
                 }
             }))
-    })
-    .bind("0.0.0.0:8000")?
-    .run()
-    .await?;
+    });
+    server = match config.ssl {
+        None => {
+            warn!("Using http");
+            server.bind("[::]:8000")?
+        }
+        Some(ssl_config) => {
+            info!("Using https");
+
+            let config = ServerConfig::builder()
+                .with_safe_defaults()
+                .with_no_client_auth();
+
+            let mut cert_file = BufReader::new(
+                File::open(ssl_config.certificate_chain_file)
+                    .context("Error opening certificate chain file")?,
+            );
+            let mut key_file = BufReader::new(
+                File::open(ssl_config.private_key_file)
+                    .context("Error opening private key file")?,
+            );
+
+            let cert_chain = certs(&mut cert_file)
+                .context("Unable to read certificate chain file")?
+                .into_iter()
+                .map(Certificate)
+                .collect();
+            let mut keys: Vec<PrivateKey> = pkcs8_private_keys(&mut key_file)
+                .context("Unable to read private key file")?
+                .into_iter()
+                .map(PrivateKey)
+                .collect();
+
+            if keys.is_empty() {
+                error!("No private key found in file");
+                std::process::exit(1);
+            }
+
+            let config = config.with_single_cert(cert_chain, keys.remove(0))?;
+
+            server.bind_rustls("[::]:8000", config)?
+        }
+    };
+    server.run().await?;
 
     Ok(())
 }

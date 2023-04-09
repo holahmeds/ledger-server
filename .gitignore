@@ -89,6 +89,6 @@ target/
 
 data
 
-/package/pacman/src
-/package/pacman/pkg
-/package/pacman/ledger-server-*.pkg.tar.zst
+/ledger-server/package/pacman/src
+/ledger-server/package/pacman/pkg
+/ledger-server/package/pacman/ledger-server-*.pkg.tar.zst

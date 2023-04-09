@@ -4,15 +4,22 @@ use std::path::PathBuf;
 use std::{env, fs};
 
 #[derive(Deserialize)]
+pub struct SSLConfig {
+    pub private_key_file: PathBuf,
+    pub certificate_chain_file: PathBuf,
+}
+
+#[derive(Deserialize)]
 pub struct Config {
     pub database_url: String,
     pub signups_enabled: bool,
     pub honeycomb_api_key: String,
+    pub ssl: Option<SSLConfig>,
 }
 
 impl Config {
     pub fn from_file(path: PathBuf) -> Result<Config, anyhow::Error> {
-        let config = fs::read_to_string(&path).context("Unable to read config file")?;
+        let config = fs::read_to_string(path).context("Unable to read config file")?;
         let config: Config =
             toml::from_str(config.as_str()).with_context(|| "Unable to parse config")?;
         Ok(config)
@@ -30,6 +37,7 @@ impl Config {
             database_url,
             signups_enabled,
             honeycomb_api_key,
+            ssl: None,
         };
         Ok(config)
     }
