@@ -8,7 +8,7 @@ members = [
 default-members = ["ledger-server"]
 
 [workspace.package]
-version = "0.8.6"
+version = "0.9.0"
 authors = ["Ahmed Rafiq Ullah <ahmedrafiq47@gmail.com>"]
 license = "MIT"
 edition = "2021"

@@ -1375,7 +1375,7 @@ checksum = "e2abad23fbc42b3700f2f279844dc832adb2b2eb069b2df918f455c4e18cc646"
 
 [[package]]
 name = "ledger-lambda"
-version = "0.8.6"
+version = "0.9.0"
 dependencies = [
  "actix-web",
  "actix-web-httpauth",
@@ -1390,7 +1390,7 @@ dependencies = [
 
 [[package]]
 name = "ledger-lib"
-version = "0.8.6"
+version = "0.9.0"
 dependencies = [
  "actix-rt",
  "actix-web",
@@ -1422,7 +1422,7 @@ dependencies = [
 
 [[package]]
 name = "ledger-repo"
-version = "0.8.6"
+version = "0.9.0"
 dependencies = [
  "actix-rt",
  "actix-web",
@@ -1446,7 +1446,7 @@ dependencies = [
 
 [[package]]
 name = "ledger-server"
-version = "0.8.6"
+version = "0.9.0"
 dependencies = [
  "actix-web",
  "actix-web-httpauth",

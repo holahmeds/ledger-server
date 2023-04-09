@@ -1,6 +1,6 @@
 pkgname='ledger-server'
 pkgdesc='Server to sync transaction data'
-pkgver='0.8.6'
+pkgver='0.9.0'
 pkgrel='1'
 arch=('x86_64')
 depends=('cargo')
