@@ -89,7 +89,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
     server = match config.ssl {
         None => {
             warn!("Using http");
-            server.bind("0.0.0.0:8000")?
+            server.bind("[::]:8000")?
         }
         Some(ssl_config) => {
             info!("Using https");
@@ -125,7 +125,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
             let config = config.with_single_cert(cert_chain, keys.remove(0))?;
 
-            server.bind_rustls("0.0.0.0:8000", config)?
+            server.bind_rustls("[::]:8000", config)?
         }
     };
     server.run().await?;
