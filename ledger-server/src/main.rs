@@ -5,6 +5,8 @@ extern crate serde_json;
 
 use std::error::Error;
 use std::fs;
+use std::fs::File;
+use std::io::BufReader;
 use std::path::PathBuf;
 
 use actix_web::error::JsonPayloadError;
@@ -13,8 +15,9 @@ use actix_web::{web, App};
 use actix_web::{HttpResponse, HttpServer};
 use actix_web_httpauth::middleware::HttpAuthentication;
 use anyhow::Context;
-use openssl::ssl::{SslAcceptor, SslFiletype, SslMethod};
 use rand::Rng;
+use rustls::{Certificate, PrivateKey, ServerConfig};
+use rustls_pemfile::{certs, pkcs8_private_keys};
 use tracing::level_filters::LevelFilter;
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::registry;
@@ -91,15 +94,38 @@ async fn main() -> Result<(), Box<dyn Error>> {
         Some(ssl_config) => {
             info!("Using https");
 
-            let mut builder = SslAcceptor::mozilla_intermediate(SslMethod::tls()).unwrap();
-            builder
-                .set_private_key_file(ssl_config.private_key_file, SslFiletype::PEM)
-                .context("Unable to read private key file")?;
-            builder
-                .set_certificate_chain_file(ssl_config.certificate_chain_file)
-                .context("Unable to read certificate chain file")?;
+            let config = ServerConfig::builder()
+                .with_safe_defaults()
+                .with_no_client_auth();
 
-            server.bind_openssl("0.0.0.0:8000", builder)?
+            let mut cert_file = BufReader::new(
+                File::open(ssl_config.certificate_chain_file)
+                    .context("Error opening certificate chain file")?,
+            );
+            let mut key_file = BufReader::new(
+                File::open(ssl_config.private_key_file)
+                    .context("Error opening private key file")?,
+            );
+
+            let cert_chain = certs(&mut cert_file)
+                .context("Unable to read certificate chain file")?
+                .into_iter()
+                .map(Certificate)
+                .collect();
+            let mut keys: Vec<PrivateKey> = pkcs8_private_keys(&mut key_file)
+                .context("Unable to read private key file")?
+                .into_iter()
+                .map(PrivateKey)
+                .collect();
+
+            if keys.is_empty() {
+                error!("No private key found in file");
+                std::process::exit(1);
+            }
+
+            let config = config.with_single_cert(cert_chain, keys.remove(0))?;
+
+            server.bind_rustls("0.0.0.0:8000", config)?
         }
     };
     server.run().await?;
