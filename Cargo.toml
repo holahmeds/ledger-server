@@ -16,7 +16,7 @@ edition = "2021"
 [workspace.dependencies]
 ledger-repo = { path = "ledger-repo" }
 ledger-lib = { path = "ledger-lib" }
-actix-web = "4.0.1"
+actix-web = "4.3.1"
 actix-web-httpauth = "0.8.0"
 actix-rt = "2.2.0"
 chrono = { version = "0.4.19", features = ["serde"] }
@@ -37,16 +37,16 @@ async-trait = "0.1.58"
 opentelemetry = { version = "0.18.0", features = ["rt-tokio"] }
 opentelemetry-otlp = "0.11.0"
 tonic = { version = "0.8.3", features = ["tls-roots"] }
-lambda-web = { version = "0.2.0", features = ["actix4"] }
+lambda-web = { version = "0.2.1", features = ["actix4"] }
 base64 = "0.21.0"
-diesel = { version = "2.0.2", features = ["chrono", "postgres", "r2d2"] }
-diesel_migrations = "2.0.0"
+diesel = { version = "2.1.0", features = ["chrono", "postgres", "r2d2"] }
+diesel_migrations = "2.1.0"
 r2d2 = "0.8.10"
-sqlx = { version = "0.6.2", features = ["runtime-actix-rustls", "postgres", "chrono", "decimal", "offline"] }
+sqlx = { version = "0.6.3", features = ["runtime-actix-rustls", "postgres", "chrono", "decimal", "offline"] }
 futures-util = "0.3.15"
 futures = "0.3.15"
-rstest = "0.16.0"
+rstest = "0.18.1"
 fake = { version = "2.5.0", features = ["chrono", "rust_decimal"] }
 uuid = { version = "1.1.2", features = ["v4"] }
-rustls = "0.20.8"
+rustls = "0.21.6"
 rustls-pemfile = "1.0.2"
