@@ -8,7 +8,10 @@ use crate::transaction_utils::{
     generate_new_transaction_with_transactee,
 };
 use chrono::NaiveDate;
-use ledger_repo::transaction_repo::{MonthlyTotal, NewTransaction, PageOptions, Transaction};
+use futures::future::try_join_all;
+use ledger_repo::transaction_repo::{
+    MonthlyTotal, NewTransaction, PageOptions, Transaction, TransactionRepo, TransactionRepoError,
+};
 use ledger_repo::user_repo::{User, UserRepo};
 use rstest::rstest;
 use rust_decimal::Decimal;
@@ -40,6 +43,17 @@ impl TestUser {
     pub async fn delete(&self) {
         self.repo.delete_user(&self.id).await.unwrap()
     }
+}
+
+async fn insert_transactions(
+    transaction_repo: &Arc<dyn TransactionRepo>,
+    test_user: &TestUser,
+    new_transactions: Vec<NewTransaction>,
+) -> Result<Vec<Transaction>, TransactionRepoError> {
+    let inserted_transactions = new_transactions
+        .into_iter()
+        .map(|t| transaction_repo.create_new_transaction(&test_user.id, t));
+    try_join_all(inserted_transactions).await
 }
 
 #[rstest]
@@ -185,21 +199,19 @@ async fn test_get_all_transactions(#[case] repo_type: RepoType) {
 
     let new_transactions = vec![generate_new_transaction(), generate_new_transaction()];
 
-    let mut inserted_transactions: BTreeSet<Transaction> = BTreeSet::new();
-    for t in new_transactions {
-        let transaction = transaction_repo
-            .create_new_transaction(&test_user.id, t)
+    let inserted_transactions =
+        insert_transactions(&transaction_repo, &test_user, new_transactions)
             .await
             .unwrap();
-        inserted_transactions.insert(transaction);
-    }
 
     let transactions: Vec<Transaction> = transaction_repo
         .get_all_transactions(&test_user.id, None, None, None, None, None)
         .await
         .unwrap();
-    let transactions = BTreeSet::from_iter(transactions);
-    assert_eq!(inserted_transactions, transactions);
+    assert_eq!(
+        BTreeSet::from_iter(inserted_transactions),
+        BTreeSet::from_iter(transactions)
+    );
 
     test_user.delete().await
 }
@@ -239,12 +251,9 @@ async fn test_transactions_sorted(#[case] repo_type: RepoType) {
         generate_new_transaction_with_date(NaiveDate::from_str("2022-12-31").unwrap()),
     ];
 
-    for t in new_transactions {
-        let _transaction: Transaction = transaction_repo
-            .create_new_transaction(&test_user.id, t)
-            .await
-            .unwrap();
-    }
+    insert_transactions(&transaction_repo, &test_user, new_transactions)
+        .await
+        .unwrap();
 
     let transactions: Vec<Transaction> = transaction_repo
         .get_all_transactions(&test_user.id, None, None, None, None, None)
@@ -272,12 +281,9 @@ async fn test_get_transactions_filter_category(#[case] repo_type: RepoType) {
         generate_new_transaction_with_category("Misc".to_owned()),
     ];
 
-    for t in new_transactions {
-        let _transaction = transaction_repo
-            .create_new_transaction(&test_user.id, t)
-            .await
-            .unwrap();
-    }
+    insert_transactions(&transaction_repo, &test_user, new_transactions)
+        .await
+        .unwrap();
 
     let transactions: Vec<Transaction> = transaction_repo
         .get_all_transactions(
@@ -309,12 +315,9 @@ async fn test_get_transactions_filter_transactee(#[case] repo_type: RepoType) {
         generate_new_transaction_with_transactee("Bob".to_string()),
     ];
 
-    for t in new_transactions {
-        let _transaction = transaction_repo
-            .create_new_transaction(&test_user.id, t)
-            .await
-            .unwrap();
-    }
+    insert_transactions(&transaction_repo, &test_user, new_transactions)
+        .await
+        .unwrap();
 
     let transactions: Vec<Transaction> = transaction_repo
         .get_all_transactions(
@@ -348,12 +351,9 @@ async fn test_get_transactions_filter_from(#[case] repo_type: RepoType) {
         generate_new_transaction_with_date(NaiveDate::from_str("1900-10-11").unwrap()),
     ];
 
-    for t in new_transactions {
-        let _transaction = transaction_repo
-            .create_new_transaction(&test_user.id, t)
-            .await
-            .unwrap();
-    }
+    insert_transactions(&transaction_repo, &test_user, new_transactions)
+        .await
+        .unwrap();
 
     let transactions: Vec<Transaction> = transaction_repo
         .get_all_transactions(
@@ -387,12 +387,9 @@ async fn test_get_transactions_filter_until(#[case] repo_type: RepoType) {
         generate_new_transaction_with_date(NaiveDate::from_str("1900-10-11").unwrap()),
     ];
 
-    for t in new_transactions {
-        let _transaction = transaction_repo
-            .create_new_transaction(&test_user.id, t)
-            .await
-            .unwrap();
-    }
+    insert_transactions(&transaction_repo, &test_user, new_transactions)
+        .await
+        .unwrap();
 
     let transactions: Vec<Transaction> = transaction_repo
         .get_all_transactions(
@@ -427,14 +424,10 @@ async fn test_transactions_pagination(#[case] repo_type: RepoType) {
         generate_new_transaction_with_date(NaiveDate::from_str("1900-10-11").unwrap()),
     ];
 
-    let mut inserted_transactions = vec![];
-    for t in new_transactions {
-        let transaction: Transaction = transaction_repo
-            .create_new_transaction(&test_user.id, t)
+    let inserted_transactions =
+        insert_transactions(&transaction_repo, &test_user, new_transactions)
             .await
             .unwrap();
-        inserted_transactions.push(transaction);
-    }
 
     let transactions: Vec<Transaction> = transaction_repo
         .get_all_transactions(
@@ -608,12 +601,9 @@ async fn test_monthly_totals(#[case] repo_type: RepoType) {
         ),
     ];
 
-    for t in new_transactions {
-        let _transaction = transaction_repo
-            .create_new_transaction(&test_user.id, t)
-            .await
-            .unwrap();
-    }
+    insert_transactions(&transaction_repo, &test_user, new_transactions)
+        .await
+        .unwrap();
 
     let monthly_totals = transaction_repo
         .get_monthly_totals(&test_user.id)
@@ -653,12 +643,9 @@ async fn test_get_categories(#[case] repo_type: RepoType) {
         generate_new_transaction_with_category("Misc".to_string()),
     ];
 
-    for t in new_transactions {
-        let _transaction: Transaction = transaction_repo
-            .create_new_transaction(&test_user.id, t)
-            .await
-            .unwrap();
-    }
+    insert_transactions(&transaction_repo, &test_user, new_transactions)
+        .await
+        .unwrap();
 
     let categories = transaction_repo
         .get_all_categories(&test_user.id)
@@ -686,12 +673,9 @@ async fn test_get_tags(#[case] repo_type: RepoType) {
         generate_new_transaction_with_tags(HashSet::from(["tag2".to_string(), "tag3".to_string()])),
     ];
 
-    for t in new_transactions {
-        let _transaction: Transaction = transaction_repo
-            .create_new_transaction(&test_user.id, t)
-            .await
-            .unwrap();
-    }
+    insert_transactions(&transaction_repo, &test_user, new_transactions)
+        .await
+        .unwrap();
 
     let tags = transaction_repo.get_all_tags(&test_user.id).await.unwrap();
     assert_eq!(
@@ -717,12 +701,9 @@ async fn test_get_transactees(#[case] repo_type: RepoType) {
         generate_new_transaction_with_transactee("Bob".to_string()),
     ];
 
-    for t in new_transactions {
-        let _transaction: Transaction = transaction_repo
-            .create_new_transaction(&test_user.id, t)
-            .await
-            .unwrap();
-    }
+    insert_transactions(&transaction_repo, &test_user, new_transactions)
+        .await
+        .unwrap();
 
     let transactees = transaction_repo
         .get_all_transactees(&test_user.id)
@@ -751,12 +732,9 @@ async fn test_get_balance(#[case] repo_type: RepoType) {
         generate_new_transaction_with_amount(Decimal::from(15)),
     ];
 
-    for t in new_transactions {
-        let _transaction: Transaction = transaction_repo
-            .create_new_transaction(&test_user.id, t)
-            .await
-            .unwrap();
-    }
+    insert_transactions(&transaction_repo, &test_user, new_transactions)
+        .await
+        .unwrap();
 
     let balance = transaction_repo.get_balance(&test_user.id).await.unwrap();
     assert_eq!(Decimal::from(25), balance);

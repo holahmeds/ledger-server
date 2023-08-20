@@ -7,7 +7,6 @@ use rand::seq::SliceRandom;
 use rust_decimal::Decimal;
 use std::collections::HashSet;
 use std::default::Default;
-use std::ops::Deref;
 
 const CATEGORIES: [&str; 4] = ["Misc", "Groceries", "Eating Out", "Transporation"];
 
@@ -41,8 +40,7 @@ impl Default for NewTransactionGenerator {
                 CATEGORIES
                     .choose(&mut rand::thread_rng())
                     .unwrap()
-                    .deref()
-                    .to_owned()
+                    .to_string()
             }),
             tran_gen: Box::new(|| Name().fake()),
             note_gen: Box::new(|| Sentence(5..10).fake()),
