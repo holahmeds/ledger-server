@@ -161,6 +161,18 @@ impl NewTransaction {
             tags,
         }
     }
+
+    pub fn to_transaction(self, id: i32) -> Transaction {
+        Transaction::new(
+            id,
+            self.category,
+            self.transactee,
+            self.note,
+            self.date,
+            self.amount,
+            self.tags,
+        )
+    }
 }
 
 #[derive(PartialEq, Debug)]

@@ -13,6 +13,7 @@ struct TestConfig {
 pub enum RepoType {
     Diesel,
     SQLx,
+    Mem,
 }
 
 pub async fn build_repos(repo_type: RepoType) -> (Arc<dyn TransactionRepo>, Arc<dyn UserRepo>) {
@@ -22,5 +23,6 @@ pub async fn build_repos(repo_type: RepoType) -> (Arc<dyn TransactionRepo>, Arc<
     match repo_type {
         RepoType::Diesel => ledger_repo::diesel_repo::create_repos(config.database_url, 1, false),
         RepoType::SQLx => ledger_repo::sqlx_repo::create_repos(config.database_url, 1).await,
+        RepoType::Mem => ledger_repo::mem_repo::create_repos(),
     }
 }
