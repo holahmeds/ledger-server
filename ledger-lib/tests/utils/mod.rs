@@ -1,9 +1,7 @@
-use std::fs;
 use std::sync::Arc;
 
 use ledger_lib::user::UserId;
 use rstest::*;
-use serde::Deserialize;
 use tracing::info;
 use tracing::Level;
 use uuid::Uuid;
@@ -44,11 +42,6 @@ macro_rules! create_transaction {
     }};
 }
 
-#[derive(Deserialize)]
-struct TestConfig {
-    database_url: String,
-}
-
 pub struct TestUser {
     pub user_id: UserId,
     repo: Arc<dyn UserRepo>,
@@ -84,9 +77,7 @@ pub fn tracing_setup() -> () {
     info!("tracing initialized");
 }
 
-pub async fn build_repos() -> (Arc<dyn TransactionRepo>, Arc<dyn UserRepo>) {
-    let config = fs::read_to_string("../config_test.toml").unwrap();
-    let config: TestConfig = toml::from_str(config.as_str()).unwrap();
-
-    ledger_repo::sqlx_repo::create_repos(config.database_url, 1).await
+#[fixture]
+pub fn repos() -> (Arc<dyn TransactionRepo>, Arc<dyn UserRepo>) {
+    ledger_repo::mem_repo::create_repos()
 }
