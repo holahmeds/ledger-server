@@ -73,7 +73,7 @@ impl UserRepo for MemUserRepo {
     async fn delete_user(&self, user_id: &str) -> Result<(), UserRepoError> {
         let mut write_guard = self.write_lock()?;
 
-        if let Some(_) = write_guard.remove(user_id) {
+        if write_guard.remove(user_id).is_some() {
             Ok(())
         } else {
             Err(UserNotFound(user_id.to_owned()))

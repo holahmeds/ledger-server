@@ -55,7 +55,7 @@ impl TransactionRepo for MemTransactionRepo {
         let read_guard = self.read_lock()?;
 
         let Some(transaction_ids) = read_guard.user_transactions.get(user) else {
-            return Err(TransactionNotFound(transaction_id))
+            return Err(TransactionNotFound(transaction_id));
         };
         if !transaction_ids.contains(&transaction_id) {
             return Err(TransactionNotFound(transaction_id));
@@ -80,10 +80,8 @@ impl TransactionRepo for MemTransactionRepo {
     ) -> Result<Vec<Transaction>, TransactionRepoError> {
         let read_guard = self.read_lock()?;
 
-        let Some(transaction_ids) = read_guard
-            .user_transactions
-            .get(user) else {
-            return Ok(Vec::new())
+        let Some(transaction_ids) = read_guard.user_transactions.get(user) else {
+            return Ok(Vec::new());
         };
 
         let mut transactions: Vec<Transaction> = transaction_ids
@@ -146,7 +144,7 @@ impl TransactionRepo for MemTransactionRepo {
         write_guard
             .user_transactions
             .entry(user.to_owned())
-            .or_insert_with(|| HashSet::new())
+            .or_insert_with(HashSet::new)
             .insert(id);
 
         Ok(transaction)
@@ -161,7 +159,7 @@ impl TransactionRepo for MemTransactionRepo {
         let mut write_guard = self.write_lock()?;
 
         let Some(transaction_ids) = write_guard.user_transactions.get(user) else {
-            return Err(TransactionNotFound(transaction_id))
+            return Err(TransactionNotFound(transaction_id));
         };
         if !transaction_ids.contains(&transaction_id) {
             return Err(TransactionNotFound(transaction_id));
