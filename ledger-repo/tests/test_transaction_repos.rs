@@ -3,9 +3,9 @@ mod utils;
 
 use crate::transaction_utils::{
     generate_new_transaction, generate_new_transaction_with_amount,
-    generate_new_transaction_with_category, generate_new_transaction_with_date,
-    generate_new_transaction_with_date_and_amount, generate_new_transaction_with_tags,
-    generate_new_transaction_with_transactee,
+    generate_new_transaction_with_category, generate_new_transaction_with_category_and_transactee,
+    generate_new_transaction_with_date, generate_new_transaction_with_date_and_amount,
+    generate_new_transaction_with_tags, generate_new_transaction_with_transactee,
 };
 use chrono::NaiveDate;
 use futures::future::try_join_all;
@@ -706,11 +706,49 @@ async fn test_get_transactees(#[case] repo_type: RepoType) {
         .unwrap();
 
     let transactees = transaction_repo
-        .get_all_transactees(&test_user.id)
+        .get_all_transactees(&test_user.id, None)
         .await
         .unwrap();
     // Should be sorted by most transactions
     assert_eq!(vec!["Bob".to_owned(), "Alice".to_owned()], transactees);
+
+    test_user.delete().await
+}
+
+#[rstest]
+#[case::diesel(RepoType::Diesel)]
+#[case::sqlx(RepoType::SQLx)]
+#[case::mem(RepoType::Mem)]
+#[actix_rt::test]
+async fn test_get_category_transactees(#[case] repo_type: RepoType) {
+    let (transaction_repo, user_repo) = utils::build_repos(repo_type).await;
+    let test_user = TestUser::new(&user_repo).await;
+
+    let new_transactions = vec![
+        generate_new_transaction_with_category_and_transactee(
+            "Misc".to_string(),
+            "Bob".to_string(),
+        ),
+        generate_new_transaction_with_category_and_transactee(
+            "Groceries".to_string(),
+            "Alice".to_string(),
+        ),
+        generate_new_transaction_with_category_and_transactee(
+            "Misc".to_string(),
+            "Bob".to_string(),
+        ),
+    ];
+
+    insert_transactions(&transaction_repo, &test_user, new_transactions)
+        .await
+        .unwrap();
+
+    let transactees = transaction_repo
+        .get_all_transactees(&test_user.id, Some("Groceries".to_string()))
+        .await
+        .unwrap();
+    // Should be sorted by most transactions of that category
+    assert_eq!(vec!["Alice".to_owned(), "Bob".to_owned()], transactees);
 
     test_user.delete().await
 }

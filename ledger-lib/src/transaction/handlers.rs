@@ -26,6 +26,11 @@ pub struct PageQueryParameters {
     limit: Option<i64>,
 }
 
+#[derive(Deserialize)]
+pub struct TransacteesOption {
+    category: Option<String>,
+}
+
 #[derive(Serialize)]
 pub struct MonthlyTotalResponse {
     month: NaiveDate,
@@ -167,9 +172,10 @@ pub async fn get_all_tags(
 pub async fn get_all_transactees(
     transaction_repo: web::Data<Arc<dyn TransactionRepo>>,
     user_id: web::ReqData<UserId>,
+    options: web::Query<TransacteesOption>,
 ) -> Result<impl Responder, HandlerError> {
     let transactees = transaction_repo
-        .get_all_transactees(&user_id.into_inner())
+        .get_all_transactees(&user_id.into_inner(), options.into_inner().category)
         .await?;
     Ok(HttpResponse::Ok().json(transactees))
 }

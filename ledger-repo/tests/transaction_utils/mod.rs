@@ -110,3 +110,15 @@ pub fn generate_new_transaction_with_date_and_amount(
     };
     generator.generate()
 }
+
+pub fn generate_new_transaction_with_category_and_transactee(
+    category: String,
+    transactee: String,
+) -> NewTransaction {
+    let generator = NewTransactionGenerator {
+        cat_gen: Box::new(move || category),
+        tran_gen: Box::new(move || Some(transactee)),
+        ..Default::default()
+    };
+    generator.generate()
+}

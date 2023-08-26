@@ -242,7 +242,11 @@ impl TransactionRepo for MemTransactionRepo {
         Ok(tags.into_iter().collect())
     }
 
-    async fn get_all_transactees(&self, user: &str) -> Result<Vec<String>, TransactionRepoError> {
+    async fn get_all_transactees(
+        &self,
+        user: &str,
+        category: Option<String>,
+    ) -> Result<Vec<String>, TransactionRepoError> {
         let mut transactee_counts = HashMap::new();
 
         let transactions = self
@@ -254,7 +258,14 @@ impl TransactionRepo for MemTransactionRepo {
             };
 
             let count = transactee_counts.entry(transactee).or_insert(0);
-            *count += 1;
+
+            if let Some(category) = &category {
+                if &x.category == category {
+                    *count += 1;
+                }
+            } else {
+                *count += 1;
+            }
         }
 
         let mut transactees: Vec<String> = transactee_counts.keys().cloned().collect();

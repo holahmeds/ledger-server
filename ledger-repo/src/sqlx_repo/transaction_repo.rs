@@ -468,11 +468,23 @@ impl TransactionRepo for SQLxTransactionRepo {
     }
 
     #[instrument(skip(self))]
-    async fn get_all_transactees(&self, user: &str) -> Result<Vec<String>, TransactionRepoError> {
-        let transactees = query_scalar!(
-            "SELECT transactee as \"transactee!\" FROM transactions WHERE user_id = $1 AND transactee IS NOT NULL GROUP BY transactee ORDER BY COUNT(transactee) DESC",
-            user
-        )
+    async fn get_all_transactees(
+        &self,
+        user: &str,
+        category: Option<String>,
+    ) -> Result<Vec<String>, TransactionRepoError> {
+        let query = if let Some(category) = category {
+            query_scalar!(
+                "SELECT transactees.transactee as \"transactee!\" FROM (SELECT DISTINCT transactee FROM transactions WHERE user_id = $1 AND transactee IS NOT NULL) transactees LEFT JOIN (SELECT transactee, COUNT(*) AS t_count FROM transactions WHERE user_id = $1 AND category = $2 GROUP BY transactee) AS t ON transactees.transactee = t.transactee ORDER BY COALESCE(t.t_count, 0) DESC",
+                user, category
+            )
+        } else {
+            query_scalar!(
+                "SELECT transactee as \"transactee!\" FROM transactions WHERE user_id = $1 AND transactee IS NOT NULL GROUP BY transactee ORDER BY COUNT(transactee) DESC",
+                user
+            )
+        };
+        let transactees = query
             .fetch_all(&self.pool)
             .await
             .with_context(|| format!("Unable to get transactees for user {}", user))?;
