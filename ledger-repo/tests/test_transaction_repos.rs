@@ -709,10 +709,8 @@ async fn test_get_transactees(#[case] repo_type: RepoType) {
         .get_all_transactees(&test_user.id)
         .await
         .unwrap();
-    assert_eq!(
-        HashSet::from(["Alice".to_owned(), "Bob".to_owned()]),
-        HashSet::from_iter(transactees.into_iter())
-    );
+    // Should be sorted by most transactions
+    assert_eq!(vec!["Bob".to_owned(), "Alice".to_owned()], transactees);
 
     test_user.delete().await
 }

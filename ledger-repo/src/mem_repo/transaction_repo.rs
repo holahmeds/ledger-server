@@ -243,13 +243,24 @@ impl TransactionRepo for MemTransactionRepo {
     }
 
     async fn get_all_transactees(&self, user: &str) -> Result<Vec<String>, TransactionRepoError> {
-        let transactees: HashSet<String> = self
+        let mut transactee_counts = HashMap::new();
+
+        let transactions = self
             .get_all_transactions(user, None, None, None, None, None)
-            .await?
-            .into_iter()
-            .filter_map(|t| t.transactee)
-            .collect();
-        Ok(transactees.into_iter().collect())
+            .await?;
+        for x in transactions {
+            let Some(transactee) = x.transactee else {
+                continue;
+            };
+
+            let count = transactee_counts.entry(transactee).or_insert(0);
+            *count += 1;
+        }
+
+        let mut transactees: Vec<String> = transactee_counts.keys().cloned().collect();
+        transactees.sort_by(|a, b| transactee_counts.get(b).cmp(&transactee_counts.get(a)));
+
+        Ok(transactees)
     }
 
     async fn get_balance(&self, user: &str) -> Result<Decimal, TransactionRepoError> {

@@ -436,16 +436,19 @@ impl TransactionRepo for DieselTransactionRepo {
         let user = user.to_owned();
         self.block(move |db_conn| {
             use crate::diesel_repo::schema::transactions::dsl::*;
+            use diesel::dsl::count;
 
             let results = transactions
                 .filter(user_id.eq(&user))
+                .filter(transactee.is_not_null())
+                .group_by(transactee)
+                .order_by(count(transactee).desc())
                 .select(transactee)
-                .distinct()
                 .load::<Option<String>>(db_conn)
                 .with_context(|| format!("Unable to get all transactees for user {}", user))?;
 
             // remove null entry if there is one
-            let transactees = results.into_iter().filter_map(|i| i).collect();
+            let transactees = results.into_iter().flatten().collect();
             Ok(transactees)
         })
         .await

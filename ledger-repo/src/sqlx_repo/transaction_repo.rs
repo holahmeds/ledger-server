@@ -470,7 +470,7 @@ impl TransactionRepo for SQLxTransactionRepo {
     #[instrument(skip(self))]
     async fn get_all_transactees(&self, user: &str) -> Result<Vec<String>, TransactionRepoError> {
         let transactees = query_scalar!(
-            "SELECT DISTINCT transactee as \"transactee!\" FROM transactions WHERE user_id = $1 AND transactee IS NOT NULL",
+            "SELECT transactee as \"transactee!\" FROM transactions WHERE user_id = $1 AND transactee IS NOT NULL GROUP BY transactee ORDER BY COUNT(transactee) DESC",
             user
         )
             .fetch_all(&self.pool)
