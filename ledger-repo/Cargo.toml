@@ -29,3 +29,4 @@ toml = { workspace = true }
 uuid = { workspace = true }
 fake = { workspace = true }
 rand = { workspace = true }
+futures = { workspace = true }

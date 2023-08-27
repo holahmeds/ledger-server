@@ -1,0 +1,22 @@
+{
+  "db_name": "PostgreSQL",
+  "query": "SELECT transactee as \"transactee!\" FROM transactions WHERE user_id = $1 AND transactee IS NOT NULL GROUP BY transactee ORDER BY COUNT(transactee) DESC",
+  "describe": {
+    "columns": [
+      {
+        "ordinal": 0,
+        "name": "transactee!",
+        "type_info": "Varchar"
+      }
+    ],
+    "parameters": {
+      "Left": [
+        "Text"
+      ]
+    },
+    "nullable": [
+      true
+    ]
+  },
+  "hash": "96065a3c529f2f89432afc2ece4bcf4337bd61f5ee108edf7fdba943340fe94c"
+}

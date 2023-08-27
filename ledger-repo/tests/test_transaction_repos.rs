@@ -1,14 +1,12 @@
 mod transaction_utils;
 mod utils;
 
-use crate::transaction_utils::{
-    generate_new_transaction, generate_new_transaction_with_amount,
-    generate_new_transaction_with_category, generate_new_transaction_with_date,
-    generate_new_transaction_with_date_and_amount, generate_new_transaction_with_tags,
-    generate_new_transaction_with_transactee,
-};
+use crate::transaction_utils::{generate_new_transaction, NewTransactionGenerator};
 use chrono::NaiveDate;
-use ledger_repo::transaction_repo::{MonthlyTotal, NewTransaction, PageOptions, Transaction};
+use futures::future::try_join_all;
+use ledger_repo::transaction_repo::{
+    MonthlyTotal, NewTransaction, PageOptions, Transaction, TransactionRepo, TransactionRepoError,
+};
 use ledger_repo::user_repo::{User, UserRepo};
 use rstest::rstest;
 use rust_decimal::Decimal;
@@ -26,14 +24,14 @@ pub struct TestUser {
 }
 
 impl TestUser {
-    pub async fn new(user_repo: Arc<dyn UserRepo>) -> TestUser {
+    pub async fn new(user_repo: &Arc<dyn UserRepo>) -> TestUser {
         let user_id = "test-user-".to_owned() + &Uuid::new_v4().to_string();
         let user = User::new(user_id.clone(), "not a real hash".to_owned());
         user_repo.create_user(user).await.unwrap();
         info!(%user_id, "Created user");
         TestUser {
             id: user_id,
-            repo: user_repo,
+            repo: user_repo.clone(),
         }
     }
 
@@ -42,13 +40,25 @@ impl TestUser {
     }
 }
 
+async fn insert_transactions(
+    transaction_repo: &Arc<dyn TransactionRepo>,
+    test_user: &TestUser,
+    new_transactions: Vec<NewTransaction>,
+) -> Result<Vec<Transaction>, TransactionRepoError> {
+    let inserted_transactions = new_transactions
+        .into_iter()
+        .map(|t| transaction_repo.create_new_transaction(&test_user.id, t));
+    try_join_all(inserted_transactions).await
+}
+
 #[rstest]
 #[case::diesel(RepoType::Diesel)]
 #[case::sqlx(RepoType::SQLx)]
+#[case::mem(RepoType::Mem)]
 #[actix_rt::test]
 async fn test_create_and_get_transactions(#[case] repo_type: RepoType) {
     let (transaction_repo, user_repo) = utils::build_repos(repo_type).await;
-    let user = TestUser::new(user_repo).await;
+    let user = TestUser::new(&user_repo).await;
 
     let new_transaction = generate_new_transaction();
     let transaction_id = transaction_repo
@@ -74,18 +84,17 @@ async fn test_create_and_get_transactions(#[case] repo_type: RepoType) {
 #[rstest]
 #[case::diesel(RepoType::Diesel)]
 #[case::sqlx(RepoType::SQLx)]
+#[case::mem(RepoType::Mem)]
 #[actix_rt::test]
 async fn test_get_invalid_transactions(#[case] repo_type: RepoType) {
     let (transaction_repo, user_repo) = utils::build_repos(repo_type).await;
-    let user = TestUser::new(user_repo).await;
+    let user = TestUser::new(&user_repo).await;
 
     let get_result = transaction_repo.get_transaction(&user.id, 1234).await;
-    assert!(get_result.is_err());
-    // TODO
-    // assert_eq!(
-    //     TransactionRepoError::TransactionNotFound(1234),
-    //     get_result.unwrap_err()
-    // );
+    assert!(matches!(
+        get_result,
+        Err(TransactionRepoError::TransactionNotFound(1234))
+    ));
 
     user.delete().await;
 }
@@ -93,10 +102,40 @@ async fn test_get_invalid_transactions(#[case] repo_type: RepoType) {
 #[rstest]
 #[case::diesel(RepoType::Diesel)]
 #[case::sqlx(RepoType::SQLx)]
+#[case::mem(RepoType::Mem)]
+#[actix_rt::test]
+async fn test_get_invalid_user(#[case] repo_type: RepoType) {
+    let (transaction_repo, user_repo) = utils::build_repos(repo_type).await;
+    let user1 = TestUser::new(&user_repo).await;
+    let user2 = TestUser::new(&user_repo).await;
+
+    let new_transaction = generate_new_transaction();
+    let transaction_id = transaction_repo
+        .create_new_transaction(&user1.id, new_transaction.clone())
+        .await
+        .unwrap()
+        .id;
+
+    let result = transaction_repo
+        .get_transaction(&user2.id, transaction_id)
+        .await;
+    assert!(matches!(
+        result,
+        Err(TransactionRepoError::TransactionNotFound(_))
+    ));
+
+    user1.delete().await;
+    user2.delete().await;
+}
+
+#[rstest]
+#[case::diesel(RepoType::Diesel)]
+#[case::sqlx(RepoType::SQLx)]
+#[case::mem(RepoType::Mem)]
 #[actix_rt::test]
 async fn test_delete_transaction(#[case] repo_type: RepoType) {
     let (transaction_repo, user_repo) = utils::build_repos(repo_type).await;
-    let user = TestUser::new(user_repo).await;
+    let user = TestUser::new(&user_repo).await;
 
     let new_transaction = generate_new_transaction();
     let transaction_id = transaction_repo
@@ -113,12 +152,10 @@ async fn test_delete_transaction(#[case] repo_type: RepoType) {
     let result = transaction_repo
         .get_transaction(&user.id, transaction_id)
         .await;
-    assert!(result.is_err());
-    // TODO
-    // assert_eq!(
-    //     TransactionRepoError::TransactionNotFound(transaction_id),
-    //     result.unwrap_err()
-    // );
+    assert!(matches!(
+        result,
+        Err(TransactionRepoError::TransactionNotFound(_))
+    ));
 
     user.delete().await;
 }
@@ -126,18 +163,17 @@ async fn test_delete_transaction(#[case] repo_type: RepoType) {
 #[rstest]
 #[case::diesel(RepoType::Diesel)]
 #[case::sqlx(RepoType::SQLx)]
+#[case::mem(RepoType::Mem)]
 #[actix_rt::test]
 async fn test_delete_invalid_transaction(#[case] repo_type: RepoType) {
     let (transaction_repo, user_repo) = utils::build_repos(repo_type).await;
-    let user = TestUser::new(user_repo).await;
+    let user = TestUser::new(&user_repo).await;
 
     let delete_result = transaction_repo.delete_transaction(&user.id, 1234).await;
-    assert!(delete_result.is_err());
-    // TODO
-    // assert_eq!(
-    //     TransactionRepoError::TransactionNotFound(1234),
-    //     delete_result.unwrap_err()
-    // );
+    assert!(matches!(
+        delete_result,
+        Err(TransactionRepoError::TransactionNotFound(_))
+    ));
 
     user.delete().await;
 }
@@ -145,28 +181,28 @@ async fn test_delete_invalid_transaction(#[case] repo_type: RepoType) {
 #[rstest]
 #[case::diesel(RepoType::Diesel)]
 #[case::sqlx(RepoType::SQLx)]
+#[case::mem(RepoType::Mem)]
 #[actix_rt::test]
 async fn test_get_all_transactions(#[case] repo_type: RepoType) {
     let (transaction_repo, user_repo) = utils::build_repos(repo_type).await;
-    let test_user = TestUser::new(user_repo).await;
+    let test_user = TestUser::new(&user_repo).await;
 
-    let new_transactions = vec![generate_new_transaction(), generate_new_transaction()];
+    let mut generator = NewTransactionGenerator::default();
+    let new_transactions = generator.generate_many(2);
 
-    let mut inserted_transactions: BTreeSet<Transaction> = BTreeSet::new();
-    for t in new_transactions {
-        let transaction = transaction_repo
-            .create_new_transaction(&test_user.id, t)
+    let inserted_transactions =
+        insert_transactions(&transaction_repo, &test_user, new_transactions)
             .await
             .unwrap();
-        inserted_transactions.insert(transaction);
-    }
 
     let transactions: Vec<Transaction> = transaction_repo
         .get_all_transactions(&test_user.id, None, None, None, None, None)
         .await
         .unwrap();
-    let transactions = BTreeSet::from_iter(transactions);
-    assert_eq!(inserted_transactions, transactions);
+    assert_eq!(
+        BTreeSet::from_iter(inserted_transactions),
+        BTreeSet::from_iter(transactions)
+    );
 
     test_user.delete().await
 }
@@ -174,25 +210,43 @@ async fn test_get_all_transactions(#[case] repo_type: RepoType) {
 #[rstest]
 #[case::diesel(RepoType::Diesel)]
 #[case::sqlx(RepoType::SQLx)]
+#[case::mem(RepoType::Mem)]
+#[actix_rt::test]
+async fn test_get_all_transactions_empty(#[case] repo_type: RepoType) {
+    let (transaction_repo, user_repo) = utils::build_repos(repo_type).await;
+    let test_user = TestUser::new(&user_repo).await;
+
+    let transactions: Vec<Transaction> = transaction_repo
+        .get_all_transactions(&test_user.id, None, None, None, None, None)
+        .await
+        .unwrap();
+    assert!(transactions.is_empty());
+
+    test_user.delete().await
+}
+
+#[rstest]
+#[case::diesel(RepoType::Diesel)]
+#[case::sqlx(RepoType::SQLx)]
+#[case::mem(RepoType::Mem)]
 #[actix_rt::test]
 async fn test_transactions_sorted(#[case] repo_type: RepoType) {
     let (transaction_repo, user_repo) = utils::build_repos(repo_type).await;
-    let test_user = TestUser::new(user_repo).await;
+    let test_user = TestUser::new(&user_repo).await;
 
-    let new_transactions = vec![
-        generate_new_transaction(),
-        generate_new_transaction(),
-        generate_new_transaction(),
-        generate_new_transaction_with_date(NaiveDate::from_str("2022-12-31").unwrap()),
-        generate_new_transaction_with_date(NaiveDate::from_str("2022-12-31").unwrap()),
-    ];
+    let mut generator = NewTransactionGenerator::default();
+    let mut new_transactions = generator.generate_many(3);
+    // generate two transactions with the same dates but different IDs
+    // this is to make sure that transactions are sorted by dates and then IDs
+    generator = generator.with_dates(vec![
+        NaiveDate::from_str("2022-12-31").unwrap(),
+        NaiveDate::from_str("2022-12-31").unwrap(),
+    ]);
+    new_transactions.extend(generator.generate_many(2));
 
-    for t in new_transactions {
-        let _transaction: Transaction = transaction_repo
-            .create_new_transaction(&test_user.id, t)
-            .await
-            .unwrap();
-    }
+    insert_transactions(&transaction_repo, &test_user, new_transactions)
+        .await
+        .unwrap();
 
     let transactions: Vec<Transaction> = transaction_repo
         .get_all_transactions(&test_user.id, None, None, None, None, None)
@@ -209,22 +263,18 @@ async fn test_transactions_sorted(#[case] repo_type: RepoType) {
 #[rstest]
 #[case::diesel(RepoType::Diesel)]
 #[case::sqlx(RepoType::SQLx)]
+#[case::mem(RepoType::Mem)]
 #[actix_rt::test]
 async fn test_get_transactions_filter_category(#[case] repo_type: RepoType) {
     let (transaction_repo, user_repo) = utils::build_repos(repo_type).await;
-    let test_user = TestUser::new(user_repo).await;
+    let test_user = TestUser::new(&user_repo).await;
 
-    let new_transactions = vec![
-        generate_new_transaction_with_category("Loan".to_owned()),
-        generate_new_transaction_with_category("Misc".to_owned()),
-    ];
+    let mut generator = NewTransactionGenerator::default().with_categories(vec!["Loan", "Misc"]);
+    let new_transactions = generator.generate_many(2);
 
-    for t in new_transactions {
-        let _transaction = transaction_repo
-            .create_new_transaction(&test_user.id, t)
-            .await
-            .unwrap();
-    }
+    insert_transactions(&transaction_repo, &test_user, new_transactions)
+        .await
+        .unwrap();
 
     let transactions: Vec<Transaction> = transaction_repo
         .get_all_transactions(
@@ -245,22 +295,18 @@ async fn test_get_transactions_filter_category(#[case] repo_type: RepoType) {
 #[rstest]
 #[case::diesel(RepoType::Diesel)]
 #[case::sqlx(RepoType::SQLx)]
+#[case::mem(RepoType::Mem)]
 #[actix_rt::test]
 async fn test_get_transactions_filter_transactee(#[case] repo_type: RepoType) {
     let (transaction_repo, user_repo) = utils::build_repos(repo_type).await;
-    let test_user = TestUser::new(user_repo).await;
+    let test_user = TestUser::new(&user_repo).await;
 
-    let new_transactions = vec![
-        generate_new_transaction_with_transactee("Alice".to_string()),
-        generate_new_transaction_with_transactee("Bob".to_string()),
-    ];
+    let mut generator = NewTransactionGenerator::default().with_transactees(vec!["Alice", "Bob"]);
+    let new_transactions = generator.generate_many(2);
 
-    for t in new_transactions {
-        let _transaction = transaction_repo
-            .create_new_transaction(&test_user.id, t)
-            .await
-            .unwrap();
-    }
+    insert_transactions(&transaction_repo, &test_user, new_transactions)
+        .await
+        .unwrap();
 
     let transactions: Vec<Transaction> = transaction_repo
         .get_all_transactions(
@@ -283,22 +329,21 @@ async fn test_get_transactions_filter_transactee(#[case] repo_type: RepoType) {
 #[rstest]
 #[case::diesel(RepoType::Diesel)]
 #[case::sqlx(RepoType::SQLx)]
+#[case::mem(RepoType::Mem)]
 #[actix_rt::test]
 async fn test_get_transactions_filter_from(#[case] repo_type: RepoType) {
     let (transaction_repo, user_repo) = utils::build_repos(repo_type).await;
-    let test_user = TestUser::new(user_repo).await;
+    let test_user = TestUser::new(&user_repo).await;
 
-    let new_transactions = vec![
-        generate_new_transaction_with_date(NaiveDate::from_str("2021-10-11").unwrap()),
-        generate_new_transaction_with_date(NaiveDate::from_str("1900-10-11").unwrap()),
-    ];
+    let mut generator = NewTransactionGenerator::default().with_dates(vec![
+        NaiveDate::from_str("2021-10-11").unwrap(),
+        NaiveDate::from_str("1900-10-11").unwrap(),
+    ]);
+    let new_transactions = generator.generate_many(2);
 
-    for t in new_transactions {
-        let _transaction = transaction_repo
-            .create_new_transaction(&test_user.id, t)
-            .await
-            .unwrap();
-    }
+    insert_transactions(&transaction_repo, &test_user, new_transactions)
+        .await
+        .unwrap();
 
     let transactions: Vec<Transaction> = transaction_repo
         .get_all_transactions(
@@ -321,22 +366,21 @@ async fn test_get_transactions_filter_from(#[case] repo_type: RepoType) {
 #[rstest]
 #[case::diesel(RepoType::Diesel)]
 #[case::sqlx(RepoType::SQLx)]
+#[case::mem(RepoType::Mem)]
 #[actix_rt::test]
 async fn test_get_transactions_filter_until(#[case] repo_type: RepoType) {
     let (transaction_repo, user_repo) = utils::build_repos(repo_type).await;
-    let test_user = TestUser::new(user_repo).await;
+    let test_user = TestUser::new(&user_repo).await;
 
-    let new_transactions = vec![
-        generate_new_transaction_with_date(NaiveDate::from_str("2021-10-11").unwrap()),
-        generate_new_transaction_with_date(NaiveDate::from_str("1900-10-11").unwrap()),
-    ];
+    let mut generator = NewTransactionGenerator::default().with_dates(vec![
+        NaiveDate::from_str("2021-10-11").unwrap(),
+        NaiveDate::from_str("1900-10-11").unwrap(),
+    ]);
+    let new_transactions = generator.generate_many(2);
 
-    for t in new_transactions {
-        let _transaction = transaction_repo
-            .create_new_transaction(&test_user.id, t)
-            .await
-            .unwrap();
-    }
+    insert_transactions(&transaction_repo, &test_user, new_transactions)
+        .await
+        .unwrap();
 
     let transactions: Vec<Transaction> = transaction_repo
         .get_all_transactions(
@@ -359,25 +403,23 @@ async fn test_get_transactions_filter_until(#[case] repo_type: RepoType) {
 #[rstest]
 #[case::diesel(RepoType::Diesel)]
 #[case::sqlx(RepoType::SQLx)]
+#[case::mem(RepoType::Mem)]
 #[actix_rt::test]
 async fn test_transactions_pagination(#[case] repo_type: RepoType) {
     let (transaction_repo, user_repo) = utils::build_repos(repo_type).await;
-    let test_user = TestUser::new(user_repo).await;
+    let test_user = TestUser::new(&user_repo).await;
 
-    let new_transactions = vec![
-        generate_new_transaction_with_date(NaiveDate::from_str("2022-08-02").unwrap()),
-        generate_new_transaction_with_date(NaiveDate::from_str("2021-10-11").unwrap()),
-        generate_new_transaction_with_date(NaiveDate::from_str("1900-10-11").unwrap()),
-    ];
+    let mut generator = NewTransactionGenerator::default().with_dates(vec![
+        NaiveDate::from_str("2022-08-02").unwrap(),
+        NaiveDate::from_str("2021-10-11").unwrap(),
+        NaiveDate::from_str("1900-10-11").unwrap(),
+    ]);
+    let new_transactions = generator.generate_many(3);
 
-    let mut inserted_transactions = vec![];
-    for t in new_transactions {
-        let transaction: Transaction = transaction_repo
-            .create_new_transaction(&test_user.id, t)
+    let inserted_transactions =
+        insert_transactions(&transaction_repo, &test_user, new_transactions)
             .await
             .unwrap();
-        inserted_transactions.push(transaction);
-    }
 
     let transactions: Vec<Transaction> = transaction_repo
         .get_all_transactions(
@@ -400,10 +442,11 @@ async fn test_transactions_pagination(#[case] repo_type: RepoType) {
 #[rstest]
 #[case::diesel(RepoType::Diesel)]
 #[case::sqlx(RepoType::SQLx)]
+#[case::mem(RepoType::Mem)]
 #[actix_rt::test]
 async fn test_update_transaction(#[case] repo_type: RepoType) {
     let (transaction_repo, user_repo) = utils::build_repos(repo_type).await;
-    let test_user = TestUser::new(user_repo).await;
+    let test_user = TestUser::new(&user_repo).await;
 
     let new_transaction = generate_new_transaction();
     let transaction: Transaction = transaction_repo
@@ -434,10 +477,11 @@ async fn test_update_transaction(#[case] repo_type: RepoType) {
 #[rstest]
 #[case::diesel(RepoType::Diesel)]
 #[case::sqlx(RepoType::SQLx)]
+#[case::mem(RepoType::Mem)]
 #[actix_rt::test]
 async fn test_update_tags(#[case] repo_type: RepoType) {
     let (transaction_repo, user_repo) = utils::build_repos(repo_type).await;
-    let test_user = TestUser::new(user_repo).await;
+    let test_user = TestUser::new(&user_repo).await;
 
     let new_transaction = generate_new_transaction();
     let transaction: Transaction = transaction_repo
@@ -469,22 +513,21 @@ async fn test_update_tags(#[case] repo_type: RepoType) {
 #[rstest]
 #[case::diesel(RepoType::Diesel)]
 #[case::sqlx(RepoType::SQLx)]
+#[case::mem(RepoType::Mem)]
 #[actix_rt::test]
 async fn test_update_invalid_transaction(#[case] repo_type: RepoType) {
     let (transaction_repo, user_repo) = utils::build_repos(repo_type).await;
-    let test_user = TestUser::new(user_repo).await;
+    let test_user = TestUser::new(&user_repo).await;
 
     let update = generate_new_transaction();
 
     let result = transaction_repo
         .update_transaction(&test_user.id, 1234, update)
         .await;
-    assert!(result.is_err());
-    // TODO
-    // assert_eq!(
-    //     TransactionRepoError::TransactionNotFound(1234),
-    //     result.unwrap_err()
-    // );
+    assert!(matches!(
+        result,
+        Err(TransactionRepoError::TransactionNotFound(_))
+    ));
 
     test_user.delete().await
 }
@@ -492,36 +535,59 @@ async fn test_update_invalid_transaction(#[case] repo_type: RepoType) {
 #[rstest]
 #[case::diesel(RepoType::Diesel)]
 #[case::sqlx(RepoType::SQLx)]
+#[case::mem(RepoType::Mem)]
+#[actix_rt::test]
+async fn test_update_invalid_user(#[case] repo_type: RepoType) {
+    let (transaction_repo, user_repo) = utils::build_repos(repo_type).await;
+    let user1 = TestUser::new(&user_repo).await;
+    let user2 = TestUser::new(&user_repo).await;
+
+    let new_transaction = generate_new_transaction();
+    let transaction = transaction_repo
+        .create_new_transaction(&user1.id, new_transaction)
+        .await
+        .unwrap();
+
+    let update = generate_new_transaction();
+    let result = transaction_repo
+        .update_transaction(&user2.id, transaction.id, update)
+        .await;
+    assert!(matches!(
+        result,
+        Err(TransactionRepoError::TransactionNotFound(_))
+    ));
+
+    user1.delete().await;
+    user2.delete().await;
+}
+
+#[rstest]
+#[case::diesel(RepoType::Diesel)]
+#[case::sqlx(RepoType::SQLx)]
+#[case::mem(RepoType::Mem)]
 #[actix_rt::test]
 async fn test_monthly_totals(#[case] repo_type: RepoType) {
     let (transaction_repo, user_repo) = utils::build_repos(repo_type).await;
-    let test_user = TestUser::new(user_repo).await;
+    let test_user = TestUser::new(&user_repo).await;
 
-    let new_transactions = vec![
-        generate_new_transaction_with_date_and_amount(
+    let mut generator = NewTransactionGenerator::default()
+        .with_dates(vec![
             NaiveDate::from_str("2022-12-02").unwrap(),
-            Decimal::from(-20),
-        ),
-        generate_new_transaction_with_date_and_amount(
             NaiveDate::from_str("2022-12-11").unwrap(),
-            Decimal::from(10),
-        ),
-        generate_new_transaction_with_date_and_amount(
             NaiveDate::from_str("2022-12-11").unwrap(),
-            Decimal::from(15),
-        ),
-        generate_new_transaction_with_date_and_amount(
             NaiveDate::from_str("2022-11-11").unwrap(),
+        ])
+        .with_amounts(vec![
+            Decimal::from(-20),
+            Decimal::from(10),
+            Decimal::from(15),
             Decimal::from(30),
-        ),
-    ];
+        ]);
+    let new_transactions = generator.generate_many(4);
 
-    for t in new_transactions {
-        let _transaction = transaction_repo
-            .create_new_transaction(&test_user.id, t)
-            .await
-            .unwrap();
-    }
+    insert_transactions(&transaction_repo, &test_user, new_transactions)
+        .await
+        .unwrap();
 
     let monthly_totals = transaction_repo
         .get_monthly_totals(&test_user.id)
@@ -549,57 +615,27 @@ async fn test_monthly_totals(#[case] repo_type: RepoType) {
 #[rstest]
 #[case::diesel(RepoType::Diesel)]
 #[case::sqlx(RepoType::SQLx)]
+#[case::mem(RepoType::Mem)]
 #[actix_rt::test]
 async fn test_get_categories(#[case] repo_type: RepoType) {
     let (transaction_repo, user_repo) = utils::build_repos(repo_type).await;
-    let test_user = TestUser::new(user_repo).await;
+    let test_user = TestUser::new(&user_repo).await;
 
-    let new_transactions = vec![
-        generate_new_transaction_with_category("Misc".to_string()),
-        generate_new_transaction_with_category("Loan".to_string()),
-        generate_new_transaction_with_category("Misc".to_string()),
-    ];
+    let mut generator =
+        NewTransactionGenerator::default().with_categories(vec!["Misc", "Loan", "Misc"]);
+    let new_transactions = generator.generate_many(3);
 
-    for t in new_transactions {
-        let _transaction: Transaction = transaction_repo
-            .create_new_transaction(&test_user.id, t)
-            .await
-            .unwrap();
-    }
+    insert_transactions(&transaction_repo, &test_user, new_transactions)
+        .await
+        .unwrap();
 
     let categories = transaction_repo
         .get_all_categories(&test_user.id)
         .await
         .unwrap();
-    assert_eq!(vec!["Loan".to_owned(), "Misc".to_owned()], categories);
-
-    test_user.delete().await
-}
-
-#[rstest]
-#[case::diesel(RepoType::Diesel)]
-#[case::sqlx(RepoType::SQLx)]
-#[actix_rt::test]
-async fn test_get_tags(#[case] repo_type: RepoType) {
-    let (transaction_repo, user_repo) = utils::build_repos(repo_type).await;
-    let test_user = TestUser::new(user_repo).await;
-
-    let new_transactions = vec![
-        generate_new_transaction_with_tags(HashSet::from(["tag1".to_string(), "tag2".to_string()])),
-        generate_new_transaction_with_tags(HashSet::from(["tag2".to_string(), "tag3".to_string()])),
-    ];
-
-    for t in new_transactions {
-        let _transaction: Transaction = transaction_repo
-            .create_new_transaction(&test_user.id, t)
-            .await
-            .unwrap();
-    }
-
-    let tags = transaction_repo.get_all_tags(&test_user.id).await.unwrap();
     assert_eq!(
-        vec!["tag1".to_string(), "tag2".to_string(), "tag3".to_string()],
-        tags
+        HashSet::from(["Loan".to_owned(), "Misc".to_owned()]),
+        HashSet::from_iter(categories.into_iter())
     );
 
     test_user.delete().await
@@ -608,28 +644,81 @@ async fn test_get_tags(#[case] repo_type: RepoType) {
 #[rstest]
 #[case::diesel(RepoType::Diesel)]
 #[case::sqlx(RepoType::SQLx)]
+#[case::mem(RepoType::Mem)]
+#[actix_rt::test]
+async fn test_get_tags(#[case] repo_type: RepoType) {
+    let (transaction_repo, user_repo) = utils::build_repos(repo_type).await;
+    let test_user = TestUser::new(&user_repo).await;
+
+    let mut generator = NewTransactionGenerator::default().with_tags(vec![
+        HashSet::from(["tag1".to_string(), "tag2".to_string()]),
+        HashSet::from(["tag2".to_string(), "tag3".to_string()]),
+    ]);
+    let new_transactions = generator.generate_many(2);
+
+    insert_transactions(&transaction_repo, &test_user, new_transactions)
+        .await
+        .unwrap();
+
+    let tags = transaction_repo.get_all_tags(&test_user.id).await.unwrap();
+    assert_eq!(
+        HashSet::from(["tag1".to_string(), "tag2".to_string(), "tag3".to_string()]),
+        HashSet::from_iter(tags.into_iter())
+    );
+
+    test_user.delete().await
+}
+
+#[rstest]
+#[case::diesel(RepoType::Diesel)]
+#[case::sqlx(RepoType::SQLx)]
+#[case::mem(RepoType::Mem)]
 #[actix_rt::test]
 async fn test_get_transactees(#[case] repo_type: RepoType) {
     let (transaction_repo, user_repo) = utils::build_repos(repo_type).await;
-    let test_user = TestUser::new(user_repo).await;
+    let test_user = TestUser::new(&user_repo).await;
 
-    let new_transactions = vec![
-        generate_new_transaction_with_transactee("Bob".to_string()),
-        generate_new_transaction_with_transactee("Alice".to_string()),
-        generate_new_transaction_with_transactee("Bob".to_string()),
-    ];
+    let mut generator =
+        NewTransactionGenerator::default().with_transactees(vec!["Bob", "Alice", "Bob"]);
+    let new_transactions = generator.generate_many(3);
 
-    for t in new_transactions {
-        let _transaction: Transaction = transaction_repo
-            .create_new_transaction(&test_user.id, t)
-            .await
-            .unwrap();
-    }
-
-    let transactees = transaction_repo
-        .get_all_transactees(&test_user.id)
+    insert_transactions(&transaction_repo, &test_user, new_transactions)
         .await
         .unwrap();
+
+    let transactees = transaction_repo
+        .get_all_transactees(&test_user.id, None)
+        .await
+        .unwrap();
+    // Should be sorted by most transactions
+    assert_eq!(vec!["Bob".to_owned(), "Alice".to_owned()], transactees);
+
+    test_user.delete().await
+}
+
+#[rstest]
+#[case::diesel(RepoType::Diesel)]
+#[case::sqlx(RepoType::SQLx)]
+#[case::mem(RepoType::Mem)]
+#[actix_rt::test]
+async fn test_get_category_transactees(#[case] repo_type: RepoType) {
+    let (transaction_repo, user_repo) = utils::build_repos(repo_type).await;
+    let test_user = TestUser::new(&user_repo).await;
+
+    let mut generator = NewTransactionGenerator::default()
+        .with_categories(vec!["Misc", "Groceries", "Misc"])
+        .with_transactees(vec!["Bob", "Alice", "Bob"]);
+    let new_transactions = generator.generate_many(3);
+
+    insert_transactions(&transaction_repo, &test_user, new_transactions)
+        .await
+        .unwrap();
+
+    let transactees = transaction_repo
+        .get_all_transactees(&test_user.id, Some("Groceries".to_string()))
+        .await
+        .unwrap();
+    // Should be sorted by most transactions of that category
     assert_eq!(vec!["Alice".to_owned(), "Bob".to_owned()], transactees);
 
     test_user.delete().await
@@ -638,23 +727,22 @@ async fn test_get_transactees(#[case] repo_type: RepoType) {
 #[rstest]
 #[case::diesel(RepoType::Diesel)]
 #[case::sqlx(RepoType::SQLx)]
+#[case::mem(RepoType::Mem)]
 #[actix_rt::test]
 async fn test_get_balance(#[case] repo_type: RepoType) {
     let (transaction_repo, user_repo) = utils::build_repos(repo_type).await;
-    let test_user = TestUser::new(user_repo).await;
+    let test_user = TestUser::new(&user_repo).await;
 
-    let new_transactions = vec![
-        generate_new_transaction_with_amount(Decimal::from(20)),
-        generate_new_transaction_with_amount(Decimal::from(-10)),
-        generate_new_transaction_with_amount(Decimal::from(15)),
-    ];
+    let mut generator = NewTransactionGenerator::default().with_amounts(vec![
+        Decimal::from(20),
+        Decimal::from(-10),
+        Decimal::from(15),
+    ]);
+    let new_transactions = generator.generate_many(3);
 
-    for t in new_transactions {
-        let _transaction: Transaction = transaction_repo
-            .create_new_transaction(&test_user.id, t)
-            .await
-            .unwrap();
-    }
+    insert_transactions(&transaction_repo, &test_user, new_transactions)
+        .await
+        .unwrap();
 
     let balance = transaction_repo.get_balance(&test_user.id).await.unwrap();
     assert_eq!(Decimal::from(25), balance);

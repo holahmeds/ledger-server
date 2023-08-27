@@ -65,7 +65,11 @@ pub trait TransactionRepo: Sync + Send {
 
     async fn get_all_tags(&self, user: &str) -> Result<Vec<String>, TransactionRepoError>;
 
-    async fn get_all_transactees(&self, user: &str) -> Result<Vec<String>, TransactionRepoError>;
+    async fn get_all_transactees(
+        &self,
+        user: &str,
+        category: Option<String>,
+    ) -> Result<Vec<String>, TransactionRepoError>;
 
     async fn get_balance(&self, user: &str) -> Result<Decimal, TransactionRepoError>;
 }
@@ -160,6 +164,18 @@ impl NewTransaction {
             amount,
             tags,
         }
+    }
+
+    pub fn to_transaction(self, id: i32) -> Transaction {
+        Transaction::new(
+            id,
+            self.category,
+            self.transactee,
+            self.note,
+            self.date,
+            self.amount,
+            self.tags,
+        )
     }
 }
 

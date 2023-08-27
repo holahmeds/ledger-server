@@ -13,7 +13,7 @@ use diesel::r2d2::ConnectionManager;
 use diesel::{Connection, PgConnection, QueryDsl, RunQueryDsl};
 use r2d2::PooledConnection;
 use rust_decimal::Decimal;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use tracing::instrument;
 
 #[derive(Queryable, Identifiable)]
@@ -432,20 +432,66 @@ impl TransactionRepo for DieselTransactionRepo {
     }
 
     #[instrument(skip(self))]
-    async fn get_all_transactees(&self, user: &str) -> Result<Vec<String>, TransactionRepoError> {
+    async fn get_all_transactees(
+        &self,
+        user: &str,
+        category: Option<String>,
+    ) -> Result<Vec<String>, TransactionRepoError> {
         let user = user.to_owned();
         self.block(move |db_conn| {
-            use crate::diesel_repo::schema::transactions::dsl::*;
+            use diesel::dsl::count;
 
-            let results = transactions
-                .filter(user_id.eq(&user))
-                .select(transactee)
-                .distinct()
-                .load::<Option<String>>(db_conn)
-                .with_context(|| format!("Unable to get all transactees for user {}", user))?;
+            let transactees: Vec<String> = if let Some(category) = category {
+                let transactees: Vec<Option<String>> = transactions::table
+                    .filter(transactions::user_id.eq(&user))
+                    .filter(transactions::transactee.is_not_null())
+                    .select(transactions::transactee)
+                    .distinct()
+                    .load::<Option<String>>(db_conn)
+                    .with_context(|| format!("Unable to get all transactees for user {}", user))?;
+                // remove null entry if there is one
+                let mut transactees: Vec<String> = transactees.into_iter().flatten().collect();
 
-            // remove null entry if there is one
-            let transactees = results.into_iter().filter_map(|i| i).collect();
+                let mut transactee_counts: HashMap<String, i64> =
+                    transactees.iter().cloned().map(|t| (t, 0)).collect();
+                let category_transactee_counts: Vec<(Option<String>, i64)> = transactions::table
+                    .filter(transactions::user_id.eq(&user))
+                    .filter(transactions::transactee.eq(&category))
+                    .filter(transactions::transactee.is_not_null())
+                    .group_by(transactions::transactee)
+                    .select((transactions::transactee, count(transactions::transactee)))
+                    .load::<(Option<String>, i64)>(db_conn)
+                    .with_context(|| {
+                        format!(
+                            "Unable to get transaction counts for transactee with category {}",
+                            category
+                        )
+                    })?;
+                for (transactee, count) in category_transactee_counts {
+                    let Some(transactee) = transactee else {
+                        continue;
+                    };
+
+                    let t_count = transactee_counts
+                        .get_mut(&transactee)
+                        .expect("Transactee should be present in all transactees");
+                    *t_count += count;
+                }
+
+                transactees.sort_by(|a, b| transactee_counts.get(b).cmp(&transactee_counts.get(a)));
+                transactees
+            } else {
+                let results = transactions::table
+                    .filter(transactions::user_id.eq(&user))
+                    .filter(transactions::transactee.is_not_null())
+                    .group_by(transactions::transactee)
+                    .order_by(count(transactions::transactee).desc())
+                    .select(transactions::transactee)
+                    .load::<Option<String>>(db_conn)
+                    .with_context(|| format!("Unable to get all transactees for user {}", user))?;
+                // remove null entry if there is one
+                results.into_iter().flatten().collect()
+            };
             Ok(transactees)
         })
         .await

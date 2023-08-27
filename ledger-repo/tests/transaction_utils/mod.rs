@@ -7,108 +7,162 @@ use rand::seq::SliceRandom;
 use rust_decimal::Decimal;
 use std::collections::HashSet;
 use std::default::Default;
-use std::ops::Deref;
 
-const CATEGORIES: [&str; 4] = ["Misc", "Groceries", "Eating Out", "Transporation"];
-
-struct NewTransactionGenerator {
-    cat_gen: Box<dyn FnOnce() -> String>,
-    tran_gen: Box<dyn FnOnce() -> Option<String>>,
-    note_gen: Box<dyn FnOnce() -> Option<String>>,
-    date_gen: Box<dyn FnOnce() -> NaiveDate>,
-    amnt_gen: Box<dyn FnOnce() -> Decimal>,
-    tag_gen: Box<dyn FnOnce() -> HashSet<String>>,
+pub struct NewTransactionGenerator {
+    cat_gen: Box<dyn Generator<String>>,
+    tran_gen: Box<dyn Generator<Option<String>>>,
+    note_gen: Box<dyn Generator<Option<String>>>,
+    date_gen: Box<dyn Generator<NaiveDate>>,
+    amnt_gen: Box<dyn Generator<Decimal>>,
+    tag_gen: Box<dyn Generator<HashSet<String>>>,
 }
 
 impl NewTransactionGenerator {
-    fn generate(self) -> NewTransaction {
+    pub fn with_categories(mut self, categories: Vec<&str>) -> NewTransactionGenerator {
+        let categories: Vec<String> = categories.into_iter().map(|s| s.to_string()).collect();
+        self.cat_gen = Predefined::boxed(categories);
+        self
+    }
+
+    pub fn with_transactees(mut self, transactees: Vec<&str>) -> NewTransactionGenerator {
+        let transactees = transactees
+            .into_iter()
+            .map(|t| Some(t.to_string()))
+            .collect();
+        self.tran_gen = Predefined::boxed(transactees);
+        self
+    }
+
+    pub fn with_dates(mut self, dates: Vec<NaiveDate>) -> NewTransactionGenerator {
+        self.date_gen = Predefined::boxed(dates);
+        self
+    }
+
+    pub fn with_amounts(mut self, amounts: Vec<Decimal>) -> NewTransactionGenerator {
+        self.amnt_gen = Predefined::boxed(amounts);
+        self
+    }
+
+    pub fn with_tags(mut self, tags: Vec<HashSet<String>>) -> NewTransactionGenerator {
+        self.tag_gen = Predefined::boxed(tags);
+        self
+    }
+
+    pub fn generate(&mut self) -> NewTransaction {
         let new_transaction = NewTransaction::new(
-            (self.cat_gen)(),
-            (self.tran_gen)(),
-            (self.note_gen)(),
-            (self.date_gen)(),
-            (self.amnt_gen)(),
-            (self.tag_gen)(),
+            self.cat_gen.gen(),
+            self.tran_gen.gen(),
+            self.note_gen.gen(),
+            self.date_gen.gen(),
+            self.amnt_gen.gen(),
+            self.tag_gen.gen(),
         );
         new_transaction
+    }
+
+    pub fn generate_many(&mut self, count: usize) -> Vec<NewTransaction> {
+        let mut vec = Vec::with_capacity(count);
+        for _ in 0..count {
+            vec.push(self.generate())
+        }
+        vec
     }
 }
 
 impl Default for NewTransactionGenerator {
     fn default() -> Self {
         NewTransactionGenerator {
-            cat_gen: Box::new(|| {
-                CATEGORIES
-                    .choose(&mut rand::thread_rng())
-                    .unwrap()
-                    .deref()
-                    .to_owned()
-            }),
-            tran_gen: Box::new(|| Name().fake()),
-            note_gen: Box::new(|| Sentence(5..10).fake()),
-            date_gen: Box::new(|| Faker.fake()),
-            amnt_gen: Box::new(|| Decimal::from(Faker.fake::<i32>())),
-            tag_gen: Box::new(|| {
-                let tags: Vec<String> = Words(1..3).fake();
-                HashSet::from_iter(tags)
-            }),
+            cat_gen: RandomSample::boxed(vec![
+                "Misc".to_string(),
+                "Groceries".to_string(),
+                "Eating Out".to_string(),
+                "Transporation".to_string(),
+            ]),
+            tran_gen: FakeGenerator::boxed(Name()),
+            note_gen: FakeGenerator::boxed(Sentence(5..10)),
+            date_gen: FakeGenerator::boxed(Faker),
+            amnt_gen: Box::new(FakeAmount),
+            tag_gen: Box::new(FakeTags),
         }
     }
 }
 
+trait Generator<T> {
+    fn gen(&mut self) -> T;
+}
+
+struct Predefined<T> {
+    values: Vec<T>,
+    current_pos: usize,
+}
+
+impl<T> Predefined<T> {
+    fn boxed(values: Vec<T>) -> Box<Predefined<T>> {
+        Box::new(Predefined {
+            values,
+            current_pos: 0,
+        })
+    }
+}
+
+impl<T: Clone> Generator<T> for Predefined<T> {
+    fn gen(&mut self) -> T {
+        let v = self.values[self.current_pos].clone();
+        self.current_pos += 1;
+        v
+    }
+}
+
+struct RandomSample<T> {
+    values: Vec<T>,
+}
+
+impl<T> RandomSample<T> {
+    fn boxed(values: Vec<T>) -> Box<RandomSample<T>> {
+        Box::new(RandomSample { values })
+    }
+}
+
+impl<T: Clone> Generator<T> for RandomSample<T> {
+    fn gen(&mut self) -> T {
+        self.values.choose(&mut rand::thread_rng()).unwrap().clone()
+    }
+}
+
+struct FakeGenerator<F: Fake> {
+    fake: F,
+}
+
+impl<F: Fake> FakeGenerator<F> {
+    fn boxed(fake: F) -> Box<FakeGenerator<F>> {
+        Box::new(FakeGenerator { fake })
+    }
+}
+
+impl<T: fake::Dummy<F>, F> Generator<T> for FakeGenerator<F> {
+    fn gen(&mut self) -> T {
+        self.fake.fake()
+    }
+}
+
+struct FakeAmount;
+
+impl Generator<Decimal> for FakeAmount {
+    fn gen(&mut self) -> Decimal {
+        Decimal::from(Faker.fake::<i32>())
+    }
+}
+
+struct FakeTags;
+
+impl Generator<HashSet<String>> for FakeTags {
+    fn gen(&mut self) -> HashSet<String> {
+        let tags: Vec<String> = Words(1..3).fake();
+        HashSet::from_iter(tags)
+    }
+}
+
 pub fn generate_new_transaction() -> NewTransaction {
-    let generator = NewTransactionGenerator::default();
-    generator.generate()
-}
-
-pub fn generate_new_transaction_with_tags(tags: HashSet<String>) -> NewTransaction {
-    let generator = NewTransactionGenerator {
-        tag_gen: Box::new(|| tags),
-        ..Default::default()
-    };
-    generator.generate()
-}
-
-pub fn generate_new_transaction_with_category(category: String) -> NewTransaction {
-    let generator = NewTransactionGenerator {
-        cat_gen: Box::new(|| category),
-        ..Default::default()
-    };
-    generator.generate()
-}
-
-pub fn generate_new_transaction_with_transactee(transactee: String) -> NewTransaction {
-    let generator = NewTransactionGenerator {
-        tran_gen: Box::new(|| Some(transactee)),
-        ..Default::default()
-    };
-    generator.generate()
-}
-
-pub fn generate_new_transaction_with_date(date: NaiveDate) -> NewTransaction {
-    let generator = NewTransactionGenerator {
-        date_gen: Box::new(move || date),
-        ..Default::default()
-    };
-    generator.generate()
-}
-
-pub fn generate_new_transaction_with_amount(amount: Decimal) -> NewTransaction {
-    let generator = NewTransactionGenerator {
-        amnt_gen: Box::new(move || amount),
-        ..Default::default()
-    };
-    generator.generate()
-}
-
-pub fn generate_new_transaction_with_date_and_amount(
-    date: NaiveDate,
-    amount: Decimal,
-) -> NewTransaction {
-    let generator = NewTransactionGenerator {
-        date_gen: Box::new(move || date),
-        amnt_gen: Box::new(move || amount),
-        ..Default::default()
-    };
+    let mut generator = NewTransactionGenerator::default();
     generator.generate()
 }

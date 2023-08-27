@@ -5,7 +5,7 @@ use anyhow::Context;
 use async_trait::async_trait;
 use chrono::{DateTime, NaiveDate, Utc};
 use rust_decimal::Decimal;
-use sqlx::{query, query_as, query_scalar, PgExecutor, Pool, Postgres, QueryBuilder};
+use sqlx::{query, query_as, query_scalar, Executor, PgExecutor, Pool, Postgres, QueryBuilder};
 use std::collections::{HashMap, HashSet};
 use tracing::instrument;
 
@@ -77,13 +77,14 @@ impl SQLxTransactionRepo {
     }
 
     #[instrument(skip(transaction, tags))]
-    async fn insert_tags<'a, I>(
-        transaction: &mut sqlx::Transaction<'_, Postgres>,
+    async fn insert_tags<'a, 'e, I, E>(
+        transaction: E,
         transaction_id: i32,
         tags: I,
     ) -> Result<(), TransactionRepoError>
     where
         I: Iterator<Item = &'a String>,
+        E: Executor<'e, Database = Postgres>,
     {
         let mut query_builder =
             QueryBuilder::new("INSERT INTO transaction_tags(transaction_id, tag)");
@@ -98,24 +99,27 @@ impl SQLxTransactionRepo {
 
         let query = query_builder.build();
         query
-            .execute(&mut *transaction)
+            .execute(transaction)
             .await
             .context("Unable to insert tags for new transaction")?;
         Ok(())
     }
 
     #[instrument(skip(transaction))]
-    async fn delete_transaction_tags(
-        transaction: &mut sqlx::Transaction<'_, Postgres>,
+    async fn delete_transaction_tags<'e, E>(
+        transaction: E,
         transaction_id: i32,
         removed_tags: Vec<&str>,
-    ) -> Result<(), TransactionRepoError> {
+    ) -> Result<(), TransactionRepoError>
+    where
+        E: Executor<'e, Database = Postgres>,
+    {
         query!(
             "DELETE FROM transaction_tags WHERE transaction_id = $1 AND tag = ANY($2)",
             transaction_id,
             removed_tags as Vec<&str>
         )
-        .execute(&mut *transaction)
+        .execute(transaction)
         .await
         .with_context(|| format!("Unable to remove tags from transaction {}", transaction_id))?;
         Ok(())
@@ -182,11 +186,14 @@ impl SQLxTransactionRepo {
     }
 
     #[instrument(skip(transaction))]
-    async fn insert_transaction_entry(
-        transaction: &mut sqlx::Transaction<'_, Postgres>,
+    async fn insert_transaction_entry<'e, E>(
+        transaction: E,
         user: &str,
         new_transaction: &NewTransaction,
-    ) -> Result<i32, TransactionRepoError> {
+    ) -> Result<i32, TransactionRepoError>
+    where
+        E: Executor<'e, Database = Postgres>,
+    {
         let id = query_scalar!(
             "INSERT INTO transactions(category, transactee, note, date, amount, user_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id",
             new_transaction.category,
@@ -195,17 +202,20 @@ impl SQLxTransactionRepo {
             new_transaction.date,
             new_transaction.amount,
             user
-        ).fetch_one(&mut *transaction).await.context("Unable to insert transaction")?;
+        ).fetch_one(transaction).await.context("Unable to insert transaction")?;
         Ok(id)
     }
 
     #[instrument(skip(transaction))]
-    async fn update_transaction_entry(
-        transaction: &mut sqlx::Transaction<'_, Postgres>,
+    async fn update_transaction_entry<'e, E>(
+        transaction: E,
         user: &str,
         transaction_id: i32,
         updated_transaction: &NewTransaction,
-    ) -> Result<(), TransactionRepoError> {
+    ) -> Result<(), TransactionRepoError>
+    where
+        E: Executor<'e, Database = Postgres>,
+    {
         let result = query!(
             "UPDATE transactions SET category = $1, transactee = $2, note = $3, date = $4, amount = $5 WHERE user_id = $6 AND id = $7",
             updated_transaction.category,
@@ -215,7 +225,7 @@ impl SQLxTransactionRepo {
             updated_transaction.amount,
             user,
             transaction_id
-        ).execute(&mut *transaction).await.with_context(|| format!("Unable to update transaction {}", transaction_id))?;
+        ).execute(transaction).await.with_context(|| format!("Unable to update transaction {}", transaction_id))?;
         if result.rows_affected() == 0 {
             Err(TransactionNotFound(transaction_id))
         } else {
@@ -315,8 +325,9 @@ impl TransactionRepo for SQLxTransactionRepo {
             .begin()
             .await
             .context("Unable to start transaction")?;
-        let id = Self::insert_transaction_entry(&mut transaction, user, &new_transaction).await?;
-        SQLxTransactionRepo::insert_tags(&mut transaction, id, new_transaction.tags.iter()).await?;
+        let id = Self::insert_transaction_entry(&mut *transaction, user, &new_transaction).await?;
+        SQLxTransactionRepo::insert_tags(&mut *transaction, id, new_transaction.tags.iter())
+            .await?;
         transaction.commit().await.context("Transaction failed")?;
 
         Ok(Transaction::new(
@@ -344,7 +355,7 @@ impl TransactionRepo for SQLxTransactionRepo {
             .context("Unable to start transaction")?;
 
         Self::update_transaction_entry(
-            &mut transaction,
+            &mut *transaction,
             user,
             transaction_id,
             &updated_transaction,
@@ -352,16 +363,16 @@ impl TransactionRepo for SQLxTransactionRepo {
         .await?;
 
         let existing_tags =
-            SQLxTransactionRepo::get_tags_single(&mut transaction, transaction_id).await?;
+            SQLxTransactionRepo::get_tags_single(&mut *transaction, transaction_id).await?;
 
         let new_tags = updated_transaction.tags.difference(&existing_tags);
-        SQLxTransactionRepo::insert_tags(&mut transaction, transaction_id, new_tags).await?;
+        SQLxTransactionRepo::insert_tags(&mut *transaction, transaction_id, new_tags).await?;
 
         let removed_tags: Vec<&str> = existing_tags
             .difference(&updated_transaction.tags)
             .map(|t| t.as_str())
             .collect();
-        Self::delete_transaction_tags(&mut transaction, transaction_id, removed_tags).await?;
+        Self::delete_transaction_tags(&mut *transaction, transaction_id, removed_tags).await?;
 
         transaction
             .commit()
@@ -457,11 +468,23 @@ impl TransactionRepo for SQLxTransactionRepo {
     }
 
     #[instrument(skip(self))]
-    async fn get_all_transactees(&self, user: &str) -> Result<Vec<String>, TransactionRepoError> {
-        let transactees = query_scalar!(
-            "SELECT DISTINCT transactee as \"transactee!\" FROM transactions WHERE user_id = $1 AND transactee IS NOT NULL",
-            user
-        )
+    async fn get_all_transactees(
+        &self,
+        user: &str,
+        category: Option<String>,
+    ) -> Result<Vec<String>, TransactionRepoError> {
+        let query = if let Some(category) = category {
+            query_scalar!(
+                "SELECT transactees.transactee as \"transactee!\" FROM (SELECT DISTINCT transactee FROM transactions WHERE user_id = $1 AND transactee IS NOT NULL) transactees LEFT JOIN (SELECT transactee, COUNT(*) AS t_count FROM transactions WHERE user_id = $1 AND category = $2 GROUP BY transactee) AS t ON transactees.transactee = t.transactee ORDER BY COALESCE(t.t_count, 0) DESC",
+                user, category
+            )
+        } else {
+            query_scalar!(
+                "SELECT transactee as \"transactee!\" FROM transactions WHERE user_id = $1 AND transactee IS NOT NULL GROUP BY transactee ORDER BY COUNT(transactee) DESC",
+                user
+            )
+        };
+        let transactees = query
             .fetch_all(&self.pool)
             .await
             .with_context(|| format!("Unable to get transactees for user {}", user))?;
