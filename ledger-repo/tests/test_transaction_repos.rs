@@ -91,12 +91,10 @@ async fn test_get_invalid_transactions(#[case] repo_type: RepoType) {
     let user = TestUser::new(&user_repo).await;
 
     let get_result = transaction_repo.get_transaction(&user.id, 1234).await;
-    assert!(get_result.is_err());
-    // TODO
-    // assert_eq!(
-    //     TransactionRepoError::TransactionNotFound(1234),
-    //     get_result.unwrap_err()
-    // );
+    assert!(matches!(
+        get_result,
+        Err(TransactionRepoError::TransactionNotFound(1234))
+    ));
 
     user.delete().await;
 }
@@ -121,9 +119,10 @@ async fn test_get_invalid_user(#[case] repo_type: RepoType) {
     let result = transaction_repo
         .get_transaction(&user2.id, transaction_id)
         .await;
-    assert!(result.is_err());
-    // TODO
-    // assert_eq!(result.unwrap_err(), TransactionNotFound(transaction_id));
+    assert!(matches!(
+        result,
+        Err(TransactionRepoError::TransactionNotFound(_))
+    ));
 
     user1.delete().await;
     user2.delete().await;
@@ -153,12 +152,10 @@ async fn test_delete_transaction(#[case] repo_type: RepoType) {
     let result = transaction_repo
         .get_transaction(&user.id, transaction_id)
         .await;
-    assert!(result.is_err());
-    // TODO
-    // assert_eq!(
-    //     TransactionRepoError::TransactionNotFound(transaction_id),
-    //     result.unwrap_err()
-    // );
+    assert!(matches!(
+        result,
+        Err(TransactionRepoError::TransactionNotFound(_))
+    ));
 
     user.delete().await;
 }
@@ -173,12 +170,10 @@ async fn test_delete_invalid_transaction(#[case] repo_type: RepoType) {
     let user = TestUser::new(&user_repo).await;
 
     let delete_result = transaction_repo.delete_transaction(&user.id, 1234).await;
-    assert!(delete_result.is_err());
-    // TODO
-    // assert_eq!(
-    //     TransactionRepoError::TransactionNotFound(1234),
-    //     delete_result.unwrap_err()
-    // );
+    assert!(matches!(
+        delete_result,
+        Err(TransactionRepoError::TransactionNotFound(_))
+    ));
 
     user.delete().await;
 }
@@ -529,12 +524,10 @@ async fn test_update_invalid_transaction(#[case] repo_type: RepoType) {
     let result = transaction_repo
         .update_transaction(&test_user.id, 1234, update)
         .await;
-    assert!(result.is_err());
-    // TODO
-    // assert_eq!(
-    //     TransactionRepoError::TransactionNotFound(1234),
-    //     result.unwrap_err()
-    // );
+    assert!(matches!(
+        result,
+        Err(TransactionRepoError::TransactionNotFound(_))
+    ));
 
     test_user.delete().await
 }
@@ -559,12 +552,10 @@ async fn test_update_invalid_user(#[case] repo_type: RepoType) {
     let result = transaction_repo
         .update_transaction(&user2.id, transaction.id, update)
         .await;
-    assert!(result.is_err());
-    // TODO
-    // assert_eq!(
-    //     TransactionRepoError::TransactionNotFound(1234),
-    //     result.unwrap_err()
-    // );
+    assert!(matches!(
+        result,
+        Err(TransactionRepoError::TransactionNotFound(_))
+    ));
 
     user1.delete().await;
     user2.delete().await;
