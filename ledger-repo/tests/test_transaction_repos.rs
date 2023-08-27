@@ -1,12 +1,7 @@
 mod transaction_utils;
 mod utils;
 
-use crate::transaction_utils::{
-    generate_new_transaction, generate_new_transaction_with_amount,
-    generate_new_transaction_with_category, generate_new_transaction_with_category_and_transactee,
-    generate_new_transaction_with_date, generate_new_transaction_with_date_and_amount,
-    generate_new_transaction_with_tags, generate_new_transaction_with_transactee,
-};
+use crate::transaction_utils::{generate_new_transaction, NewTransactionGenerator};
 use chrono::NaiveDate;
 use futures::future::try_join_all;
 use ledger_repo::transaction_repo::{
@@ -197,7 +192,8 @@ async fn test_get_all_transactions(#[case] repo_type: RepoType) {
     let (transaction_repo, user_repo) = utils::build_repos(repo_type).await;
     let test_user = TestUser::new(&user_repo).await;
 
-    let new_transactions = vec![generate_new_transaction(), generate_new_transaction()];
+    let mut generator = NewTransactionGenerator::default();
+    let new_transactions = generator.generate_many(2);
 
     let inserted_transactions =
         insert_transactions(&transaction_repo, &test_user, new_transactions)
@@ -243,13 +239,15 @@ async fn test_transactions_sorted(#[case] repo_type: RepoType) {
     let (transaction_repo, user_repo) = utils::build_repos(repo_type).await;
     let test_user = TestUser::new(&user_repo).await;
 
-    let new_transactions = vec![
-        generate_new_transaction(),
-        generate_new_transaction(),
-        generate_new_transaction(),
-        generate_new_transaction_with_date(NaiveDate::from_str("2022-12-31").unwrap()),
-        generate_new_transaction_with_date(NaiveDate::from_str("2022-12-31").unwrap()),
-    ];
+    let mut generator = NewTransactionGenerator::default();
+    let mut new_transactions = generator.generate_many(3);
+    // generate two transactions with the same dates but different IDs
+    // this is to make sure that transactions are sorted by dates and then IDs
+    generator = generator.with_dates(vec![
+        NaiveDate::from_str("2022-12-31").unwrap(),
+        NaiveDate::from_str("2022-12-31").unwrap(),
+    ]);
+    new_transactions.extend(generator.generate_many(2));
 
     insert_transactions(&transaction_repo, &test_user, new_transactions)
         .await
@@ -276,10 +274,8 @@ async fn test_get_transactions_filter_category(#[case] repo_type: RepoType) {
     let (transaction_repo, user_repo) = utils::build_repos(repo_type).await;
     let test_user = TestUser::new(&user_repo).await;
 
-    let new_transactions = vec![
-        generate_new_transaction_with_category("Loan".to_owned()),
-        generate_new_transaction_with_category("Misc".to_owned()),
-    ];
+    let mut generator = NewTransactionGenerator::default().with_categories(vec!["Loan", "Misc"]);
+    let new_transactions = generator.generate_many(2);
 
     insert_transactions(&transaction_repo, &test_user, new_transactions)
         .await
@@ -310,10 +306,8 @@ async fn test_get_transactions_filter_transactee(#[case] repo_type: RepoType) {
     let (transaction_repo, user_repo) = utils::build_repos(repo_type).await;
     let test_user = TestUser::new(&user_repo).await;
 
-    let new_transactions = vec![
-        generate_new_transaction_with_transactee("Alice".to_string()),
-        generate_new_transaction_with_transactee("Bob".to_string()),
-    ];
+    let mut generator = NewTransactionGenerator::default().with_transactees(vec!["Alice", "Bob"]);
+    let new_transactions = generator.generate_many(2);
 
     insert_transactions(&transaction_repo, &test_user, new_transactions)
         .await
@@ -346,10 +340,11 @@ async fn test_get_transactions_filter_from(#[case] repo_type: RepoType) {
     let (transaction_repo, user_repo) = utils::build_repos(repo_type).await;
     let test_user = TestUser::new(&user_repo).await;
 
-    let new_transactions = vec![
-        generate_new_transaction_with_date(NaiveDate::from_str("2021-10-11").unwrap()),
-        generate_new_transaction_with_date(NaiveDate::from_str("1900-10-11").unwrap()),
-    ];
+    let mut generator = NewTransactionGenerator::default().with_dates(vec![
+        NaiveDate::from_str("2021-10-11").unwrap(),
+        NaiveDate::from_str("1900-10-11").unwrap(),
+    ]);
+    let new_transactions = generator.generate_many(2);
 
     insert_transactions(&transaction_repo, &test_user, new_transactions)
         .await
@@ -382,10 +377,11 @@ async fn test_get_transactions_filter_until(#[case] repo_type: RepoType) {
     let (transaction_repo, user_repo) = utils::build_repos(repo_type).await;
     let test_user = TestUser::new(&user_repo).await;
 
-    let new_transactions = vec![
-        generate_new_transaction_with_date(NaiveDate::from_str("2021-10-11").unwrap()),
-        generate_new_transaction_with_date(NaiveDate::from_str("1900-10-11").unwrap()),
-    ];
+    let mut generator = NewTransactionGenerator::default().with_dates(vec![
+        NaiveDate::from_str("2021-10-11").unwrap(),
+        NaiveDate::from_str("1900-10-11").unwrap(),
+    ]);
+    let new_transactions = generator.generate_many(2);
 
     insert_transactions(&transaction_repo, &test_user, new_transactions)
         .await
@@ -418,11 +414,12 @@ async fn test_transactions_pagination(#[case] repo_type: RepoType) {
     let (transaction_repo, user_repo) = utils::build_repos(repo_type).await;
     let test_user = TestUser::new(&user_repo).await;
 
-    let new_transactions = vec![
-        generate_new_transaction_with_date(NaiveDate::from_str("2022-08-02").unwrap()),
-        generate_new_transaction_with_date(NaiveDate::from_str("2021-10-11").unwrap()),
-        generate_new_transaction_with_date(NaiveDate::from_str("1900-10-11").unwrap()),
-    ];
+    let mut generator = NewTransactionGenerator::default().with_dates(vec![
+        NaiveDate::from_str("2022-08-02").unwrap(),
+        NaiveDate::from_str("2021-10-11").unwrap(),
+        NaiveDate::from_str("1900-10-11").unwrap(),
+    ]);
+    let new_transactions = generator.generate_many(3);
 
     let inserted_transactions =
         insert_transactions(&transaction_repo, &test_user, new_transactions)
@@ -582,24 +579,20 @@ async fn test_monthly_totals(#[case] repo_type: RepoType) {
     let (transaction_repo, user_repo) = utils::build_repos(repo_type).await;
     let test_user = TestUser::new(&user_repo).await;
 
-    let new_transactions = vec![
-        generate_new_transaction_with_date_and_amount(
+    let mut generator = NewTransactionGenerator::default()
+        .with_dates(vec![
             NaiveDate::from_str("2022-12-02").unwrap(),
-            Decimal::from(-20),
-        ),
-        generate_new_transaction_with_date_and_amount(
             NaiveDate::from_str("2022-12-11").unwrap(),
-            Decimal::from(10),
-        ),
-        generate_new_transaction_with_date_and_amount(
             NaiveDate::from_str("2022-12-11").unwrap(),
-            Decimal::from(15),
-        ),
-        generate_new_transaction_with_date_and_amount(
             NaiveDate::from_str("2022-11-11").unwrap(),
+        ])
+        .with_amounts(vec![
+            Decimal::from(-20),
+            Decimal::from(10),
+            Decimal::from(15),
             Decimal::from(30),
-        ),
-    ];
+        ]);
+    let new_transactions = generator.generate_many(4);
 
     insert_transactions(&transaction_repo, &test_user, new_transactions)
         .await
@@ -637,11 +630,9 @@ async fn test_get_categories(#[case] repo_type: RepoType) {
     let (transaction_repo, user_repo) = utils::build_repos(repo_type).await;
     let test_user = TestUser::new(&user_repo).await;
 
-    let new_transactions = vec![
-        generate_new_transaction_with_category("Misc".to_string()),
-        generate_new_transaction_with_category("Loan".to_string()),
-        generate_new_transaction_with_category("Misc".to_string()),
-    ];
+    let mut generator =
+        NewTransactionGenerator::default().with_categories(vec!["Misc", "Loan", "Misc"]);
+    let new_transactions = generator.generate_many(3);
 
     insert_transactions(&transaction_repo, &test_user, new_transactions)
         .await
@@ -668,10 +659,11 @@ async fn test_get_tags(#[case] repo_type: RepoType) {
     let (transaction_repo, user_repo) = utils::build_repos(repo_type).await;
     let test_user = TestUser::new(&user_repo).await;
 
-    let new_transactions = vec![
-        generate_new_transaction_with_tags(HashSet::from(["tag1".to_string(), "tag2".to_string()])),
-        generate_new_transaction_with_tags(HashSet::from(["tag2".to_string(), "tag3".to_string()])),
-    ];
+    let mut generator = NewTransactionGenerator::default().with_tags(vec![
+        HashSet::from(["tag1".to_string(), "tag2".to_string()]),
+        HashSet::from(["tag2".to_string(), "tag3".to_string()]),
+    ]);
+    let new_transactions = generator.generate_many(2);
 
     insert_transactions(&transaction_repo, &test_user, new_transactions)
         .await
@@ -695,11 +687,9 @@ async fn test_get_transactees(#[case] repo_type: RepoType) {
     let (transaction_repo, user_repo) = utils::build_repos(repo_type).await;
     let test_user = TestUser::new(&user_repo).await;
 
-    let new_transactions = vec![
-        generate_new_transaction_with_transactee("Bob".to_string()),
-        generate_new_transaction_with_transactee("Alice".to_string()),
-        generate_new_transaction_with_transactee("Bob".to_string()),
-    ];
+    let mut generator =
+        NewTransactionGenerator::default().with_transactees(vec!["Bob", "Alice", "Bob"]);
+    let new_transactions = generator.generate_many(3);
 
     insert_transactions(&transaction_repo, &test_user, new_transactions)
         .await
@@ -724,20 +714,10 @@ async fn test_get_category_transactees(#[case] repo_type: RepoType) {
     let (transaction_repo, user_repo) = utils::build_repos(repo_type).await;
     let test_user = TestUser::new(&user_repo).await;
 
-    let new_transactions = vec![
-        generate_new_transaction_with_category_and_transactee(
-            "Misc".to_string(),
-            "Bob".to_string(),
-        ),
-        generate_new_transaction_with_category_and_transactee(
-            "Groceries".to_string(),
-            "Alice".to_string(),
-        ),
-        generate_new_transaction_with_category_and_transactee(
-            "Misc".to_string(),
-            "Bob".to_string(),
-        ),
-    ];
+    let mut generator = NewTransactionGenerator::default()
+        .with_categories(vec!["Misc", "Groceries", "Misc"])
+        .with_transactees(vec!["Bob", "Alice", "Bob"]);
+    let new_transactions = generator.generate_many(3);
 
     insert_transactions(&transaction_repo, &test_user, new_transactions)
         .await
@@ -762,11 +742,12 @@ async fn test_get_balance(#[case] repo_type: RepoType) {
     let (transaction_repo, user_repo) = utils::build_repos(repo_type).await;
     let test_user = TestUser::new(&user_repo).await;
 
-    let new_transactions = vec![
-        generate_new_transaction_with_amount(Decimal::from(20)),
-        generate_new_transaction_with_amount(Decimal::from(-10)),
-        generate_new_transaction_with_amount(Decimal::from(15)),
-    ];
+    let mut generator = NewTransactionGenerator::default().with_amounts(vec![
+        Decimal::from(20),
+        Decimal::from(-10),
+        Decimal::from(15),
+    ]);
+    let new_transactions = generator.generate_many(3);
 
     insert_transactions(&transaction_repo, &test_user, new_transactions)
         .await
