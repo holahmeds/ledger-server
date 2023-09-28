@@ -337,6 +337,7 @@ impl TransactionRepo for DieselTransactionRepo {
     async fn get_monthly_totals(
         &self,
         user: &str,
+        filter: Filter,
     ) -> Result<Vec<MonthlyTotal>, TransactionRepoError> {
         let user = user.to_owned();
         self.block(move |db_conn| {
@@ -346,8 +347,23 @@ impl TransactionRepo for DieselTransactionRepo {
                 amount: Decimal,
             }
 
-            let entries: Vec<Entry> = transactions::table
+            let mut query = transactions::table
                 .filter(transactions::user_id.eq(&user))
+                .into_boxed();
+            if let Some(from) = filter.from {
+                query = query.filter(transactions::date.ge(from))
+            }
+            if let Some(until) = filter.until {
+                query = query.filter(transactions::date.le(until))
+            }
+            if let Some(category) = filter.category {
+                query = query.filter(transactions::category.eq(category))
+            }
+            if let Some(transactee) = filter.transactee {
+                query = query.filter(transactions::transactee.eq(transactee))
+            }
+
+            let entries: Vec<Entry> = query
                 .select((transactions::date, transactions::amount))
                 .order(transactions::date.desc())
                 .load(db_conn)

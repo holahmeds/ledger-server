@@ -195,8 +195,9 @@ impl TransactionRepo for MemTransactionRepo {
     async fn get_monthly_totals(
         &self,
         user: &str,
+        filter: Filter,
     ) -> Result<Vec<MonthlyTotal>, TransactionRepoError> {
-        let transactions = self.get_all_transactions(user, Filter::NONE, None).await?;
+        let transactions = self.get_all_transactions(user, filter, None).await?;
 
         let mut monthly_totals = HashMap::new();
         for t in transactions {

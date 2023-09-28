@@ -9,8 +9,27 @@ use std::sync::Arc;
 use crate::error::HandlerError;
 use crate::user::UserId;
 
-use ledger_repo::transaction_repo::{Filter, TransactionRepo};
+use ledger_repo::transaction_repo::TransactionRepo;
 use ledger_repo::transaction_repo::{NewTransaction, PageOptions};
+
+#[derive(Deserialize)]
+pub struct Filter {
+    from: Option<NaiveDate>,
+    until: Option<NaiveDate>,
+    category: Option<String>,
+    transactee: Option<String>,
+}
+
+impl Into<ledger_repo::transaction_repo::Filter> for Filter {
+    fn into(self) -> ledger_repo::transaction_repo::Filter {
+        ledger_repo::transaction_repo::Filter::new(
+            self.from,
+            self.until,
+            self.category,
+            self.transactee,
+        )
+    }
+}
 
 #[derive(Deserialize)]
 pub struct PageQueryParameters {
@@ -68,7 +87,7 @@ pub async fn get_transactions(
     };
 
     let transaction = transaction_repo
-        .get_all_transactions(&user_id.into_inner(), filter, page_options)
+        .get_all_transactions(&user_id.into_inner(), filter.into(), page_options)
         .await?;
     Ok(HttpResponse::Ok().json(transaction))
 }
@@ -117,10 +136,11 @@ pub async fn delete_transaction(
 #[get("/monthly")]
 pub async fn get_monthly_totals(
     transaction_repo: web::Data<Arc<dyn TransactionRepo>>,
+    filter: web::Query<Filter>,
     user_id: web::ReqData<UserId>,
 ) -> Result<impl Responder, HandlerError> {
     let monthly_totals = transaction_repo
-        .get_monthly_totals(&user_id.into_inner())
+        .get_monthly_totals(&user_id.into_inner(), filter.into_inner().into())
         .await?;
     let monthly_totals: Vec<MonthlyTotalResponse> = monthly_totals
         .into_iter()

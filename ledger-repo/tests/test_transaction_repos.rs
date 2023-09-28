@@ -582,7 +582,7 @@ async fn test_monthly_totals(#[case] repo_type: RepoType) {
         .unwrap();
 
     let monthly_totals = transaction_repo
-        .get_monthly_totals(&test_user.id)
+        .get_monthly_totals(&test_user.id, Filter::NONE)
         .await
         .unwrap();
     assert_eq!(

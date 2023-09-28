@@ -13,7 +13,7 @@ pub struct PageOptions {
     pub limit: i64,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug)]
 pub struct Filter {
     pub from: Option<NaiveDate>,
     pub until: Option<NaiveDate>,
@@ -87,6 +87,7 @@ pub trait TransactionRepo: Sync + Send {
     async fn get_monthly_totals(
         &self,
         user: &str,
+        filter: Filter,
     ) -> Result<Vec<MonthlyTotal>, TransactionRepoError>;
 
     async fn get_all_categories(&self, user: &str) -> Result<Vec<String>, TransactionRepoError>;
