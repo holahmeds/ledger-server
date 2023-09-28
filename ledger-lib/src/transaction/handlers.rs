@@ -9,16 +9,8 @@ use std::sync::Arc;
 use crate::error::HandlerError;
 use crate::user::UserId;
 
-use ledger_repo::transaction_repo::TransactionRepo;
+use ledger_repo::transaction_repo::{Filter, TransactionRepo};
 use ledger_repo::transaction_repo::{NewTransaction, PageOptions};
-
-#[derive(Deserialize)]
-pub struct Filter {
-    from: Option<NaiveDate>,
-    until: Option<NaiveDate>,
-    category: Option<String>,
-    transactee: Option<String>,
-}
 
 #[derive(Deserialize)]
 pub struct PageQueryParameters {
@@ -76,14 +68,7 @@ pub async fn get_transactions(
     };
 
     let transaction = transaction_repo
-        .get_all_transactions(
-            &user_id.into_inner(),
-            filter.from,
-            filter.until,
-            filter.category,
-            filter.transactee,
-            page_options,
-        )
+        .get_all_transactions(&user_id.into_inner(), filter, page_options)
         .await?;
     Ok(HttpResponse::Ok().json(transaction))
 }

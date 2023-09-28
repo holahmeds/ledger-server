@@ -1,5 +1,5 @@
 use crate::transaction_repo::TransactionRepoError::TransactionNotFound;
-use crate::transaction_repo::{MonthlyTotal, PageOptions};
+use crate::transaction_repo::{Filter, MonthlyTotal, PageOptions};
 use crate::transaction_repo::{NewTransaction, Transaction, TransactionRepo, TransactionRepoError};
 use anyhow::Context;
 use async_trait::async_trait;
@@ -276,14 +276,18 @@ impl TransactionRepo for SQLxTransactionRepo {
     async fn get_all_transactions(
         &self,
         user: &str,
-        from: Option<NaiveDate>,
-        until: Option<NaiveDate>,
-        category: Option<String>,
-        transactee: Option<String>,
+        filter: Filter,
         page_options: Option<PageOptions>,
     ) -> Result<Vec<Transaction>, TransactionRepoError> {
         let transaction_entries = self
-            .get_transaction_entries(user, from, until, category, transactee, page_options)
+            .get_transaction_entries(
+                user,
+                filter.from,
+                filter.until,
+                filter.category,
+                filter.transactee,
+                page_options,
+            )
             .await?;
 
         let transaction_ids: Vec<i32> = transaction_entries.iter().map(|te| te.id).collect();

@@ -1,6 +1,7 @@
 use crate::transaction_repo::TransactionRepoError::TransactionNotFound;
 use crate::transaction_repo::{
-    MonthlyTotal, NewTransaction, PageOptions, Transaction, TransactionRepo, TransactionRepoError,
+    Filter, MonthlyTotal, NewTransaction, PageOptions, Transaction, TransactionRepo,
+    TransactionRepoError,
 };
 use anyhow::anyhow;
 use async_trait::async_trait;
@@ -72,10 +73,7 @@ impl TransactionRepo for MemTransactionRepo {
     async fn get_all_transactions(
         &self,
         user: &str,
-        from: Option<NaiveDate>,
-        until: Option<NaiveDate>,
-        category: Option<String>,
-        transactee: Option<String>,
+        filter: Filter,
         page_options: Option<PageOptions>,
     ) -> Result<Vec<Transaction>, TransactionRepoError> {
         let read_guard = self.read_lock()?;
@@ -98,16 +96,16 @@ impl TransactionRepo for MemTransactionRepo {
 
         let mut transactions: Box<dyn Iterator<Item = Transaction>> =
             Box::new(transactions.into_iter());
-        if let Some(from) = from {
+        if let Some(from) = filter.from {
             transactions = Box::new(transactions.filter(move |t| t.date >= from));
         }
-        if let Some(until) = until {
+        if let Some(until) = filter.until {
             transactions = Box::new(transactions.filter(move |t| t.date <= until));
         }
-        if let Some(category) = category {
+        if let Some(category) = filter.category {
             transactions = Box::new(transactions.filter(move |t| t.category == category));
         }
-        if let Some(transactee) = transactee {
+        if let Some(transactee) = filter.transactee {
             transactions = Box::new(transactions.filter(move |t| {
                 if let Some(tr) = &t.transactee {
                     tr == &transactee
@@ -198,9 +196,7 @@ impl TransactionRepo for MemTransactionRepo {
         &self,
         user: &str,
     ) -> Result<Vec<MonthlyTotal>, TransactionRepoError> {
-        let transactions = self
-            .get_all_transactions(user, None, None, None, None, None)
-            .await?;
+        let transactions = self.get_all_transactions(user, Filter::NONE, None).await?;
 
         let mut monthly_totals = HashMap::new();
         for t in transactions {
@@ -224,7 +220,7 @@ impl TransactionRepo for MemTransactionRepo {
 
     async fn get_all_categories(&self, user: &str) -> Result<Vec<String>, TransactionRepoError> {
         let categories: HashSet<String> = self
-            .get_all_transactions(user, None, None, None, None, None)
+            .get_all_transactions(user, Filter::NONE, None)
             .await?
             .into_iter()
             .map(|t| t.category)
@@ -234,7 +230,7 @@ impl TransactionRepo for MemTransactionRepo {
 
     async fn get_all_tags(&self, user: &str) -> Result<Vec<String>, TransactionRepoError> {
         let tags: HashSet<String> = self
-            .get_all_transactions(user, None, None, None, None, None)
+            .get_all_transactions(user, Filter::NONE, None)
             .await?
             .into_iter()
             .flat_map(|t| t.tags)
@@ -249,9 +245,7 @@ impl TransactionRepo for MemTransactionRepo {
     ) -> Result<Vec<String>, TransactionRepoError> {
         let mut transactee_counts = HashMap::new();
 
-        let transactions = self
-            .get_all_transactions(user, None, None, None, None, None)
-            .await?;
+        let transactions = self.get_all_transactions(user, Filter::NONE, None).await?;
         for x in transactions {
             let Some(transactee) = x.transactee else {
                 continue;
@@ -276,7 +270,7 @@ impl TransactionRepo for MemTransactionRepo {
 
     async fn get_balance(&self, user: &str) -> Result<Decimal, TransactionRepoError> {
         let sum = self
-            .get_all_transactions(user, None, None, None, None, None)
+            .get_all_transactions(user, Filter::NONE, None)
             .await?
             .into_iter()
             .map(|t| t.amount)

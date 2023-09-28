@@ -5,7 +5,8 @@ use crate::transaction_utils::{generate_new_transaction, NewTransactionGenerator
 use chrono::NaiveDate;
 use futures::future::try_join_all;
 use ledger_repo::transaction_repo::{
-    MonthlyTotal, NewTransaction, PageOptions, Transaction, TransactionRepo, TransactionRepoError,
+    Filter, MonthlyTotal, NewTransaction, PageOptions, Transaction, TransactionRepo,
+    TransactionRepoError,
 };
 use ledger_repo::user_repo::{User, UserRepo};
 use rstest::rstest;
@@ -196,7 +197,7 @@ async fn test_get_all_transactions(#[case] repo_type: RepoType) {
             .unwrap();
 
     let transactions: Vec<Transaction> = transaction_repo
-        .get_all_transactions(&test_user.id, None, None, None, None, None)
+        .get_all_transactions(&test_user.id, Filter::NONE, None)
         .await
         .unwrap();
     assert_eq!(
@@ -217,7 +218,7 @@ async fn test_get_all_transactions_empty(#[case] repo_type: RepoType) {
     let test_user = TestUser::new(&user_repo).await;
 
     let transactions: Vec<Transaction> = transaction_repo
-        .get_all_transactions(&test_user.id, None, None, None, None, None)
+        .get_all_transactions(&test_user.id, Filter::NONE, None)
         .await
         .unwrap();
     assert!(transactions.is_empty());
@@ -249,7 +250,7 @@ async fn test_transactions_sorted(#[case] repo_type: RepoType) {
         .unwrap();
 
     let transactions: Vec<Transaction> = transaction_repo
-        .get_all_transactions(&test_user.id, None, None, None, None, None)
+        .get_all_transactions(&test_user.id, Filter::NONE, None)
         .await
         .unwrap();
     assert!(
@@ -279,10 +280,7 @@ async fn test_get_transactions_filter_category(#[case] repo_type: RepoType) {
     let transactions: Vec<Transaction> = transaction_repo
         .get_all_transactions(
             &test_user.id,
-            None,
-            None,
-            Some("Loan".to_owned()),
-            None,
+            Filter::new(None, None, Some("Loan".to_owned()), None),
             None,
         )
         .await
@@ -311,10 +309,7 @@ async fn test_get_transactions_filter_transactee(#[case] repo_type: RepoType) {
     let transactions: Vec<Transaction> = transaction_repo
         .get_all_transactions(
             &test_user.id,
-            None,
-            None,
-            None,
-            Some("Alice".to_owned()),
+            Filter::new(None, None, None, Some("Alice".to_owned())),
             None,
         )
         .await
@@ -348,10 +343,12 @@ async fn test_get_transactions_filter_from(#[case] repo_type: RepoType) {
     let transactions: Vec<Transaction> = transaction_repo
         .get_all_transactions(
             &test_user.id,
-            Some(NaiveDate::from_str("2021-01-01").unwrap()),
-            None,
-            None,
-            None,
+            Filter::new(
+                Some(NaiveDate::from_str("2021-01-01").unwrap()),
+                None,
+                None,
+                None,
+            ),
             None,
         )
         .await
@@ -385,10 +382,12 @@ async fn test_get_transactions_filter_until(#[case] repo_type: RepoType) {
     let transactions: Vec<Transaction> = transaction_repo
         .get_all_transactions(
             &test_user.id,
-            None,
-            Some(NaiveDate::from_str("2021-01-01").unwrap()),
-            None,
-            None,
+            Filter::new(
+                None,
+                Some(NaiveDate::from_str("2021-01-01").unwrap()),
+                None,
+                None,
+            ),
             None,
         )
         .await
@@ -422,14 +421,7 @@ async fn test_transactions_pagination(#[case] repo_type: RepoType) {
             .unwrap();
 
     let transactions: Vec<Transaction> = transaction_repo
-        .get_all_transactions(
-            &test_user.id,
-            None,
-            None,
-            None,
-            None,
-            Some(PageOptions::new(1, 2)),
-        )
+        .get_all_transactions(&test_user.id, Filter::NONE, Some(PageOptions::new(1, 2)))
         .await
         .unwrap();
     assert_eq!(2, transactions.len());
