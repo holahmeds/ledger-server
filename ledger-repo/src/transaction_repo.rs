@@ -13,6 +13,37 @@ pub struct PageOptions {
     pub limit: i64,
 }
 
+#[derive(Debug)]
+pub struct Filter {
+    pub from: Option<NaiveDate>,
+    pub until: Option<NaiveDate>,
+    pub category: Option<String>,
+    pub transactee: Option<String>,
+}
+
+impl Filter {
+    pub const NONE: Filter = Filter {
+        from: None,
+        until: None,
+        category: None,
+        transactee: None,
+    };
+
+    pub fn new(
+        from: Option<NaiveDate>,
+        until: Option<NaiveDate>,
+        category: Option<String>,
+        transactee: Option<String>,
+    ) -> Filter {
+        Filter {
+            from,
+            until,
+            category,
+            transactee,
+        }
+    }
+}
+
 impl PageOptions {
     pub fn new(offset: i64, limit: i64) -> PageOptions {
         PageOptions { offset, limit }
@@ -30,10 +61,7 @@ pub trait TransactionRepo: Sync + Send {
     async fn get_all_transactions(
         &self,
         user: &str,
-        from: Option<NaiveDate>,
-        until: Option<NaiveDate>,
-        category: Option<String>,
-        transactee: Option<String>,
+        filter: Filter,
         page_options: Option<PageOptions>,
     ) -> Result<Vec<Transaction>, TransactionRepoError>;
 
@@ -59,6 +87,7 @@ pub trait TransactionRepo: Sync + Send {
     async fn get_monthly_totals(
         &self,
         user: &str,
+        filter: Filter,
     ) -> Result<Vec<MonthlyTotal>, TransactionRepoError>;
 
     async fn get_all_categories(&self, user: &str) -> Result<Vec<String>, TransactionRepoError>;

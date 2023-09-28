@@ -1,5 +1,5 @@
 use crate::transaction_repo::TransactionRepoError::TransactionNotFound;
-use crate::transaction_repo::{MonthlyTotal, PageOptions};
+use crate::transaction_repo::{Filter, MonthlyTotal, PageOptions};
 use crate::transaction_repo::{NewTransaction, Transaction, TransactionRepo, TransactionRepoError};
 use anyhow::Context;
 use async_trait::async_trait;
@@ -26,6 +26,7 @@ struct TagEntry {
     tag: String,
 }
 
+#[derive(sqlx::FromRow)]
 struct MonthlyTotalResult {
     month: Option<DateTime<Utc>>,
     income: Option<Decimal>,
@@ -276,14 +277,18 @@ impl TransactionRepo for SQLxTransactionRepo {
     async fn get_all_transactions(
         &self,
         user: &str,
-        from: Option<NaiveDate>,
-        until: Option<NaiveDate>,
-        category: Option<String>,
-        transactee: Option<String>,
+        filter: Filter,
         page_options: Option<PageOptions>,
     ) -> Result<Vec<Transaction>, TransactionRepoError> {
         let transaction_entries = self
-            .get_transaction_entries(user, from, until, category, transactee, page_options)
+            .get_transaction_entries(
+                user,
+                filter.from,
+                filter.until,
+                filter.category,
+                filter.transactee,
+                page_options,
+            )
             .await?;
 
         let transaction_ids: Vec<i32> = transaction_entries.iter().map(|te| te.id).collect();
@@ -414,23 +419,41 @@ impl TransactionRepo for SQLxTransactionRepo {
     async fn get_monthly_totals(
         &self,
         user: &str,
+        filter: Filter,
     ) -> Result<Vec<MonthlyTotal>, TransactionRepoError> {
-        let monthly_totals = query_as!(
-            MonthlyTotalResult,
+        let mut query_builder = QueryBuilder::new(
             r#"
             SELECT DATE_TRUNC('month', date)             as month,
                    SUM(amount) FILTER (WHERE amount > 0) as income,
                    SUM(amount * -1) FILTER (WHERE amount < 0) as expense
             FROM transactions
-            WHERE user_id = $1
-            GROUP BY month
-            ORDER BY month DESC
+            WHERE user_id = 
             "#,
-            user
-        )
-        .fetch_all(&self.pool)
-        .await
-        .with_context(|| format!("Unable to get monthly totals for {}", user))?;
+        );
+        query_builder.push_bind(user);
+
+        if let Some(from) = filter.from {
+            query_builder.push(" AND date >= ").push_bind(from);
+        }
+        if let Some(until) = filter.until {
+            query_builder.push(" AND date <= ").push_bind(until);
+        }
+        if let Some(category) = filter.category {
+            query_builder.push(" AND category = ").push_bind(category);
+        }
+        if let Some(transactee) = filter.transactee {
+            query_builder
+                .push(" AND transactee = ")
+                .push_bind(transactee);
+        }
+
+        query_builder.push(" GROUP BY month ORDER BY month DESC");
+        let query = query_builder.build_query_as();
+
+        let monthly_totals: Vec<MonthlyTotalResult> = query
+            .fetch_all(&self.pool)
+            .await
+            .with_context(|| format!("Unable to get monthly totals for {}", user))?;
 
         let monthly_totals = monthly_totals
             .into_iter()

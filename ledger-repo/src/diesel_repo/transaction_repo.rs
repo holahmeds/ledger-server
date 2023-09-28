@@ -1,7 +1,8 @@
 use super::schema::{transaction_tags, transactions};
 use super::DbPool;
 use crate::transaction_repo::{
-    MonthlyTotal, NewTransaction, PageOptions, Transaction, TransactionRepo, TransactionRepoError,
+    Filter, MonthlyTotal, NewTransaction, PageOptions, Transaction, TransactionRepo,
+    TransactionRepoError,
 };
 use actix_web::web;
 use anyhow::Context;
@@ -175,10 +176,7 @@ impl TransactionRepo for DieselTransactionRepo {
     async fn get_all_transactions(
         &self,
         user: &str,
-        from: Option<NaiveDate>,
-        until: Option<NaiveDate>,
-        category: Option<String>,
-        transactee: Option<String>,
+        filter: Filter,
         page_options: Option<PageOptions>,
     ) -> Result<Vec<Transaction>, TransactionRepoError> {
         let user = user.to_owned();
@@ -186,16 +184,16 @@ impl TransactionRepo for DieselTransactionRepo {
             let mut query = transactions::table
                 .filter(transactions::user_id.eq(user))
                 .into_boxed();
-            if let Some(from) = from {
+            if let Some(from) = filter.from {
                 query = query.filter(transactions::date.ge(from))
             }
-            if let Some(until) = until {
+            if let Some(until) = filter.until {
                 query = query.filter(transactions::date.le(until))
             }
-            if let Some(category) = category {
+            if let Some(category) = filter.category {
                 query = query.filter(transactions::category.eq(category))
             }
-            if let Some(transactee) = transactee {
+            if let Some(transactee) = filter.transactee {
                 query = query.filter(transactions::transactee.eq(transactee))
             }
             if let Some(po) = page_options {
@@ -339,6 +337,7 @@ impl TransactionRepo for DieselTransactionRepo {
     async fn get_monthly_totals(
         &self,
         user: &str,
+        filter: Filter,
     ) -> Result<Vec<MonthlyTotal>, TransactionRepoError> {
         let user = user.to_owned();
         self.block(move |db_conn| {
@@ -348,8 +347,23 @@ impl TransactionRepo for DieselTransactionRepo {
                 amount: Decimal,
             }
 
-            let entries: Vec<Entry> = transactions::table
+            let mut query = transactions::table
                 .filter(transactions::user_id.eq(&user))
+                .into_boxed();
+            if let Some(from) = filter.from {
+                query = query.filter(transactions::date.ge(from))
+            }
+            if let Some(until) = filter.until {
+                query = query.filter(transactions::date.le(until))
+            }
+            if let Some(category) = filter.category {
+                query = query.filter(transactions::category.eq(category))
+            }
+            if let Some(transactee) = filter.transactee {
+                query = query.filter(transactions::transactee.eq(transactee))
+            }
+
+            let entries: Vec<Entry> = query
                 .select((transactions::date, transactions::amount))
                 .order(transactions::date.desc())
                 .load(db_conn)

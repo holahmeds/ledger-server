@@ -20,6 +20,17 @@ pub struct Filter {
     transactee: Option<String>,
 }
 
+impl From<Filter> for ledger_repo::transaction_repo::Filter {
+    fn from(value: Filter) -> Self {
+        ledger_repo::transaction_repo::Filter::new(
+            value.from,
+            value.until,
+            value.category,
+            value.transactee,
+        )
+    }
+}
+
 #[derive(Deserialize)]
 pub struct PageQueryParameters {
     offset: Option<i64>,
@@ -76,14 +87,7 @@ pub async fn get_transactions(
     };
 
     let transaction = transaction_repo
-        .get_all_transactions(
-            &user_id.into_inner(),
-            filter.from,
-            filter.until,
-            filter.category,
-            filter.transactee,
-            page_options,
-        )
+        .get_all_transactions(&user_id.into_inner(), filter.into(), page_options)
         .await?;
     Ok(HttpResponse::Ok().json(transaction))
 }
@@ -132,10 +136,11 @@ pub async fn delete_transaction(
 #[get("/monthly")]
 pub async fn get_monthly_totals(
     transaction_repo: web::Data<Arc<dyn TransactionRepo>>,
+    filter: web::Query<Filter>,
     user_id: web::ReqData<UserId>,
 ) -> Result<impl Responder, HandlerError> {
     let monthly_totals = transaction_repo
-        .get_monthly_totals(&user_id.into_inner())
+        .get_monthly_totals(&user_id.into_inner(), filter.into_inner().into())
         .await?;
     let monthly_totals: Vec<MonthlyTotalResponse> = monthly_totals
         .into_iter()
