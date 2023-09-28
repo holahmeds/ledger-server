@@ -20,13 +20,13 @@ pub struct Filter {
     transactee: Option<String>,
 }
 
-impl Into<ledger_repo::transaction_repo::Filter> for Filter {
-    fn into(self) -> ledger_repo::transaction_repo::Filter {
+impl From<Filter> for ledger_repo::transaction_repo::Filter {
+    fn from(value: Filter) -> Self {
         ledger_repo::transaction_repo::Filter::new(
-            self.from,
-            self.until,
-            self.category,
-            self.transactee,
+            value.from,
+            value.until,
+            value.category,
+            value.transactee,
         )
     }
 }
