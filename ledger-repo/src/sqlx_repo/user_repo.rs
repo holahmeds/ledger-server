@@ -2,7 +2,7 @@ use crate::sqlx_repo::SQLxRepo;
 use crate::user_repo::{User, UserRepo, UserRepoError};
 use anyhow::Context;
 use async_trait::async_trait;
-use sqlx::{query, query_as, Pool, Postgres};
+use sqlx::{query, query_as};
 use tracing::instrument;
 
 #[async_trait]

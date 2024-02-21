@@ -8,7 +8,7 @@ use anyhow::Context;
 use anyhow::Result;
 use async_trait::async_trait;
 use sqlx::postgres::PgPoolOptions;
-use sqlx::{query, Executor, Pool, Postgres};
+use sqlx::{query, Pool, Postgres};
 use std::sync::Arc;
 
 #[derive(Clone)]

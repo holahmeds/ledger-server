@@ -10,11 +10,8 @@ use std::io::BufReader;
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use actix_web::error::JsonPayloadError;
-use actix_web::web::Data;
-use actix_web::{get, web, App, Responder};
-use actix_web::{HttpResponse, HttpServer};
-use actix_web_httpauth::middleware::HttpAuthentication;
+use actix_web::App;
+use actix_web::HttpServer;
 use anyhow::Context;
 use rand::Rng;
 use rustls::{Certificate, PrivateKey, ServerConfig};
@@ -25,9 +22,6 @@ use tracing_subscriber::registry;
 
 use ledger_lib::auth::jwt::JWTAuth;
 use ledger_lib::config::Config;
-use ledger_lib::transaction;
-use ledger_lib::user::UserId;
-use ledger_lib::{auth, user};
 use ledger_repo::sqlx_repo::SQLxRepo;
 use ledger_repo::transaction_repo::TransactionRepo;
 use ledger_repo::user_repo::UserRepo;
@@ -63,38 +57,17 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let secret = get_secret()?;
     let jwt_auth = JWTAuth::from_secret(secret);
-    let bearer_auth_middleware = HttpAuthentication::bearer(auth::credentials_validator);
 
     let mut server = HttpServer::new(move || {
         App::new()
-            .app_data(jwt_auth.clone())
-            .app_data(Data::new(transaction_repo.clone()))
-            .app_data(Data::new(user_repo.clone()))
-            .app_data(Data::new(repo_health.clone()))
             .wrap(ledger_lib::tracing::create_middleware())
-            .service(transaction::transaction_service().wrap(bearer_auth_middleware.clone()))
-            .service(user::user_service().wrap(bearer_auth_middleware.clone()))
-            .service(auth::auth_service(config.signups_enabled))
-            .service(health_check)
-            .app_data(web::JsonConfig::default().error_handler(|err, req| {
-                error!(req_path = req.path(), %err);
-                match err {
-                    JsonPayloadError::Deserialize(deserialize_err) => {
-                        let error_body = serde_json::json!({
-                            "error": "Unable to parse JSON payload",
-                            "detail": format!("{}", deserialize_err),
-                        });
-                        actix_web::error::InternalError::from_response(
-                            deserialize_err,
-                            HttpResponse::BadRequest()
-                                .content_type("application/json")
-                                .body(error_body.to_string()),
-                        )
-                        .into()
-                    }
-                    _ => err.into(),
-                }
-            }))
+            .configure(ledger_lib::app_config_func(
+                jwt_auth.clone(),
+                transaction_repo.clone(),
+                user_repo.clone(),
+                config.signups_enabled,
+            ))
+            .configure(ledger_lib::health_check_config_func(repo_health.clone()))
     });
     server = match config.ssl {
         None => {
@@ -141,16 +114,6 @@ async fn main() -> Result<(), Box<dyn Error>> {
     server.run().await?;
 
     Ok(())
-}
-
-#[get("/health")]
-pub async fn health_check(repo_health: Data<Arc<dyn HealthCheck>>) -> HttpResponse {
-    if repo_health.check().await {
-        HttpResponse::Ok()
-    } else {
-        HttpResponse::InternalServerError()
-    }
-        .finish()
 }
 
 fn get_config_file() -> Result<PathBuf, &'static str> {

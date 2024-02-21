@@ -6,7 +6,7 @@ use anyhow::Context;
 use async_trait::async_trait;
 use chrono::{DateTime, NaiveDate, Utc};
 use rust_decimal::Decimal;
-use sqlx::{query, query_as, query_scalar, Executor, PgExecutor, Pool, Postgres, QueryBuilder};
+use sqlx::{query, query_as, query_scalar, Executor, PgExecutor, Postgres, QueryBuilder};
 use std::collections::{HashMap, HashSet};
 use tracing::instrument;
 
