@@ -1,21 +1,12 @@
+use crate::sqlx_repo::SQLxRepo;
 use crate::user_repo::{User, UserRepo, UserRepoError};
 use anyhow::Context;
 use async_trait::async_trait;
 use sqlx::{query, query_as, Pool, Postgres};
 use tracing::instrument;
 
-pub struct SQLxUserRepo {
-    pool: Pool<Postgres>,
-}
-
-impl SQLxUserRepo {
-    pub fn new(pool: Pool<Postgres>) -> SQLxUserRepo {
-        SQLxUserRepo { pool }
-    }
-}
-
 #[async_trait]
-impl UserRepo for SQLxUserRepo {
+impl UserRepo for SQLxRepo {
     #[instrument(skip(self))]
     async fn get_user(&self, user_id: &str) -> Result<User, UserRepoError> {
         let user: Option<User> = query_as!(User, "SELECT * FROM users WHERE id = $1", user_id)
