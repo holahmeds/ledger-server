@@ -1473,7 +1473,7 @@ dependencies = [
 
 [[package]]
 name = "ledger-lambda"
-version = "0.11.0"
+version = "0.11.1"
 dependencies = [
  "actix-web",
  "actix-web-httpauth",
@@ -1488,7 +1488,7 @@ dependencies = [
 
 [[package]]
 name = "ledger-lib"
-version = "0.11.0"
+version = "0.11.1"
 dependencies = [
  "actix-rt",
  "actix-web",
@@ -1520,7 +1520,7 @@ dependencies = [
 
 [[package]]
 name = "ledger-repo"
-version = "0.11.0"
+version = "0.11.1"
 dependencies = [
  "actix-rt",
  "actix-web",
@@ -1545,7 +1545,7 @@ dependencies = [
 
 [[package]]
 name = "ledger-server"
-version = "0.11.0"
+version = "0.11.1"
 dependencies = [
  "actix-web",
  "actix-web-httpauth",
