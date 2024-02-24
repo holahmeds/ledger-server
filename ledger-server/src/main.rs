@@ -8,12 +8,10 @@ use std::fs;
 use std::fs::File;
 use std::io::BufReader;
 use std::path::PathBuf;
+use std::sync::Arc;
 
-use actix_web::error::JsonPayloadError;
-use actix_web::web::Data;
-use actix_web::{web, App};
-use actix_web::{HttpResponse, HttpServer};
-use actix_web_httpauth::middleware::HttpAuthentication;
+use actix_web::App;
+use actix_web::HttpServer;
 use anyhow::Context;
 use rand::Rng;
 use rustls::{Certificate, PrivateKey, ServerConfig};
@@ -24,8 +22,10 @@ use tracing_subscriber::registry;
 
 use ledger_lib::auth::jwt::JWTAuth;
 use ledger_lib::config::Config;
-use ledger_lib::transaction;
-use ledger_lib::{auth, user};
+use ledger_repo::sqlx_repo::SQLxRepo;
+use ledger_repo::transaction_repo::TransactionRepo;
+use ledger_repo::user_repo::UserRepo;
+use ledger_repo::HealthCheck;
 
 const SERVICE_NAME: &str = "ledger-server";
 
@@ -50,41 +50,24 @@ async fn main() -> Result<(), Box<dyn Error>> {
     tracing::subscriber::set_global_default(subscriber).expect("set up subscriber");
     drop(tracing_guard);
 
-    let (transaction_repo, user_repo) =
-        ledger_repo::sqlx_repo::create_repos(config.database_url, 10).await;
+    let repo = SQLxRepo::new(config.database_url, 10).await?;
+    let transaction_repo: Arc<dyn TransactionRepo> = Arc::new(repo.clone());
+    let user_repo: Arc<dyn UserRepo> = Arc::new(repo.clone());
+    let repo_health: Arc<dyn HealthCheck> = Arc::new(repo);
 
     let secret = get_secret()?;
     let jwt_auth = JWTAuth::from_secret(secret);
-    let bearer_auth_middleware = HttpAuthentication::bearer(auth::credentials_validator);
 
     let mut server = HttpServer::new(move || {
         App::new()
-            .app_data(jwt_auth.clone())
-            .app_data(Data::new(transaction_repo.clone()))
-            .app_data(Data::new(user_repo.clone()))
             .wrap(ledger_lib::tracing::create_middleware())
-            .service(transaction::transaction_service().wrap(bearer_auth_middleware.clone()))
-            .service(user::user_service().wrap(bearer_auth_middleware.clone()))
-            .service(auth::auth_service(config.signups_enabled))
-            .app_data(web::JsonConfig::default().error_handler(|err, req| {
-                error!(req_path = req.path(), %err);
-                match err {
-                    JsonPayloadError::Deserialize(deserialize_err) => {
-                        let error_body = serde_json::json!({
-                            "error": "Unable to parse JSON payload",
-                            "detail": format!("{}", deserialize_err),
-                        });
-                        actix_web::error::InternalError::from_response(
-                            deserialize_err,
-                            HttpResponse::BadRequest()
-                                .content_type("application/json")
-                                .body(error_body.to_string()),
-                        )
-                        .into()
-                    }
-                    _ => err.into(),
-                }
-            }))
+            .configure(ledger_lib::app_config_func(
+                jwt_auth.clone(),
+                transaction_repo.clone(),
+                user_repo.clone(),
+                config.signups_enabled,
+            ))
+            .configure(ledger_lib::health_check_config_func(repo_health.clone()))
     });
     server = match config.ssl {
         None => {

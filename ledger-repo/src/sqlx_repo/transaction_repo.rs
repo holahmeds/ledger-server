@@ -1,3 +1,4 @@
+use crate::sqlx_repo::SQLxRepo;
 use crate::transaction_repo::TransactionRepoError::TransactionNotFound;
 use crate::transaction_repo::{Filter, MonthlyTotal, PageOptions};
 use crate::transaction_repo::{NewTransaction, Transaction, TransactionRepo, TransactionRepoError};
@@ -5,7 +6,7 @@ use anyhow::Context;
 use async_trait::async_trait;
 use chrono::{DateTime, NaiveDate, Utc};
 use rust_decimal::Decimal;
-use sqlx::{query, query_as, query_scalar, Executor, PgExecutor, Pool, Postgres, QueryBuilder};
+use sqlx::{query, query_as, query_scalar, Executor, PgExecutor, Postgres, QueryBuilder};
 use std::collections::{HashMap, HashSet};
 use tracing::instrument;
 
@@ -33,15 +34,7 @@ struct MonthlyTotalResult {
     expense: Option<Decimal>,
 }
 
-pub struct SQLxTransactionRepo {
-    pool: Pool<Postgres>,
-}
-
-impl SQLxTransactionRepo {
-    pub fn new(pool: Pool<Postgres>) -> SQLxTransactionRepo {
-        SQLxTransactionRepo { pool }
-    }
-
+impl SQLxRepo {
     #[instrument(skip(executor))]
     async fn get_tags_single<'a, E>(
         executor: E,
@@ -250,7 +243,7 @@ impl SQLxTransactionRepo {
 }
 
 #[async_trait]
-impl TransactionRepo for SQLxTransactionRepo {
+impl TransactionRepo for SQLxRepo {
     #[instrument(skip(self))]
     async fn get_transaction(
         &self,
@@ -260,7 +253,7 @@ impl TransactionRepo for SQLxTransactionRepo {
         let transaction_entry = self.get_transaction_entry(user, transaction_id).await?;
         let transaction_entry = transaction_entry.ok_or(TransactionNotFound(transaction_id))?;
 
-        let tags = SQLxTransactionRepo::get_tags_single(&self.pool, transaction_id).await?;
+        let tags = SQLxRepo::get_tags_single(&self.pool, transaction_id).await?;
 
         Ok(Transaction::new(
             transaction_entry.id,
@@ -331,8 +324,7 @@ impl TransactionRepo for SQLxTransactionRepo {
             .await
             .context("Unable to start transaction")?;
         let id = Self::insert_transaction_entry(&mut *transaction, user, &new_transaction).await?;
-        SQLxTransactionRepo::insert_tags(&mut *transaction, id, new_transaction.tags.iter())
-            .await?;
+        SQLxRepo::insert_tags(&mut *transaction, id, new_transaction.tags.iter()).await?;
         transaction.commit().await.context("Transaction failed")?;
 
         Ok(Transaction::new(
@@ -367,11 +359,10 @@ impl TransactionRepo for SQLxTransactionRepo {
         )
         .await?;
 
-        let existing_tags =
-            SQLxTransactionRepo::get_tags_single(&mut *transaction, transaction_id).await?;
+        let existing_tags = SQLxRepo::get_tags_single(&mut *transaction, transaction_id).await?;
 
         let new_tags = updated_transaction.tags.difference(&existing_tags);
-        SQLxTransactionRepo::insert_tags(&mut *transaction, transaction_id, new_tags).await?;
+        SQLxRepo::insert_tags(&mut *transaction, transaction_id, new_tags).await?;
 
         let removed_tags: Vec<&str> = existing_tags
             .difference(&updated_transaction.tags)
@@ -401,7 +392,7 @@ impl TransactionRepo for SQLxTransactionRepo {
         user: &str,
         transaction_id: i32,
     ) -> Result<Transaction, TransactionRepoError> {
-        let tags = SQLxTransactionRepo::get_tags_single(&self.pool, transaction_id).await?;
+        let tags = SQLxRepo::get_tags_single(&self.pool, transaction_id).await?;
         let transaction_entry = self.delete_transaction_entry(user, transaction_id).await?;
 
         Ok(Transaction::new(

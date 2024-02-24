@@ -1,18 +1,14 @@
 extern crate base64;
 
-use actix_web::error::JsonPayloadError;
-use actix_web::web::Data;
-use actix_web::{web, App, HttpResponse};
-use actix_web_httpauth::middleware::HttpAuthentication;
+use actix_web::App;
 use base64::Engine;
 use lambda_web::{run_actix_on_lambda, LambdaError};
 use ledger_lib::auth::jwt::JWTAuth;
 use ledger_lib::config::Config;
-use ledger_lib::{auth, transaction, user};
 use ledger_repo::sqlx_repo::create_repos;
 use std::env;
+use tracing::info;
 use tracing::level_filters::LevelFilter;
-use tracing::{error, info};
 use tracing_subscriber::layer::SubscriberExt;
 use tracing_subscriber::registry;
 
@@ -44,36 +40,16 @@ async fn main() -> Result<(), LambdaError> {
     let (transaction_repo, user_repo) = create_repos(config.database_url, 1).await;
 
     let jwt_auth = JWTAuth::from_secret(secret);
-    let bearer_auth_middleware = HttpAuthentication::bearer(auth::credentials_validator);
 
     let factory = move || {
         App::new()
-            .app_data(jwt_auth.clone())
-            .app_data(Data::new(transaction_repo.clone()))
-            .app_data(Data::new(user_repo.clone()))
             .wrap(ledger_lib::tracing::create_middleware())
-            .service(transaction::transaction_service().wrap(bearer_auth_middleware.clone()))
-            .service(user::user_service().wrap(bearer_auth_middleware.clone()))
-            .service(auth::auth_service(config.signups_enabled))
-            .app_data(web::JsonConfig::default().error_handler(|err, req| {
-                error!(req_path = req.path(), %err);
-                match err {
-                    JsonPayloadError::Deserialize(deserialize_err) => {
-                        let error_body = serde_json::json!({
-                            "error": "Unable to parse JSON payload",
-                            "detail": format!("{}", deserialize_err),
-                        });
-                        actix_web::error::InternalError::from_response(
-                            deserialize_err,
-                            HttpResponse::BadRequest()
-                                .content_type("application/json")
-                                .body(error_body.to_string()),
-                        )
-                        .into()
-                    }
-                    _ => err.into(),
-                }
-            }))
+            .configure(ledger_lib::app_config_func(
+                jwt_auth.clone(),
+                transaction_repo.clone(),
+                user_repo.clone(),
+                config.signups_enabled,
+            ))
     };
     run_actix_on_lambda(factory).await?;
     Ok(())
