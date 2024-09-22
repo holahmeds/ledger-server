@@ -10,6 +10,7 @@ use std::io::BufReader;
 use std::path::PathBuf;
 use std::sync::Arc;
 
+use actix_cors::Cors;
 use actix_web::App;
 use actix_web::HttpServer;
 use anyhow::Context;
@@ -59,7 +60,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
     let jwt_auth = JWTAuth::from_secret(secret);
 
     let mut server = HttpServer::new(move || {
+        let cors = Cors::permissive(); // We do authentication using the Authorization header, so don't need CORS
         App::new()
+            .wrap(cors)
             .wrap(ledger_lib::tracing::create_middleware())
             .configure(ledger_lib::app_config_func(
                 jwt_auth.clone(),
