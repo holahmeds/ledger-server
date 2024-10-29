@@ -1,4 +1,4 @@
-use super::schema::{transaction_tags, transactions};
+use super::schema::transactions;
 use super::DbPool;
 use crate::transaction_repo::{
     Filter, MonthlyTotal, NewTransaction, PageOptions, Transaction, TransactionRepo,
@@ -71,14 +71,6 @@ impl NewTransactionEntry {
             tags: new_transaction.tags.into_iter().collect(),
         }
     }
-}
-
-#[derive(Associations, Identifiable, Queryable, Insertable, PartialEq, Eq, Hash)]
-#[diesel(primary_key(transaction_id, tag))]
-#[diesel(belongs_to(TransactionEntry, foreign_key = transaction_id))]
-struct TransactionTag {
-    transaction_id: i32,
-    tag: String,
 }
 
 pub struct DieselTransactionRepo {
