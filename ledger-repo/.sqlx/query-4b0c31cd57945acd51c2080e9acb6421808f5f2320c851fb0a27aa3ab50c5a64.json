@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "UPDATE transactions SET category = $1, transactee = $2, note = $3, date = $4, amount = $5 WHERE user_id = $6 AND id = $7",
+  "query": "UPDATE transactions SET category = $1, transactee = $2, note = $3, date = $4, amount = $5, tags = $6 WHERE user_id = $7 AND id = $8",
   "describe": {
     "columns": [],
     "parameters": {
@@ -10,11 +10,12 @@
         "Varchar",
         "Date",
         "Numeric",
+        "TextArray",
         "Text",
         "Int4"
       ]
     },
     "nullable": []
   },
-  "hash": "10f2b7843681aef39b53cbc0dfccab964ce34f343ce4ca547c71c365c305f98b"
+  "hash": "4b0c31cd57945acd51c2080e9acb6421808f5f2320c851fb0a27aa3ab50c5a64"
 }

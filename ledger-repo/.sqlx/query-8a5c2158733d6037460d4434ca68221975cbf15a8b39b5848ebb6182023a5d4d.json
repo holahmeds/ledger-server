@@ -37,6 +37,11 @@
         "ordinal": 6,
         "name": "user_id",
         "type_info": "Varchar"
+      },
+      {
+        "ordinal": 7,
+        "name": "tags",
+        "type_info": "TextArray"
       }
     ],
     "parameters": {
@@ -50,6 +55,7 @@
       false,
       true,
       true,
+      false,
       false,
       false,
       false
