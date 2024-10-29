@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "DELETE FROM transactions WHERE user_id = $1 AND id = $2 RETURNING id, category, transactee, note, date, amount, user_id",
+  "query": "DELETE FROM transactions WHERE user_id = $1 AND id = $2 RETURNING id, category, transactee, note, date, amount, user_id, tags",
   "describe": {
     "columns": [
       {
@@ -37,6 +37,11 @@
         "ordinal": 6,
         "name": "user_id",
         "type_info": "Varchar"
+      },
+      {
+        "ordinal": 7,
+        "name": "tags",
+        "type_info": "TextArray"
       }
     ],
     "parameters": {
@@ -52,8 +57,9 @@
       true,
       false,
       false,
+      false,
       false
     ]
   },
-  "hash": "f64bbce2a9d398a380f9febdde92581d7c871d71c4cac88e5703034c9e087212"
+  "hash": "ffba5720b2407c09843992416ce7c7875816d748b8adc13d8bf506de62f1d2d5"
 }

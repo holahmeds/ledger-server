@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "INSERT INTO transactions(category, transactee, note, date, amount, user_id) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id",
+  "query": "INSERT INTO transactions(category, transactee, note, date, amount, user_id, tags) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id",
   "describe": {
     "columns": [
       {
@@ -16,12 +16,13 @@
         "Varchar",
         "Date",
         "Numeric",
-        "Varchar"
+        "Varchar",
+        "TextArray"
       ]
     },
     "nullable": [
       false
     ]
   },
-  "hash": "af5553fa0019ee82e0e1aee2804cc74676ad3aee8ad1eef087ab154fe5715627"
+  "hash": "a89c8671d2e3b4a485c339321c6658b06a1a7b8f45b2f32c8276288f326d6e11"
 }
