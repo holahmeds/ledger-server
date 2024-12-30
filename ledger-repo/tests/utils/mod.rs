@@ -1,4 +1,5 @@
 use ledger_repo::transaction_repo::TransactionRepo;
+use ledger_repo::transaction_template_repo::TransactionTemplateRepo;
 use ledger_repo::user_repo::UserRepo;
 use serde::Deserialize;
 use std::fs;
@@ -15,7 +16,13 @@ pub enum RepoType {
     Mem,
 }
 
-pub async fn build_repos(repo_type: RepoType) -> (Arc<dyn TransactionRepo>, Arc<dyn UserRepo>) {
+pub async fn build_repos(
+    repo_type: RepoType,
+) -> (
+    Arc<dyn UserRepo>,
+    Arc<dyn TransactionRepo>,
+    Arc<dyn TransactionTemplateRepo>,
+) {
     let config = fs::read_to_string("config_test.toml").unwrap();
     let config: TestConfig = toml::from_str(config.as_str()).unwrap();
 

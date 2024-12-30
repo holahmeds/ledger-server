@@ -1,7 +1,7 @@
 use async_trait::async_trait;
+use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
-use rust_decimal::Decimal;
 use thiserror::Error;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -24,6 +24,22 @@ pub struct NewTransactionTemplate {
 }
 
 impl NewTransactionTemplate {
+    pub fn new(
+        category: Option<String>,
+        transactee: Option<String>,
+        amount: Option<Decimal>,
+        note: Option<String>,
+        tags: HashSet<String>,
+    ) -> Self {
+        NewTransactionTemplate {
+            category,
+            transactee,
+            amount,
+            note,
+            tags,
+        }
+    }
+
     pub fn to_transaction_template(self, template_id: i32) -> TransactionTemplate {
         TransactionTemplate {
             template_id,

@@ -13,7 +13,7 @@ struct State {
     next_id: i32,
 }
 
-struct MemTransactionTemplateRepo {
+pub struct MemTransactionTemplateRepo {
     state: RwLock<State>,
 }
 

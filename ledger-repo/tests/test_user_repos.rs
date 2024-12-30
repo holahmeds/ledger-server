@@ -10,7 +10,8 @@ use uuid::Uuid;
 #[case::mem(RepoType::Mem)]
 #[actix_rt::test]
 async fn test_create_and_get_user(#[case] repo_type: RepoType) {
-    let (_transaction_repo, user_repo) = utils::build_repos(repo_type).await;
+    let (user_repo, _transaction_repo, _transaction_template_repo) =
+        utils::build_repos(repo_type).await;
 
     let user = User::new(
         "test-user-".to_owned() + &Uuid::new_v4().to_string(),
@@ -28,7 +29,8 @@ async fn test_create_and_get_user(#[case] repo_type: RepoType) {
 #[case::mem(RepoType::Mem)]
 #[actix_rt::test]
 async fn test_create_existing_user(#[case] repo_type: RepoType) {
-    let (_transaction_repo, user_repo) = utils::build_repos(repo_type).await;
+    let (user_repo, _transaction_repo, _transaction_template_repo) =
+        utils::build_repos(repo_type).await;
 
     let user = User::new(
         "test-user-".to_owned() + &Uuid::new_v4().to_string(),
@@ -48,7 +50,8 @@ async fn test_create_existing_user(#[case] repo_type: RepoType) {
 #[case::mem(RepoType::Mem)]
 #[actix_rt::test]
 async fn test_update_password(#[case] repo_type: RepoType) {
-    let (_transaction_repo, user_repo) = utils::build_repos(repo_type).await;
+    let (user_repo, _transaction_repo, _transaction_template_repo) =
+        utils::build_repos(repo_type).await;
 
     let user = User::new(
         "test-user-".to_owned() + &Uuid::new_v4().to_string(),
@@ -69,7 +72,8 @@ async fn test_update_password(#[case] repo_type: RepoType) {
 #[case::mem(RepoType::Mem)]
 #[actix_rt::test]
 async fn test_update_password_invalid_user(#[case] repo_type: RepoType) {
-    let (_transaction_repo, user_repo) = utils::build_repos(repo_type).await;
+    let (user_repo, _transaction_repo, _transaction_template_repo) =
+        utils::build_repos(repo_type).await;
 
     let update_result = user_repo
         .update_password_hash("invalid user", "new hash")
@@ -82,7 +86,8 @@ async fn test_update_password_invalid_user(#[case] repo_type: RepoType) {
 #[case::mem(RepoType::Mem)]
 #[actix_rt::test]
 async fn test_delete_user(#[case] repo_type: RepoType) {
-    let (_transaction_repo, user_repo) = utils::build_repos(repo_type).await;
+    let (user_repo, _transaction_repo, _transaction_template_repo) =
+        utils::build_repos(repo_type).await;
 
     let user = User::new(
         "test-user-".to_owned() + &Uuid::new_v4().to_string(),
@@ -102,7 +107,8 @@ async fn test_delete_user(#[case] repo_type: RepoType) {
 #[case::mem(RepoType::Mem)]
 #[actix_rt::test]
 async fn test_delete_invalid_user(#[case] repo_type: RepoType) {
-    let (_transaction_repo, user_repo) = utils::build_repos(repo_type).await;
+    let (user_repo, _transaction_repo, _transaction_template_repo) =
+        utils::build_repos(repo_type).await;
 
     let delete_result = user_repo.delete_user("test-user").await;
     assert!(matches!(delete_result, Err(UserRepoError::UserNotFound(_))))
