@@ -1,13 +1,15 @@
-use ledger_repo::user_repo::{User, UserRepo};
 use std::sync::Arc;
 use tracing::info;
 use uuid::Uuid;
+use ledger_repo::user_repo::{User, UserRepo};
 
+#[allow(dead_code)]
 pub struct TestUser {
     pub id: String,
     repo: Arc<dyn UserRepo>,
 }
 
+#[allow(dead_code)]
 impl TestUser {
     pub async fn new(user_repo: &Arc<dyn UserRepo>) -> TestUser {
         let user_id = "test-user-".to_owned() + &Uuid::new_v4().to_string();

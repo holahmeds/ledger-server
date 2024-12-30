@@ -1,56 +1,10 @@
-mod transaction_utils;
 mod utils;
 
-use fake::faker::lorem::en::Sentence;
-use fake::faker::name::en::Name;
-use ledger_repo::transaction_template_repo::{
-    NewTransactionTemplate, TransactionTemplateRepoError,
-};
+use ledger_repo::transaction_template_repo::TransactionTemplateRepoError;
 use rstest::rstest;
-use rust_decimal::Decimal;
-use std::collections::HashSet;
-use transaction_utils::test_user::TestUser;
-use transaction_utils::Generator;
-use transaction_utils::{FakeAmount, FakeGenerator, FakeTags, RandomSample};
+use utils::generator::NewTemplateGenerator;
+use utils::test_user::TestUser;
 use utils::RepoType;
-
-pub struct NewTemplateGenerator {
-    cat_gen: Box<dyn Generator<Option<String>>>,
-    tran_gen: Box<dyn Generator<Option<String>>>,
-    note_gen: Box<dyn Generator<Option<String>>>,
-    amnt_gen: Box<dyn Generator<Option<Decimal>>>,
-    tag_gen: Box<dyn Generator<HashSet<String>>>,
-}
-
-impl NewTemplateGenerator {
-    pub fn generate(&mut self) -> NewTransactionTemplate {
-        NewTransactionTemplate::new(
-            self.cat_gen.gen(),
-            self.tran_gen.gen(),
-            self.amnt_gen.gen(),
-            self.note_gen.gen(),
-            self.tag_gen.gen(),
-        )
-    }
-}
-
-impl Default for NewTemplateGenerator {
-    fn default() -> Self {
-        NewTemplateGenerator {
-            cat_gen: RandomSample::boxed(vec![
-                None,
-                Some("Misc".to_string()),
-                Some("Groceries".to_string()),
-                Some("Eating Out".to_string()),
-                Some("Transportation".to_string()),
-            ]),
-            tran_gen: FakeGenerator::boxed(Name()),
-            note_gen: FakeGenerator::boxed(Sentence(5..10)),
-            amnt_gen: Box::new(FakeAmount),
-            tag_gen: Box::new(FakeTags),
-        }
-    }
-}
 
 #[rstest]
 #[case::sqlx(RepoType::SQLx)]
