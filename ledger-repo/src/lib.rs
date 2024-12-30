@@ -5,6 +5,7 @@ extern crate diesel_migrations;
 use async_trait::async_trait;
 
 pub mod transaction_repo;
+pub mod transaction_template_repo;
 pub mod user_repo;
 
 // implementation modules

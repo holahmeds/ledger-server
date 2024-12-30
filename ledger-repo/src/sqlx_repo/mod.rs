@@ -1,4 +1,5 @@
 mod transaction_repo;
+mod transaction_template_repo;
 mod user_repo;
 
 use crate::transaction_repo::TransactionRepo;

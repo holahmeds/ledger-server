@@ -3,6 +3,7 @@ use crate::user_repo::UserRepo;
 use std::sync::Arc;
 
 mod transaction_repo;
+mod transaction_template_repo;
 mod user_repo;
 
 pub fn create_repos() -> (Arc<dyn TransactionRepo>, Arc<dyn UserRepo>) {
