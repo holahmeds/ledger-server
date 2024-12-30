@@ -19,6 +19,3 @@ rand = { workspace = true }
 anyhow = { workspace = true }
 rustls = { workspace = true }
 rustls-pemfile = { workspace = true }
-
-[features]
-diesel-repo = ["ledger-repo/diesel-repo"]

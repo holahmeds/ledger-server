@@ -53,7 +53,6 @@ async fn insert_transactions(
 }
 
 #[rstest]
-#[case::diesel(RepoType::Diesel)]
 #[case::sqlx(RepoType::SQLx)]
 #[case::mem(RepoType::Mem)]
 #[actix_rt::test]
@@ -83,7 +82,6 @@ async fn test_create_and_get_transactions(#[case] repo_type: RepoType) {
 }
 
 #[rstest]
-#[case::diesel(RepoType::Diesel)]
 #[case::sqlx(RepoType::SQLx)]
 #[case::mem(RepoType::Mem)]
 #[actix_rt::test]
@@ -101,7 +99,6 @@ async fn test_get_invalid_transactions(#[case] repo_type: RepoType) {
 }
 
 #[rstest]
-#[case::diesel(RepoType::Diesel)]
 #[case::sqlx(RepoType::SQLx)]
 #[case::mem(RepoType::Mem)]
 #[actix_rt::test]
@@ -130,7 +127,6 @@ async fn test_get_invalid_user(#[case] repo_type: RepoType) {
 }
 
 #[rstest]
-#[case::diesel(RepoType::Diesel)]
 #[case::sqlx(RepoType::SQLx)]
 #[case::mem(RepoType::Mem)]
 #[actix_rt::test]
@@ -162,7 +158,6 @@ async fn test_delete_transaction(#[case] repo_type: RepoType) {
 }
 
 #[rstest]
-#[case::diesel(RepoType::Diesel)]
 #[case::sqlx(RepoType::SQLx)]
 #[case::mem(RepoType::Mem)]
 #[actix_rt::test]
@@ -180,7 +175,6 @@ async fn test_delete_invalid_transaction(#[case] repo_type: RepoType) {
 }
 
 #[rstest]
-#[case::diesel(RepoType::Diesel)]
 #[case::sqlx(RepoType::SQLx)]
 #[case::mem(RepoType::Mem)]
 #[actix_rt::test]
@@ -209,7 +203,6 @@ async fn test_get_all_transactions(#[case] repo_type: RepoType) {
 }
 
 #[rstest]
-#[case::diesel(RepoType::Diesel)]
 #[case::sqlx(RepoType::SQLx)]
 #[case::mem(RepoType::Mem)]
 #[actix_rt::test]
@@ -227,7 +220,6 @@ async fn test_get_all_transactions_empty(#[case] repo_type: RepoType) {
 }
 
 #[rstest]
-#[case::diesel(RepoType::Diesel)]
 #[case::sqlx(RepoType::SQLx)]
 #[case::mem(RepoType::Mem)]
 #[actix_rt::test]
@@ -262,7 +254,6 @@ async fn test_transactions_sorted(#[case] repo_type: RepoType) {
 }
 
 #[rstest]
-#[case::diesel(RepoType::Diesel)]
 #[case::sqlx(RepoType::SQLx)]
 #[case::mem(RepoType::Mem)]
 #[actix_rt::test]
@@ -291,7 +282,6 @@ async fn test_get_transactions_filter_category(#[case] repo_type: RepoType) {
 }
 
 #[rstest]
-#[case::diesel(RepoType::Diesel)]
 #[case::sqlx(RepoType::SQLx)]
 #[case::mem(RepoType::Mem)]
 #[actix_rt::test]
@@ -322,7 +312,6 @@ async fn test_get_transactions_filter_transactee(#[case] repo_type: RepoType) {
 }
 
 #[rstest]
-#[case::diesel(RepoType::Diesel)]
 #[case::sqlx(RepoType::SQLx)]
 #[case::mem(RepoType::Mem)]
 #[actix_rt::test]
@@ -361,7 +350,6 @@ async fn test_get_transactions_filter_from(#[case] repo_type: RepoType) {
 }
 
 #[rstest]
-#[case::diesel(RepoType::Diesel)]
 #[case::sqlx(RepoType::SQLx)]
 #[case::mem(RepoType::Mem)]
 #[actix_rt::test]
@@ -400,7 +388,6 @@ async fn test_get_transactions_filter_until(#[case] repo_type: RepoType) {
 }
 
 #[rstest]
-#[case::diesel(RepoType::Diesel)]
 #[case::sqlx(RepoType::SQLx)]
 #[case::mem(RepoType::Mem)]
 #[actix_rt::test]
@@ -432,7 +419,6 @@ async fn test_transactions_pagination(#[case] repo_type: RepoType) {
 }
 
 #[rstest]
-#[case::diesel(RepoType::Diesel)]
 #[case::sqlx(RepoType::SQLx)]
 #[case::mem(RepoType::Mem)]
 #[actix_rt::test]
@@ -467,7 +453,6 @@ async fn test_update_transaction(#[case] repo_type: RepoType) {
 }
 
 #[rstest]
-#[case::diesel(RepoType::Diesel)]
 #[case::sqlx(RepoType::SQLx)]
 #[case::mem(RepoType::Mem)]
 #[actix_rt::test]
@@ -503,7 +488,6 @@ async fn test_update_tags(#[case] repo_type: RepoType) {
 }
 
 #[rstest]
-#[case::diesel(RepoType::Diesel)]
 #[case::sqlx(RepoType::SQLx)]
 #[case::mem(RepoType::Mem)]
 #[actix_rt::test]
@@ -525,7 +509,6 @@ async fn test_update_invalid_transaction(#[case] repo_type: RepoType) {
 }
 
 #[rstest]
-#[case::diesel(RepoType::Diesel)]
 #[case::sqlx(RepoType::SQLx)]
 #[case::mem(RepoType::Mem)]
 #[actix_rt::test]
@@ -554,7 +537,6 @@ async fn test_update_invalid_user(#[case] repo_type: RepoType) {
 }
 
 #[rstest]
-#[case::diesel(RepoType::Diesel)]
 #[case::sqlx(RepoType::SQLx)]
 #[case::mem(RepoType::Mem)]
 #[actix_rt::test]
@@ -605,7 +587,6 @@ async fn test_monthly_totals(#[case] repo_type: RepoType) {
 }
 
 #[rstest]
-#[case::diesel(RepoType::Diesel)]
 #[case::sqlx(RepoType::SQLx)]
 #[case::mem(RepoType::Mem)]
 #[actix_rt::test]
@@ -634,7 +615,6 @@ async fn test_get_categories(#[case] repo_type: RepoType) {
 }
 
 #[rstest]
-#[case::diesel(RepoType::Diesel)]
 #[case::sqlx(RepoType::SQLx)]
 #[case::mem(RepoType::Mem)]
 #[actix_rt::test]
@@ -662,7 +642,6 @@ async fn test_get_tags(#[case] repo_type: RepoType) {
 }
 
 #[rstest]
-#[case::diesel(RepoType::Diesel)]
 #[case::sqlx(RepoType::SQLx)]
 #[case::mem(RepoType::Mem)]
 #[actix_rt::test]
@@ -689,7 +668,6 @@ async fn test_get_transactees(#[case] repo_type: RepoType) {
 }
 
 #[rstest]
-#[case::diesel(RepoType::Diesel)]
 #[case::sqlx(RepoType::SQLx)]
 #[case::mem(RepoType::Mem)]
 #[actix_rt::test]
@@ -717,7 +695,6 @@ async fn test_get_category_transactees(#[case] repo_type: RepoType) {
 }
 
 #[rstest]
-#[case::diesel(RepoType::Diesel)]
 #[case::sqlx(RepoType::SQLx)]
 #[case::mem(RepoType::Mem)]
 #[actix_rt::test]

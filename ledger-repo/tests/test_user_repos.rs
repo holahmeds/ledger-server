@@ -6,7 +6,6 @@ use utils::RepoType;
 use uuid::Uuid;
 
 #[rstest]
-#[case::diesel(RepoType::Diesel)]
 #[case::sqlx(RepoType::SQLx)]
 #[case::mem(RepoType::Mem)]
 #[actix_rt::test]
@@ -25,7 +24,6 @@ async fn test_create_and_get_user(#[case] repo_type: RepoType) {
 }
 
 #[rstest]
-#[case::diesel(RepoType::Diesel)]
 #[case::sqlx(RepoType::SQLx)]
 #[case::mem(RepoType::Mem)]
 #[actix_rt::test]
@@ -46,7 +44,6 @@ async fn test_create_existing_user(#[case] repo_type: RepoType) {
 }
 
 #[rstest]
-#[case::diesel(RepoType::Diesel)]
 #[case::sqlx(RepoType::SQLx)]
 #[case::mem(RepoType::Mem)]
 #[actix_rt::test]
@@ -68,7 +65,6 @@ async fn test_update_password(#[case] repo_type: RepoType) {
 }
 
 #[rstest]
-#[case::diesel(RepoType::Diesel)]
 #[case::sqlx(RepoType::SQLx)]
 #[case::mem(RepoType::Mem)]
 #[actix_rt::test]
@@ -82,7 +78,6 @@ async fn test_update_password_invalid_user(#[case] repo_type: RepoType) {
 }
 
 #[rstest]
-#[case::diesel(RepoType::Diesel)]
 #[case::sqlx(RepoType::SQLx)]
 #[case::mem(RepoType::Mem)]
 #[actix_rt::test]
@@ -103,7 +98,6 @@ async fn test_delete_user(#[case] repo_type: RepoType) {
 }
 
 #[rstest]
-#[case::diesel(RepoType::Diesel)]
 #[case::sqlx(RepoType::SQLx)]
 #[case::mem(RepoType::Mem)]
 #[actix_rt::test]

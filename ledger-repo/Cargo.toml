@@ -6,10 +6,6 @@ license.workspace = true
 edition.workspace = true
 
 [dependencies]
-diesel = { workspace = true, optional = true }
-diesel_migrations = { workspace = true, optional = true }
-r2d2 = { workspace = true, optional = true }
-actix-web = { workspace = true, optional = true } # For blocking calls in diesel repo
 sqlx = { workspace = true }
 chrono = { workspace = true }
 rust_decimal = { workspace = true }
@@ -18,9 +14,6 @@ anyhow = { workspace = true }
 thiserror = { workspace = true }
 serde = { workspace = true }
 tracing = { workspace = true }
-
-[features]
-diesel-repo = ["diesel", "diesel_migrations", "r2d2", "actix-web", "rust_decimal/db-diesel2-postgres"]
 
 [dev-dependencies]
 actix-rt = { workspace = true }
