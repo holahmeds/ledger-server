@@ -66,6 +66,27 @@ impl TransactionTemplateRepo for MemTransactionTemplateRepo {
         Ok(template)
     }
 
+    async fn update_template(
+        &self,
+        user_id: &str,
+        template_id: i32,
+        template: NewTransactionTemplate,
+    ) -> Result<TransactionTemplate, TransactionTemplateRepoError> {
+        let mut write_guard = self.write_lock()?;
+
+        let Some(template_ids) = write_guard.user_templates.get_mut(user_id) else {
+            return Err(TransactionTemplateRepoError::TemplateNotFound(template_id));
+        };
+        if !template_ids.contains(&template_id) {
+            return Err(TransactionTemplateRepoError::TemplateNotFound(template_id));
+        }
+
+        let template = template.to_transaction_template(template_id);
+        write_guard.templates.insert(template_id, template.clone());
+
+        Ok(template)
+    }
+
     async fn get_templates(
         &self,
         user_id: &str,

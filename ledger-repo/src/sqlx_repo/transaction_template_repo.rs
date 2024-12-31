@@ -6,7 +6,7 @@ use crate::transaction_template_repo::{
 use anyhow::Context;
 use async_trait::async_trait;
 use rust_decimal::Decimal;
-use sqlx::{query_as, query_scalar};
+use sqlx::{query, query_as, query_scalar};
 
 struct TransactionTemplateEntry {
     template_id: i32,
@@ -52,6 +52,32 @@ impl TransactionTemplateRepo for SQLxRepo {
         ).fetch_one(&self.pool).await.context("Unable to insert template")?;
 
         Ok(new_template.to_transaction_template(template_id))
+    }
+
+    async fn update_template(
+        &self,
+        user_id: &str,
+        template_id: i32,
+        template: NewTransactionTemplate,
+    ) -> Result<TransactionTemplate, TransactionTemplateRepoError> {
+        let tags: Vec<String> = template.tags.iter().cloned().collect();
+
+        let result = query!(
+            "UPDATE transaction_templates SET category = $1, transactee = $2, note = $3, amount = $4, tags = $5 WHERE template_id = $6 and user_id = $7",
+            template.category,
+            template.transactee,
+            template.note,
+            template.amount,
+            tags.as_slice(),
+            template_id,
+            user_id,
+        ).execute(&self.pool).await.context("Unable to update template")?;
+
+        if result.rows_affected() == 0 {
+            return Err(TransactionTemplateRepoError::TemplateNotFound(template_id));
+        }
+
+        Ok(template.to_transaction_template(template_id))
     }
 
     async fn get_templates(

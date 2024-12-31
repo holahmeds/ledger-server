@@ -68,6 +68,13 @@ pub trait TransactionTemplateRepo: Sync + Send {
         new_template: NewTransactionTemplate,
     ) -> Result<TransactionTemplate, TransactionTemplateRepoError>;
 
+    async fn update_template(
+        &self,
+        user_id: &str,
+        template_id: i32,
+        template: NewTransactionTemplate,
+    ) -> Result<TransactionTemplate, TransactionTemplateRepoError>;
+
     async fn get_templates(
         &self,
         user_id: &str,
