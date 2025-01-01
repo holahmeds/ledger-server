@@ -1,6 +1,7 @@
 use actix_web::http::StatusCode;
 use actix_web::ResponseError;
 use ledger_repo::transaction_repo::TransactionRepoError;
+use ledger_repo::transaction_template_repo::TransactionTemplateRepoError;
 use ledger_repo::user_repo::UserRepoError;
 use std::fmt::Debug;
 use thiserror::Error;
@@ -13,6 +14,8 @@ pub enum HandlerError {
     OtherError(#[from] anyhow::Error),
     #[error(transparent)]
     TransactionNotFoundError(TransactionRepoError),
+    #[error(transparent)]
+    TemplateNotFoundError(TransactionTemplateRepoError),
     #[error(transparent)]
     UserNotFoundError(UserRepoError),
     #[error(transparent)]
@@ -28,6 +31,17 @@ impl From<TransactionRepoError> for HandlerError {
                 HandlerError::TransactionNotFoundError(e)
             }
             TransactionRepoError::Other(e) => HandlerError::OtherError(e),
+        }
+    }
+}
+
+impl From<TransactionTemplateRepoError> for HandlerError {
+    fn from(value: TransactionTemplateRepoError) -> Self {
+        match value {
+            TransactionTemplateRepoError::TemplateNotFound(_) => {
+                HandlerError::TemplateNotFoundError(value)
+            }
+            TransactionTemplateRepoError::Other(e) => HandlerError::OtherError(e),
         }
     }
 }
