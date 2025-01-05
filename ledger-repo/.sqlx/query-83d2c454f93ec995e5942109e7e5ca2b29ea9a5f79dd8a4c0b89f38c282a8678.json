@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "DELETE FROM transaction_templates WHERE user_id = $1 AND template_id = $2 returning template_id, category, transactee, note, amount, user_id, tags",
+  "query": "DELETE FROM transaction_templates WHERE user_id = $1 AND template_id = $2 returning template_id, category, transactee, note, amount, user_id, tags, name",
   "describe": {
     "columns": [
       {
@@ -37,6 +37,11 @@
         "ordinal": 6,
         "name": "tags",
         "type_info": "TextArray"
+      },
+      {
+        "ordinal": 7,
+        "name": "name",
+        "type_info": "Varchar"
       }
     ],
     "parameters": {
@@ -52,8 +57,9 @@
       true,
       true,
       false,
+      false,
       false
     ]
   },
-  "hash": "a74e692d0ca86c246306926d075e5a99327614cd148a85c03e019a7cbf25c430"
+  "hash": "83d2c454f93ec995e5942109e7e5ca2b29ea9a5f79dd8a4c0b89f38c282a8678"
 }

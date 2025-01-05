@@ -37,6 +37,11 @@
         "ordinal": 6,
         "name": "tags",
         "type_info": "TextArray"
+      },
+      {
+        "ordinal": 7,
+        "name": "name",
+        "type_info": "Varchar"
       }
     ],
     "parameters": {
@@ -50,6 +55,7 @@
       true,
       true,
       true,
+      false,
       false,
       false
     ]

@@ -10,12 +10,13 @@ use sqlx::{query, query_as, query_scalar};
 
 struct TransactionTemplateEntry {
     template_id: i32,
+    #[allow(dead_code)]
+    user_id: String,
+    name: String,
     category: Option<String>,
     transactee: Option<String>,
     note: Option<String>,
     amount: Option<Decimal>,
-    #[allow(dead_code)]
-    user_id: String,
     tags: Vec<String>,
 }
 
@@ -24,6 +25,7 @@ impl Into<TransactionTemplate> for TransactionTemplateEntry {
         let tags = self.tags.into_iter().collect();
         TransactionTemplate {
             template_id: self.template_id,
+            name: self.name,
             category: self.category,
             transactee: self.transactee,
             amount: self.amount,
@@ -42,13 +44,14 @@ impl TransactionTemplateRepo for SQLxRepo {
     ) -> Result<TransactionTemplate, TransactionTemplateRepoError> {
         let tags: Vec<String> = new_template.tags.iter().cloned().collect();
         let template_id = query_scalar!(
-            "INSERT INTO transaction_templates(category, transactee, note, amount, user_id, tags) VALUES($1, $2, $3, $4, $5, $6) RETURNING template_id",
+            "INSERT INTO transaction_templates(category, transactee, note, amount, user_id, tags, name) VALUES($1, $2, $3, $4, $5, $6, $7) RETURNING template_id",
             new_template.category,
             new_template.transactee,
             new_template.note,
             new_template.amount,
             user_id,
-            tags.as_slice()
+            tags.as_slice(),
+            new_template.name
         ).fetch_one(&self.pool).await.context("Unable to insert template")?;
 
         Ok(new_template.to_transaction_template(template_id))
@@ -63,12 +66,13 @@ impl TransactionTemplateRepo for SQLxRepo {
         let tags: Vec<String> = template.tags.iter().cloned().collect();
 
         let result = query!(
-            "UPDATE transaction_templates SET category = $1, transactee = $2, note = $3, amount = $4, tags = $5 WHERE template_id = $6 and user_id = $7",
+            "UPDATE transaction_templates SET category = $1, transactee = $2, note = $3, amount = $4, tags = $5, name = $6 WHERE template_id = $7 and user_id = $8",
             template.category,
             template.transactee,
             template.note,
             template.amount,
             tags.as_slice(),
+            template.name,
             template_id,
             user_id,
         ).execute(&self.pool).await.context("Unable to update template")?;
@@ -108,7 +112,7 @@ impl TransactionTemplateRepo for SQLxRepo {
     ) -> Result<TransactionTemplate, TransactionTemplateRepoError> {
         let template_entry = query_as!(
             TransactionTemplateEntry,
-            "DELETE FROM transaction_templates WHERE user_id = $1 AND template_id = $2 returning template_id, category, transactee, note, amount, user_id, tags",
+            "DELETE FROM transaction_templates WHERE user_id = $1 AND template_id = $2 returning template_id, category, transactee, note, amount, user_id, tags, name",
             user_id, template_id)
             .fetch_optional(&self.pool)
             .await

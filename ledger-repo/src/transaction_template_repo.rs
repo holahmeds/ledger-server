@@ -7,6 +7,7 @@ use thiserror::Error;
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct TransactionTemplate {
     pub template_id: i32,
+    pub name: String,
     pub category: Option<String>,
     pub transactee: Option<String>,
     pub amount: Option<Decimal>,
@@ -16,6 +17,7 @@ pub struct TransactionTemplate {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct NewTransactionTemplate {
+    pub name: String,
     pub category: Option<String>,
     pub transactee: Option<String>,
     pub amount: Option<Decimal>,
@@ -25,6 +27,7 @@ pub struct NewTransactionTemplate {
 
 impl NewTransactionTemplate {
     pub fn new(
+        name: String,
         category: Option<String>,
         transactee: Option<String>,
         amount: Option<Decimal>,
@@ -32,6 +35,7 @@ impl NewTransactionTemplate {
         tags: HashSet<String>,
     ) -> Self {
         NewTransactionTemplate {
+            name,
             category,
             transactee,
             amount,
@@ -43,6 +47,7 @@ impl NewTransactionTemplate {
     pub fn to_transaction_template(self, template_id: i32) -> TransactionTemplate {
         TransactionTemplate {
             template_id,
+            name: self.name,
             category: self.category,
             transactee: self.transactee,
             amount: self.amount,

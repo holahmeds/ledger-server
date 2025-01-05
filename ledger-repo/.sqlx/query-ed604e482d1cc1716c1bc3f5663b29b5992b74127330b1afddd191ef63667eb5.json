@@ -1,6 +1,6 @@
 {
   "db_name": "PostgreSQL",
-  "query": "INSERT INTO transaction_templates(category, transactee, note, amount, user_id, tags) VALUES($1, $2, $3, $4, $5, $6) RETURNING template_id",
+  "query": "INSERT INTO transaction_templates(category, transactee, note, amount, user_id, tags, name) VALUES($1, $2, $3, $4, $5, $6, $7) RETURNING template_id",
   "describe": {
     "columns": [
       {
@@ -16,12 +16,13 @@
         "Varchar",
         "Numeric",
         "Varchar",
-        "TextArray"
+        "TextArray",
+        "Varchar"
       ]
     },
     "nullable": [
       false
     ]
   },
-  "hash": "7da4a145b913e1e481dbce3a57ed45cfad77b93a875bc638aad1c6dd689dd86d"
+  "hash": "ed604e482d1cc1716c1bc3f5663b29b5992b74127330b1afddd191ef63667eb5"
 }

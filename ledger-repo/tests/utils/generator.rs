@@ -172,6 +172,7 @@ impl Default for NewTransactionGenerator {
 
 #[allow(dead_code)]
 pub struct NewTemplateGenerator {
+    name_gen: Box<dyn Generator<String>>,
     cat_gen: Box<dyn Generator<Option<String>>>,
     tran_gen: Box<dyn Generator<Option<String>>>,
     note_gen: Box<dyn Generator<Option<String>>>,
@@ -183,6 +184,7 @@ pub struct NewTemplateGenerator {
 impl NewTemplateGenerator {
     pub fn generate(&mut self) -> NewTransactionTemplate {
         NewTransactionTemplate::new(
+            self.name_gen.gen(),
             self.cat_gen.gen(),
             self.tran_gen.gen(),
             self.amnt_gen.gen(),
@@ -195,6 +197,7 @@ impl NewTemplateGenerator {
 impl Default for NewTemplateGenerator {
     fn default() -> Self {
         NewTemplateGenerator {
+            name_gen: FakeGenerator::boxed(Name()),
             cat_gen: RandomSample::boxed(vec![
                 None,
                 Some("Misc".to_string()),
