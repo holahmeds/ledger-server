@@ -1,44 +1,24 @@
-mod transaction_utils;
 mod utils;
 
-use crate::transaction_utils::{generate_new_transaction, NewTransactionGenerator};
 use chrono::NaiveDate;
 use futures::future::try_join_all;
 use ledger_repo::transaction_repo::{
     Filter, MonthlyTotal, NewTransaction, PageOptions, Transaction, TransactionRepo,
     TransactionRepoError,
 };
-use ledger_repo::user_repo::{User, UserRepo};
 use rstest::rstest;
 use rust_decimal::Decimal;
 use std::collections::btree_set::BTreeSet;
 use std::collections::HashSet;
 use std::str::FromStr;
 use std::sync::Arc;
-use tracing::info;
+use utils::generator::NewTransactionGenerator;
+use utils::test_user::TestUser;
 use utils::RepoType;
-use uuid::Uuid;
 
-pub struct TestUser {
-    pub id: String,
-    repo: Arc<dyn UserRepo>,
-}
-
-impl TestUser {
-    pub async fn new(user_repo: &Arc<dyn UserRepo>) -> TestUser {
-        let user_id = "test-user-".to_owned() + &Uuid::new_v4().to_string();
-        let user = User::new(user_id.clone(), "not a real hash".to_owned());
-        user_repo.create_user(user).await.unwrap();
-        info!(%user_id, "Created user");
-        TestUser {
-            id: user_id,
-            repo: user_repo.clone(),
-        }
-    }
-
-    pub async fn delete(&self) {
-        self.repo.delete_user(&self.id).await.unwrap()
-    }
+pub fn generate_new_transaction() -> NewTransaction {
+    let mut generator = NewTransactionGenerator::default();
+    generator.generate()
 }
 
 async fn insert_transactions(
@@ -53,12 +33,12 @@ async fn insert_transactions(
 }
 
 #[rstest]
-#[case::diesel(RepoType::Diesel)]
 #[case::sqlx(RepoType::SQLx)]
 #[case::mem(RepoType::Mem)]
 #[actix_rt::test]
 async fn test_create_and_get_transactions(#[case] repo_type: RepoType) {
-    let (transaction_repo, user_repo) = utils::build_repos(repo_type).await;
+    let (user_repo, transaction_repo, _transaction_template_repo) =
+        utils::build_repos(repo_type).await;
     let user = TestUser::new(&user_repo).await;
 
     let new_transaction = generate_new_transaction();
@@ -83,12 +63,11 @@ async fn test_create_and_get_transactions(#[case] repo_type: RepoType) {
 }
 
 #[rstest]
-#[case::diesel(RepoType::Diesel)]
 #[case::sqlx(RepoType::SQLx)]
 #[case::mem(RepoType::Mem)]
 #[actix_rt::test]
 async fn test_get_invalid_transactions(#[case] repo_type: RepoType) {
-    let (transaction_repo, user_repo) = utils::build_repos(repo_type).await;
+    let (user_repo, transaction_repo, _template_repo) = utils::build_repos(repo_type).await;
     let user = TestUser::new(&user_repo).await;
 
     let get_result = transaction_repo.get_transaction(&user.id, 1234).await;
@@ -101,12 +80,11 @@ async fn test_get_invalid_transactions(#[case] repo_type: RepoType) {
 }
 
 #[rstest]
-#[case::diesel(RepoType::Diesel)]
 #[case::sqlx(RepoType::SQLx)]
 #[case::mem(RepoType::Mem)]
 #[actix_rt::test]
 async fn test_get_invalid_user(#[case] repo_type: RepoType) {
-    let (transaction_repo, user_repo) = utils::build_repos(repo_type).await;
+    let (user_repo, transaction_repo, _template_repo) = utils::build_repos(repo_type).await;
     let user1 = TestUser::new(&user_repo).await;
     let user2 = TestUser::new(&user_repo).await;
 
@@ -130,12 +108,11 @@ async fn test_get_invalid_user(#[case] repo_type: RepoType) {
 }
 
 #[rstest]
-#[case::diesel(RepoType::Diesel)]
 #[case::sqlx(RepoType::SQLx)]
 #[case::mem(RepoType::Mem)]
 #[actix_rt::test]
 async fn test_delete_transaction(#[case] repo_type: RepoType) {
-    let (transaction_repo, user_repo) = utils::build_repos(repo_type).await;
+    let (user_repo, transaction_repo, _template_repo) = utils::build_repos(repo_type).await;
     let user = TestUser::new(&user_repo).await;
 
     let new_transaction = generate_new_transaction();
@@ -162,12 +139,11 @@ async fn test_delete_transaction(#[case] repo_type: RepoType) {
 }
 
 #[rstest]
-#[case::diesel(RepoType::Diesel)]
 #[case::sqlx(RepoType::SQLx)]
 #[case::mem(RepoType::Mem)]
 #[actix_rt::test]
 async fn test_delete_invalid_transaction(#[case] repo_type: RepoType) {
-    let (transaction_repo, user_repo) = utils::build_repos(repo_type).await;
+    let (user_repo, transaction_repo, _template_repo) = utils::build_repos(repo_type).await;
     let user = TestUser::new(&user_repo).await;
 
     let delete_result = transaction_repo.delete_transaction(&user.id, 1234).await;
@@ -180,12 +156,11 @@ async fn test_delete_invalid_transaction(#[case] repo_type: RepoType) {
 }
 
 #[rstest]
-#[case::diesel(RepoType::Diesel)]
 #[case::sqlx(RepoType::SQLx)]
 #[case::mem(RepoType::Mem)]
 #[actix_rt::test]
 async fn test_get_all_transactions(#[case] repo_type: RepoType) {
-    let (transaction_repo, user_repo) = utils::build_repos(repo_type).await;
+    let (user_repo, transaction_repo, _template_repo) = utils::build_repos(repo_type).await;
     let test_user = TestUser::new(&user_repo).await;
 
     let mut generator = NewTransactionGenerator::default();
@@ -209,12 +184,11 @@ async fn test_get_all_transactions(#[case] repo_type: RepoType) {
 }
 
 #[rstest]
-#[case::diesel(RepoType::Diesel)]
 #[case::sqlx(RepoType::SQLx)]
 #[case::mem(RepoType::Mem)]
 #[actix_rt::test]
 async fn test_get_all_transactions_empty(#[case] repo_type: RepoType) {
-    let (transaction_repo, user_repo) = utils::build_repos(repo_type).await;
+    let (user_repo, transaction_repo, _template_repo) = utils::build_repos(repo_type).await;
     let test_user = TestUser::new(&user_repo).await;
 
     let transactions: Vec<Transaction> = transaction_repo
@@ -227,12 +201,11 @@ async fn test_get_all_transactions_empty(#[case] repo_type: RepoType) {
 }
 
 #[rstest]
-#[case::diesel(RepoType::Diesel)]
 #[case::sqlx(RepoType::SQLx)]
 #[case::mem(RepoType::Mem)]
 #[actix_rt::test]
 async fn test_transactions_sorted(#[case] repo_type: RepoType) {
-    let (transaction_repo, user_repo) = utils::build_repos(repo_type).await;
+    let (user_repo, transaction_repo, _template_repo) = utils::build_repos(repo_type).await;
     let test_user = TestUser::new(&user_repo).await;
 
     let mut generator = NewTransactionGenerator::default();
@@ -262,12 +235,11 @@ async fn test_transactions_sorted(#[case] repo_type: RepoType) {
 }
 
 #[rstest]
-#[case::diesel(RepoType::Diesel)]
 #[case::sqlx(RepoType::SQLx)]
 #[case::mem(RepoType::Mem)]
 #[actix_rt::test]
 async fn test_get_transactions_filter_category(#[case] repo_type: RepoType) {
-    let (transaction_repo, user_repo) = utils::build_repos(repo_type).await;
+    let (user_repo, transaction_repo, _template_repo) = utils::build_repos(repo_type).await;
     let test_user = TestUser::new(&user_repo).await;
 
     let mut generator = NewTransactionGenerator::default().with_categories(vec!["Loan", "Misc"]);
@@ -291,12 +263,11 @@ async fn test_get_transactions_filter_category(#[case] repo_type: RepoType) {
 }
 
 #[rstest]
-#[case::diesel(RepoType::Diesel)]
 #[case::sqlx(RepoType::SQLx)]
 #[case::mem(RepoType::Mem)]
 #[actix_rt::test]
 async fn test_get_transactions_filter_transactee(#[case] repo_type: RepoType) {
-    let (transaction_repo, user_repo) = utils::build_repos(repo_type).await;
+    let (user_repo, transaction_repo, _template_repo) = utils::build_repos(repo_type).await;
     let test_user = TestUser::new(&user_repo).await;
 
     let mut generator = NewTransactionGenerator::default().with_transactees(vec!["Alice", "Bob"]);
@@ -322,12 +293,11 @@ async fn test_get_transactions_filter_transactee(#[case] repo_type: RepoType) {
 }
 
 #[rstest]
-#[case::diesel(RepoType::Diesel)]
 #[case::sqlx(RepoType::SQLx)]
 #[case::mem(RepoType::Mem)]
 #[actix_rt::test]
 async fn test_get_transactions_filter_from(#[case] repo_type: RepoType) {
-    let (transaction_repo, user_repo) = utils::build_repos(repo_type).await;
+    let (user_repo, transaction_repo, _template_repo) = utils::build_repos(repo_type).await;
     let test_user = TestUser::new(&user_repo).await;
 
     let mut generator = NewTransactionGenerator::default().with_dates(vec![
@@ -361,12 +331,11 @@ async fn test_get_transactions_filter_from(#[case] repo_type: RepoType) {
 }
 
 #[rstest]
-#[case::diesel(RepoType::Diesel)]
 #[case::sqlx(RepoType::SQLx)]
 #[case::mem(RepoType::Mem)]
 #[actix_rt::test]
 async fn test_get_transactions_filter_until(#[case] repo_type: RepoType) {
-    let (transaction_repo, user_repo) = utils::build_repos(repo_type).await;
+    let (user_repo, transaction_repo, _template_repo) = utils::build_repos(repo_type).await;
     let test_user = TestUser::new(&user_repo).await;
 
     let mut generator = NewTransactionGenerator::default().with_dates(vec![
@@ -400,12 +369,11 @@ async fn test_get_transactions_filter_until(#[case] repo_type: RepoType) {
 }
 
 #[rstest]
-#[case::diesel(RepoType::Diesel)]
 #[case::sqlx(RepoType::SQLx)]
 #[case::mem(RepoType::Mem)]
 #[actix_rt::test]
 async fn test_transactions_pagination(#[case] repo_type: RepoType) {
-    let (transaction_repo, user_repo) = utils::build_repos(repo_type).await;
+    let (user_repo, transaction_repo, _template_repo) = utils::build_repos(repo_type).await;
     let test_user = TestUser::new(&user_repo).await;
 
     let mut generator = NewTransactionGenerator::default().with_dates(vec![
@@ -432,12 +400,11 @@ async fn test_transactions_pagination(#[case] repo_type: RepoType) {
 }
 
 #[rstest]
-#[case::diesel(RepoType::Diesel)]
 #[case::sqlx(RepoType::SQLx)]
 #[case::mem(RepoType::Mem)]
 #[actix_rt::test]
 async fn test_update_transaction(#[case] repo_type: RepoType) {
-    let (transaction_repo, user_repo) = utils::build_repos(repo_type).await;
+    let (user_repo, transaction_repo, _template_repo) = utils::build_repos(repo_type).await;
     let test_user = TestUser::new(&user_repo).await;
 
     let new_transaction = generate_new_transaction();
@@ -467,12 +434,11 @@ async fn test_update_transaction(#[case] repo_type: RepoType) {
 }
 
 #[rstest]
-#[case::diesel(RepoType::Diesel)]
 #[case::sqlx(RepoType::SQLx)]
 #[case::mem(RepoType::Mem)]
 #[actix_rt::test]
 async fn test_update_tags(#[case] repo_type: RepoType) {
-    let (transaction_repo, user_repo) = utils::build_repos(repo_type).await;
+    let (user_repo, transaction_repo, _template_repo) = utils::build_repos(repo_type).await;
     let test_user = TestUser::new(&user_repo).await;
 
     let new_transaction = generate_new_transaction();
@@ -503,12 +469,11 @@ async fn test_update_tags(#[case] repo_type: RepoType) {
 }
 
 #[rstest]
-#[case::diesel(RepoType::Diesel)]
 #[case::sqlx(RepoType::SQLx)]
 #[case::mem(RepoType::Mem)]
 #[actix_rt::test]
 async fn test_update_invalid_transaction(#[case] repo_type: RepoType) {
-    let (transaction_repo, user_repo) = utils::build_repos(repo_type).await;
+    let (user_repo, transaction_repo, _template_repo) = utils::build_repos(repo_type).await;
     let test_user = TestUser::new(&user_repo).await;
 
     let update = generate_new_transaction();
@@ -525,12 +490,11 @@ async fn test_update_invalid_transaction(#[case] repo_type: RepoType) {
 }
 
 #[rstest]
-#[case::diesel(RepoType::Diesel)]
 #[case::sqlx(RepoType::SQLx)]
 #[case::mem(RepoType::Mem)]
 #[actix_rt::test]
 async fn test_update_invalid_user(#[case] repo_type: RepoType) {
-    let (transaction_repo, user_repo) = utils::build_repos(repo_type).await;
+    let (user_repo, transaction_repo, _template_repo) = utils::build_repos(repo_type).await;
     let user1 = TestUser::new(&user_repo).await;
     let user2 = TestUser::new(&user_repo).await;
 
@@ -554,12 +518,11 @@ async fn test_update_invalid_user(#[case] repo_type: RepoType) {
 }
 
 #[rstest]
-#[case::diesel(RepoType::Diesel)]
 #[case::sqlx(RepoType::SQLx)]
 #[case::mem(RepoType::Mem)]
 #[actix_rt::test]
 async fn test_monthly_totals(#[case] repo_type: RepoType) {
-    let (transaction_repo, user_repo) = utils::build_repos(repo_type).await;
+    let (user_repo, transaction_repo, _template_repo) = utils::build_repos(repo_type).await;
     let test_user = TestUser::new(&user_repo).await;
 
     let mut generator = NewTransactionGenerator::default()
@@ -605,12 +568,11 @@ async fn test_monthly_totals(#[case] repo_type: RepoType) {
 }
 
 #[rstest]
-#[case::diesel(RepoType::Diesel)]
 #[case::sqlx(RepoType::SQLx)]
 #[case::mem(RepoType::Mem)]
 #[actix_rt::test]
 async fn test_get_categories(#[case] repo_type: RepoType) {
-    let (transaction_repo, user_repo) = utils::build_repos(repo_type).await;
+    let (user_repo, transaction_repo, _template_repo) = utils::build_repos(repo_type).await;
     let test_user = TestUser::new(&user_repo).await;
 
     let mut generator =
@@ -634,12 +596,11 @@ async fn test_get_categories(#[case] repo_type: RepoType) {
 }
 
 #[rstest]
-#[case::diesel(RepoType::Diesel)]
 #[case::sqlx(RepoType::SQLx)]
 #[case::mem(RepoType::Mem)]
 #[actix_rt::test]
 async fn test_get_tags(#[case] repo_type: RepoType) {
-    let (transaction_repo, user_repo) = utils::build_repos(repo_type).await;
+    let (user_repo, transaction_repo, _template_repo) = utils::build_repos(repo_type).await;
     let test_user = TestUser::new(&user_repo).await;
 
     let mut generator = NewTransactionGenerator::default().with_tags(vec![
@@ -662,12 +623,11 @@ async fn test_get_tags(#[case] repo_type: RepoType) {
 }
 
 #[rstest]
-#[case::diesel(RepoType::Diesel)]
 #[case::sqlx(RepoType::SQLx)]
 #[case::mem(RepoType::Mem)]
 #[actix_rt::test]
 async fn test_get_transactees(#[case] repo_type: RepoType) {
-    let (transaction_repo, user_repo) = utils::build_repos(repo_type).await;
+    let (user_repo, transaction_repo, _template_repo) = utils::build_repos(repo_type).await;
     let test_user = TestUser::new(&user_repo).await;
 
     let mut generator =
@@ -689,12 +649,11 @@ async fn test_get_transactees(#[case] repo_type: RepoType) {
 }
 
 #[rstest]
-#[case::diesel(RepoType::Diesel)]
 #[case::sqlx(RepoType::SQLx)]
 #[case::mem(RepoType::Mem)]
 #[actix_rt::test]
 async fn test_get_category_transactees(#[case] repo_type: RepoType) {
-    let (transaction_repo, user_repo) = utils::build_repos(repo_type).await;
+    let (user_repo, transaction_repo, _template_repo) = utils::build_repos(repo_type).await;
     let test_user = TestUser::new(&user_repo).await;
 
     let mut generator = NewTransactionGenerator::default()
@@ -717,12 +676,11 @@ async fn test_get_category_transactees(#[case] repo_type: RepoType) {
 }
 
 #[rstest]
-#[case::diesel(RepoType::Diesel)]
 #[case::sqlx(RepoType::SQLx)]
 #[case::mem(RepoType::Mem)]
 #[actix_rt::test]
 async fn test_get_balance(#[case] repo_type: RepoType) {
-    let (transaction_repo, user_repo) = utils::build_repos(repo_type).await;
+    let (user_repo, transaction_repo, _template_repo) = utils::build_repos(repo_type).await;
     let test_user = TestUser::new(&user_repo).await;
 
     let mut generator = NewTransactionGenerator::default().with_amounts(vec![

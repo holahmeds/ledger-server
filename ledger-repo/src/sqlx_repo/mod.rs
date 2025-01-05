@@ -1,7 +1,9 @@
 mod transaction_repo;
+mod transaction_template_repo;
 mod user_repo;
 
 use crate::transaction_repo::TransactionRepo;
+use crate::transaction_template_repo::TransactionTemplateRepo;
 use crate::user_repo::UserRepo;
 use crate::HealthCheck;
 use anyhow::Context;
@@ -42,7 +44,15 @@ impl HealthCheck for SQLxRepo {
 pub async fn create_repos(
     database_url: String,
     max_pool_size: u32,
-) -> (Arc<dyn TransactionRepo>, Arc<dyn UserRepo>) {
+) -> (
+    Arc<dyn UserRepo>,
+    Arc<dyn TransactionRepo>,
+    Arc<dyn TransactionTemplateRepo>,
+) {
     let repo = SQLxRepo::new(database_url, max_pool_size).await.unwrap();
-    (Arc::new(repo.clone()), Arc::new(repo))
+    (
+        Arc::new(repo.clone()),
+        Arc::new(repo.clone()),
+        Arc::new(repo),
+    )
 }

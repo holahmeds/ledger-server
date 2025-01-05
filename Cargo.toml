@@ -42,9 +42,6 @@ opentelemetry-otlp = "0.12.0"
 tonic = { version = "0.8.3", features = ["tls-roots"] }
 lambda-web = { version = "0.2.1", features = ["actix4"] }
 base64 = "0.21.0"
-diesel = { version = "2.1.0", features = ["chrono", "postgres", "r2d2"] }
-diesel_migrations = "2.1.0"
-r2d2 = "0.8.10"
 sqlx = { version = "0.7.1", features = ["runtime-tokio-rustls", "postgres", "chrono", "rust_decimal"] }
 futures-util = "0.3.15"
 futures = "0.3.15"

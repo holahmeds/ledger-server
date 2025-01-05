@@ -27,6 +27,7 @@ use ledger_repo::sqlx_repo::SQLxRepo;
 use ledger_repo::transaction_repo::TransactionRepo;
 use ledger_repo::user_repo::UserRepo;
 use ledger_repo::HealthCheck;
+use ledger_repo::transaction_template_repo::TransactionTemplateRepo;
 
 const SERVICE_NAME: &str = "ledger-server";
 
@@ -53,6 +54,7 @@ async fn main() -> Result<(), Box<dyn Error>> {
 
     let repo = SQLxRepo::new(config.database_url, 10).await?;
     let transaction_repo: Arc<dyn TransactionRepo> = Arc::new(repo.clone());
+    let template_repo: Arc<dyn TransactionTemplateRepo> = Arc::new(repo.clone());
     let user_repo: Arc<dyn UserRepo> = Arc::new(repo.clone());
     let repo_health: Arc<dyn HealthCheck> = Arc::new(repo);
 
@@ -66,8 +68,9 @@ async fn main() -> Result<(), Box<dyn Error>> {
             .wrap(ledger_lib::tracing::create_middleware())
             .configure(ledger_lib::app_config_func(
                 jwt_auth.clone(),
-                transaction_repo.clone(),
                 user_repo.clone(),
+                transaction_repo.clone(),
+                template_repo.clone(),
                 config.signups_enabled,
             ))
             .configure(ledger_lib::health_check_config_func(repo_health.clone()))

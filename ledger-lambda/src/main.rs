@@ -37,7 +37,8 @@ async fn main() -> Result<(), LambdaError> {
     let base64_engine = base64::engine::general_purpose::STANDARD;
     let secret = base64_engine.decode(env::var("SECRET").expect("SECRET not set"))?;
 
-    let (transaction_repo, user_repo) = create_repos(config.database_url, 1).await;
+    let (user_repo, transaction_repo, template_repo) =
+        create_repos(config.database_url, 1).await;
 
     let jwt_auth = JWTAuth::from_secret(secret);
 
@@ -46,8 +47,9 @@ async fn main() -> Result<(), LambdaError> {
             .wrap(ledger_lib::tracing::create_middleware())
             .configure(ledger_lib::app_config_func(
                 jwt_auth.clone(),
-                transaction_repo.clone(),
                 user_repo.clone(),
+                transaction_repo.clone(),
+                template_repo.clone(),
                 config.signups_enabled,
             ))
     };

@@ -7,6 +7,7 @@ use tracing::Level;
 use uuid::Uuid;
 
 use ledger_repo::transaction_repo::TransactionRepo;
+use ledger_repo::transaction_template_repo::TransactionTemplateRepo;
 use ledger_repo::user_repo::User;
 use ledger_repo::user_repo::UserRepo;
 
@@ -78,6 +79,10 @@ pub fn tracing_setup() -> () {
 }
 
 #[fixture]
-pub fn repos() -> (Arc<dyn TransactionRepo>, Arc<dyn UserRepo>) {
+pub fn repos() -> (
+    Arc<dyn UserRepo>,
+    Arc<dyn TransactionRepo>,
+    Arc<dyn TransactionTemplateRepo>,
+) {
     ledger_repo::mem_repo::create_repos()
 }

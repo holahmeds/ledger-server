@@ -14,6 +14,7 @@ use tracing::instrument;
 
 use crate::utils::mock::MockAuthentication;
 use ledger_repo::transaction_repo::{NewTransaction, Transaction, TransactionRepo};
+use ledger_repo::transaction_template_repo::TransactionTemplateRepo;
 use ledger_repo::user_repo::UserRepo;
 use utils::repos;
 use utils::tracing_setup;
@@ -27,9 +28,13 @@ mod utils;
 #[actix_rt::test]
 async fn test_update_transaction(
     _tracing_setup: &(),
-    repos: (Arc<dyn TransactionRepo>, Arc<dyn UserRepo>),
+    repos: (
+        Arc<dyn UserRepo>,
+        Arc<dyn TransactionRepo>,
+        Arc<dyn TransactionTemplateRepo>,
+    ),
 ) {
-    let (transaction_repo, user_repo) = repos;
+    let (user_repo, transaction_repo, _template_repo) = repos;
     let test_user = TestUser::new(user_repo).await;
     let app = build_app!(transaction_repo, test_user.user_id.clone());
     let service = test::init_service(app).await;
@@ -79,9 +84,13 @@ async fn test_update_transaction(
 #[actix_rt::test]
 async fn test_update_tags(
     _tracing_setup: &(),
-    repos: (Arc<dyn TransactionRepo>, Arc<dyn UserRepo>),
+    repos: (
+        Arc<dyn UserRepo>,
+        Arc<dyn TransactionRepo>,
+        Arc<dyn TransactionTemplateRepo>,
+    ),
 ) {
-    let (transaction_repo, user_repo) = repos;
+    let (user_repo, transaction_repo, _template_repo) = repos;
     let test_user = TestUser::new(user_repo).await;
     let app = build_app!(transaction_repo, test_user.user_id.clone());
     let service = test::init_service(app).await;
@@ -124,9 +133,13 @@ async fn test_update_tags(
 #[actix_rt::test]
 async fn test_update_invalid_transaction(
     _tracing_setup: &(),
-    repos: (Arc<dyn TransactionRepo>, Arc<dyn UserRepo>),
+    repos: (
+        Arc<dyn UserRepo>,
+        Arc<dyn TransactionRepo>,
+        Arc<dyn TransactionTemplateRepo>,
+    ),
 ) {
-    let (transaction_repo, user_repo) = repos;
+    let (user_repo, transaction_repo, _template_repo) = repos;
     let test_user = TestUser::new(user_repo).await;
     let app = build_app!(transaction_repo, test_user.user_id.clone());
     let service = test::init_service(app).await;
