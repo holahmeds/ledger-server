@@ -2,16 +2,16 @@
 let
   ledger = pkgs.rustPlatform.buildRustPackage rec {
     pname = "ledger-server";
-    version = "0.12.0";
+    version = "0.13.0";
 
     src = pkgs.fetchFromGitHub {
       owner = "holahmeds";
       repo = "ledger-server";
       rev = "v${version}";
-      sha256 = "sha256-Dy/jTWLwLUY3sXgLyKMQeAWaWVKsvBn2w/NHg4y0J9Y=";
+      sha256 = "sha256-qgsD9MUGhsUUCSshnUk6l3Y1xyjhd1jFSuPHJAI45X0=";
     };
 
-    cargoHash = "sha256-QBoElC9x4Nt0I0+KAjURc8nfU4ibAVm/bseKGiQIQA4=";
+    cargoHash = "sha256-hfUzVOVf886X68xXZmvwgPRwHTyPJweRFwHpqL0GX0M=";
   };
 in
 pkgs.dockerTools.buildLayeredImage {
