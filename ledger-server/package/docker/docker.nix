@@ -1,7 +1,7 @@
 { pkgs ? import <nixpkgs> { } }:
 let
   ledger = pkgs.rustPlatform.buildRustPackage rec {
-    pname = "ledger";
+    pname = "ledger-server";
     version = "0.12.0";
 
     src = pkgs.fetchFromGitHub {
